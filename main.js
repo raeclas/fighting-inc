@@ -230,6 +230,39 @@ function runMacro() {
   }
 }
 
+///// ROSTER /////
+// Switch which character is played. Transient combat state resets; the zone
+// clears too (the incoming character may not survive the outgoing one's farm).
+function switchCharacter(i) {
+  if (i === gameState.active || !gameState.characters[i]) return;
+  gameState.active = i;
+  player = gameState.characters[i];
+  player.lastAttack = 0;
+  gameState.cooldowns = {};
+  gameState.procCounts = {};
+  gameState.field = [];
+  gameState.currentZoneId = null;
+  gameState.macro.enabled = false;
+  renderEquipment(player, equipHandlers);
+  refreshMacro();
+  renderZoneList(gameState, selectZone);
+  if (player.classId) {
+    logLine(`Now playing ${getClass(player.classId).name} Lv${player.level}. Pick a hunting ground.`, "success");
+  } else {
+    renderClassSelect(pickClass);
+  }
+  save(gameState);
+}
+
+function createCharacter() {
+  if (gameState.characters.length >= gameState.slots) return;
+  gameState.characters.push(newCharacter());
+  logLine("A new slave reports for enhancement duty.", "success");
+  switchCharacter(gameState.characters.length - 1);
+}
+
+const rosterHandlers = { onPlay: switchCharacter, onNew: createCharacter };
+
 ///// GATHERING /////
 const gatheringHandlers = {
   onSetActivity(name) {
@@ -526,7 +559,7 @@ function render() {
   renderBattle(gameState, player);
   renderSkillBar(gameState, player, effectiveStats().skillAtk, castSkill);
   renderBestiary(gameState);
-  renderLegion(gameState, player);
+  renderLegion(gameState, rosterHandlers);
 }
 
 ///// SAVE ON EXIT /////

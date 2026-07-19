@@ -380,9 +380,10 @@ export function renderBestiary(state) {
 }
 
 let lastLegionKey = "";
-export function renderLegion(state, player) {
+export function renderLegion(state, handlers) {
   // called every frame; only rebuild when roster numbers change
-  const key = state.characters.map(c => `${c.classId}|${c.level}|${Math.floor(c.int)}`).join(",");
+  const key = state.characters.map(c => `${c.classId}|${c.level}|${Math.floor(c.int)}`).join(",")
+    + `|${state.active}|${state.slots}`;
   if (key === lastLegionKey) return;
   lastLegionKey = key;
 
@@ -391,16 +392,30 @@ export function renderLegion(state, player) {
   html += `<div>Total: <strong>+${leg.atkSpeedPct.toFixed(1)}% attack speed</strong>, ` +
           `<strong>+${leg.skillDmgPct.toFixed(1)}% skill damage</strong></div>`;
 
-  for (const c of state.characters) {
+  state.characters.forEach((c, i) => {
     const cls = getClass(c.classId);
     const b = CLASS_BONUSES[c.classId];
-    const pct = charBonus(c);
     const status = !b ? "no bonus"
       : c.int < MASTERY_INT ? `inactive — needs ${fmt(MASTERY_INT)} INT (has ${fmt(c.int)})`
-      : `+${pct.toFixed(1)}% ${b.label}`;
-    html += `<div>· ${cls ? cls.name : "No class"} Lv${c.level} — INT ${fmt(c.int)} — ${status}</div>`;
+      : `+${charBonus(c).toFixed(1)}% ${b.label}`;
+    const active = i === state.active;
+    html += `<div class="rosterRow">· ${cls ? cls.name : "No class"} Lv${c.level} — INT ${fmt(c.int)} — ${status} `
+      + (active ? `<strong>[ACTIVE]</strong>` : `<button data-play="${i}">Play</button>`)
+      + `</div>`;
+  });
+
+  if (state.characters.length < state.slots) {
+    html += `<div><button data-newchar>New character (${state.characters.length}/${state.slots} slots used)</button></div>`;
+  } else {
+    html += `<div>All ${state.slots} character slot${state.slots > 1 ? "s" : ""} in use.</div>`;
   }
-  document.querySelector(".legionPanel").innerHTML = html;
+
+  const container = document.querySelector(".legionPanel");
+  container.innerHTML = html;
+  container.querySelectorAll("[data-play]").forEach(btn =>
+    btn.onclick = () => handlers.onPlay(Number(btn.dataset.play)));
+  const nb = container.querySelector("[data-newchar]");
+  if (nb) nb.onclick = handlers.onNew;
 }
 
 // One panel visible at a time; tab bar toggles the .active class.
