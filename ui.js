@@ -9,6 +9,7 @@ import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
 import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
+import { getSheet, SHEETS } from "./sprites.js";
 
 // 1234567 -> "1.23M"
 export function fmt(n) {
@@ -18,16 +19,73 @@ export function fmt(n) {
   return (n / 10 ** (tier * 3)).toFixed(2) + units[tier];
 }
 
+// ---- HUD (portrait / plate / HP / currency / inventory) ----
+let hudPortraitKey = "", hudInvKey = "";
+
+function updateHud(state, player) {
+  const cls = getClass(player.classId);
+  document.getElementById("hudPlate").textContent =
+    `Lv ${player.level} ${cls ? cls.name : "Enhancement Slave"}`;
+
+  const hpFrac = player.maxHealth ? Math.max(0, player.health / player.maxHealth) : 1;
+  document.getElementById("hudHpBar").style.width = `${hpFrac * 100}%`;
+  document.getElementById("hudHpText").textContent = `${player.health} / ${player.maxHealth}`;
+
+  // display-only currency tiers (economy stays copper): 1 silver = 1e9 copper
+  const c = player.copper;
+  document.getElementById("curGold").textContent = fmt(Math.floor(c / 1e18));
+  document.getElementById("curSilver").textContent = fmt(Math.floor(c / 1e9) % 1e9);
+  document.getElementById("curCopper").textContent = fmt(c % 1e9);
+
+  // portrait: class sprite frame 0 when loaded, else emoji fallback
+  const sheet = player.classId ? getSheet(player.classId) : null;
+  const pKey = `${player.classId}|${!!sheet?.img}`;
+  if (pKey !== hudPortraitKey) {
+    hudPortraitKey = pKey;
+    const box = document.getElementById("hudPortrait");
+    if (sheet?.img) {
+      const scale = 56 / sheet.meta.size;
+      box.textContent = "";
+      box.style.backgroundImage = `url(${sheet.meta.src})`;
+      box.style.backgroundSize = `${sheet.img.width * scale}px ${sheet.img.height * scale}px`;
+      box.style.backgroundPosition = "0 0";
+    } else {
+      box.style.backgroundImage = "";
+      box.textContent = sheet?.meta.fallback ?? SHEETS.hero.fallback;
+    }
+  }
+
+  // 6-slot inventory mini-grid; click jumps to the Gear tab
+  const invKey = player.equipment.map(e => e ? `${e.itemId}+${e.plus}` : ".").join("|");
+  if (invKey !== hudInvKey) {
+    hudInvKey = invKey;
+    const inv = document.getElementById("hudInv");
+    inv.innerHTML = "";
+    for (const eq of player.equipment) {
+      const cell = document.createElement("div");
+      cell.className = "invCell" + (eq ? " filled" : "");
+      if (eq) {
+        const def = getItem(eq.itemId);
+        cell.textContent = def.name[0];
+        cell.title = `${def.name} +${eq.plus}`;
+        const plus = document.createElement("span");
+        plus.textContent = `+${eq.plus}`;
+        cell.appendChild(plus);
+      }
+      cell.onclick = () => document.querySelector('.tabBar [data-tab="gear"]')?.click();
+      inv.appendChild(cell);
+    }
+  }
+}
+
 export function updateUI(state, player) {
   const { atk, spdPct } = aggregate(player.equipment);
   const interval = Math.round(player.attackSpeed / (1 + (spdPct + legionBonuses(state).atkSpeedPct) / 100));
 
-  document.getElementById("playerHealth").textContent = player.health;
-  document.getElementById("playerCopper").textContent = fmt(player.copper);
+  updateHud(state, player);
   document.getElementById("playerInt").textContent = fmt(player.int);
   document.getElementById("playerDamage").textContent = fmt(player.attack + atk + player.int);
   document.getElementById("playerAttackSpeed").textContent = interval;
-  document.getElementById("playerLevel").textContent = player.level;
   document.getElementById("playerXP").textContent = `${fmt(player.xp)}/${fmt(player.xpToNext)}`;
 
   const field = state.field || [];

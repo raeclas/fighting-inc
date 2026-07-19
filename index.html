@@ -10,33 +10,40 @@
   <button id="resetGame">Reset Game</button>
 
   <div class="game">
-    <!-- persistent combat header -->
-    <div class="playerInfoWrapper panel">
-      <span id="playerInfoHeader">Player Information</span>
-      <div class="playerInfo">
-        <div>Health = <span id="playerHealth"></span></div>
-        <div>Copper = <span id="playerCopper"></span></div>
-        <div>INT = <span id="playerInt"></span></div>
-        <div>Damage = <span id="playerDamage"></span></div>
-        <div>Attack Speed = <span id="playerAttackSpeed"></span> ms</div>
-        <div>Level = <span id="playerLevel"></span></div>
-        <div>XP = <span id="playerXP"></span></div>
-      </div>
-    </div>
-
+    <!-- battlefield: the hero area -->
     <div class="mobInfoWrapper panel">
-      <span id="mobInfoHeader">Current Hunt</span>
       <canvas id="battleCanvas"></canvas>
       <div class="mobInfo">
         <strong id="mobName"></strong>
-        <div>Health = <span id="mobHealth"></span></div>
-        <div>Defense = <span id="mobDefense"></span></div>
-        <div>Regen = <span id="mobRegen"></span></div>
-        <div>Copper = <span id="mobCopper"></span></div>
-        <div>Kills = <span id="mobKills"></span></div>
+        <span>HP <span id="mobHealth"></span></span>
+        <span>DEF <span id="mobDefense"></span></span>
+        <span>Regen <span id="mobRegen"></span></span>
+        <span>💰 <span id="mobCopper"></span></span>
+        <span>Kills <span id="mobKills"></span></span>
       </div>
       <button id="huntFieldBoss">⚔ Hunt Field Boss (10× HP · 20× XP · guaranteed bag)</button>
       <span id="fieldKills"></span>
+    </div>
+
+    <!-- WC3-style HUD: portrait, name plate, HP, stats, currency, inventory -->
+    <div class="hudBar panel">
+      <div class="hudPortrait" id="hudPortrait">🧑</div>
+      <div class="hudCenter">
+        <div class="namePlate" id="hudPlate"></div>
+        <div class="hpBarOuter"><div class="hpBarInner" id="hudHpBar"></div><span class="hpText" id="hudHpText"></span></div>
+        <div class="hudStats">
+          <span title="Damage">⚔ <b id="playerDamage"></b></span>
+          <span title="Attack interval (ms)">⏱ <b id="playerAttackSpeed"></b>ms</span>
+          <span title="Intelligence">INT <b id="playerInt"></b></span>
+          <span title="Experience">XP <b id="playerXP"></b></span>
+        </div>
+        <div class="hudCurrency">
+          <span class="cur curGold" title="Gold (1e9 silver)">● <b id="curGold">0</b></span>
+          <span class="cur curSilver" title="Silver (1e9 copper)">● <b id="curSilver">0</b></span>
+          <span class="cur curCopper" title="Copper">● <b id="curCopper">0</b></span>
+        </div>
+      </div>
+      <div class="hudInv" id="hudInv"></div>
     </div>
 
     <div class="panel">

@@ -180,6 +180,136 @@ button.skillCast {
 }
 button.skillCast:disabled { cursor: default; }
 
+/* ---- battlefield info line ---- */
+.mobInfo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    align-items: baseline;
+    font-size: 0.9em;
+    color: var(--text-dim);
+}
+.mobInfo strong { color: var(--text); font-size: 1.05rem; flex-basis: 100%; }
+
+/* ---- WC3-style HUD bar ---- */
+.hudBar {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    background: linear-gradient(180deg, #10162a, var(--panel));
+}
+.hudPortrait {
+    width: 64px;
+    height: 64px;
+    flex: none;
+    border: 2px solid var(--gold-dim);
+    border-radius: 3px;
+    background-color: #0a0d16;
+    font-size: 40px;
+    line-height: 62px;
+    text-align: center;
+    align-self: center;
+    overflow: hidden;
+}
+.hudCenter {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+}
+.namePlate {
+    background: var(--purple-plate);
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    text-align: center;
+    color: #ffeaff;
+    font-weight: bold;
+    font-size: 0.9em;
+    padding: 1px 6px;
+    text-shadow: 0 1px 2px #000;
+}
+.hpBarOuter {
+    position: relative;
+    height: 14px;
+    background: #000;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.hpBarInner {
+    height: 100%;
+    background: linear-gradient(180deg, #5fe75f, var(--hp-green) 60%, #1d8f1d);
+}
+.hpText {
+    position: absolute;
+    inset: 0;
+    text-align: center;
+    font-size: 10px;
+    line-height: 14px;
+    color: #fff;
+    text-shadow: 0 1px 2px #000;
+}
+.hudStats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    font-size: 0.85em;
+    color: var(--text-dim);
+}
+.hudStats b { color: var(--text); }
+.hudCurrency { display: flex; gap: 12px; font-size: 0.85em; }
+.curGold { color: #ffd700; }
+.curSilver { color: #c8cdd8; }
+.curCopper { color: #d98c4a; }
+.hudInv {
+    display: grid;
+    grid-template-columns: repeat(3, 32px);
+    grid-auto-rows: 32px;
+    gap: 3px;
+    align-content: center;
+    flex: none;
+}
+.invCell {
+    position: relative;
+    border: 1px solid var(--gold-dim);
+    background: #0a0d16;
+    border-radius: 2px;
+    text-align: center;
+    line-height: 30px;
+    font-weight: bold;
+    color: var(--gold);
+    cursor: pointer;
+    font-size: 0.9em;
+    min-height: 0;
+    padding: 0;
+}
+.invCell:not(.filled) { opacity: 0.4; }
+.invCell span {
+    position: absolute;
+    right: 2px;
+    bottom: 0;
+    font-size: 9px;
+    line-height: 9px;
+    color: #9fe79f;
+    text-shadow: 0 1px 1px #000;
+}
+
+/* desktop: HUD docks to the bottom like the source game */
+@media (min-width: 761px) {
+    .hudBar {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(720px, calc(100% - 16px));
+        z-index: 5;
+        margin-bottom: 0;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.6);
+    }
+    .game { padding-bottom: 120px; }
+}
+
 /* ---- Mobile: stack columns, bigger tap targets ---- */
 @media (max-width: 760px) {
     body { margin: 6px; -webkit-text-size-adjust: 100%; }
@@ -199,4 +329,11 @@ button.skillCast:disabled { cursor: default; }
 
     #feed { max-height: 200px; }
     #battleCanvas { max-width: 100%; }
+
+    /* compact HUD in normal flow (no fixed bars vs mobile browser chrome) */
+    .hudPortrait { width: 48px; height: 48px; font-size: 30px; line-height: 46px; }
+    .hudInv { grid-template-columns: repeat(3, 28px); grid-auto-rows: 28px; }
+    .invCell { line-height: 26px; font-size: 0.8em; }
+    .invCell span { min-height: 0; }
+    .hudStats { font-size: 0.8em; }
 }
