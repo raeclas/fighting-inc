@@ -32,8 +32,8 @@ export function updateUI(state, player) {
   const mob = state.currentMob;
   document.getElementById("mobName").textContent = mob ? mob.name : "No zone selected";
   document.getElementById("mobHealth").textContent = mob ? `${fmt(Math.max(0, mob.hp))}/${fmt(mob.maxHp)}` : "";
-  document.getElementById("mobDefense").textContent = mob ? mob.defense : "";
-  document.getElementById("mobRegen").textContent = mob ? mob.regen : "";
+  document.getElementById("mobDefense").textContent = mob ? fmt(mob.defense) : "";
+  document.getElementById("mobRegen").textContent = mob ? fmt(mob.regen) : "";
   document.getElementById("mobCopper").textContent = mob ? fmt(mob.copper) : "";
   document.getElementById("mobKills").textContent = mob ? (state.kills[mob.isBoss ? mob.bossId : mob.zoneId] || 0) : "";
 }

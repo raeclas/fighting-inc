@@ -18,7 +18,7 @@ at a time in any order.
 |---|---|
 | `striker.png`, `overmind.png`, `hero.png` | hero idle (hero = no class picked) |
 | `striker_attack.png`, `overmind_attack.png` | optional attack anims |
-| `slime.png`, `slime2.png`, `goblin.png` | zone mobs |
+| `slime.png`, `slime2.png`, `goblin.png`, `temple.png`, `magtonium.png`, `otherverse.png`, `terranium.png`, `harlemdungeon.png`, `lukelab.png`, `fiendwar.png`, `stormy.png`, `aiolite.png`, `despairore.png`, `goldenberyl.png` | zone mobs |
 | `hellparty.png`, `anton.png`, `luke.png`, `harlem.png` | bosses |
 
 Different frame count or size? Edit that entry in `sprites.js`

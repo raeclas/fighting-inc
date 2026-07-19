@@ -18,9 +18,20 @@ export const SHEETS = {
   hero:            { src: "assets/hero.png",            size: 64, frames: 4, fps: 6,  fallback: "🧑" }, // no class yet
 
   // zone mobs (keyed by zone id)
-  slime:  { src: "assets/slime.png",  size: 64, frames: 4, fps: 4, fallback: "🟢" },
-  slime2: { src: "assets/slime2.png", size: 64, frames: 4, fps: 4, fallback: "🦠" },
-  goblin: { src: "assets/goblin.png", size: 64, frames: 4, fps: 4, fallback: "🧌" },
+  slime:         { src: "assets/slime.png",         size: 64, frames: 4, fps: 4, fallback: "🟢" },
+  slime2:        { src: "assets/slime2.png",        size: 64, frames: 4, fps: 4, fallback: "🦠" },
+  goblin:        { src: "assets/goblin.png",        size: 64, frames: 4, fps: 4, fallback: "🧌" },
+  temple:        { src: "assets/temple.png",        size: 64, frames: 4, fps: 4, fallback: "😩" },
+  magtonium:     { src: "assets/magtonium.png",     size: 64, frames: 4, fps: 4, fallback: "🌋" },
+  otherverse:    { src: "assets/otherverse.png",    size: 64, frames: 4, fps: 4, fallback: "👾" },
+  terranium:     { src: "assets/terranium.png",     size: 64, frames: 4, fps: 4, fallback: "🗿" },
+  harlemdungeon: { src: "assets/harlemdungeon.png", size: 64, frames: 4, fps: 4, fallback: "🧟" },
+  lukelab:       { src: "assets/lukelab.png",       size: 64, frames: 4, fps: 4, fallback: "🛸" },
+  fiendwar:      { src: "assets/fiendwar.png",      size: 64, frames: 4, fps: 4, fallback: "😈" },
+  stormy:        { src: "assets/stormy.png",        size: 64, frames: 4, fps: 4, fallback: "🌩️" },
+  aiolite:       { src: "assets/aiolite.png",       size: 64, frames: 4, fps: 4, fallback: "💎" },
+  despairore:    { src: "assets/despairore.png",    size: 64, frames: 4, fps: 4, fallback: "🖤" },
+  goldenberyl:   { src: "assets/goldenberyl.png",   size: 64, frames: 4, fps: 4, fallback: "💛" },
 
   // bosses (keyed by boss id)
   hellparty: { src: "assets/hellparty.png", size: 64, frames: 4, fps: 4, fallback: "🎉" },
