@@ -23,6 +23,7 @@ export const gameState = {
   field: [],            // live combat grid (16 mobs for a zone, 1 for a boss); never saved
 
   autoResummon: false,  // resummon the boss on kill if copper allows
+  bossCooldowns: {},    // special bossId -> total_time when it respawns (saved)
 
   cooldowns: {},        // skillId -> total_time when ready again (transient)
   procCounts: {},       // skillId -> lifetime proc count this session (transient)

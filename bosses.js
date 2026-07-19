@@ -64,6 +64,30 @@ export const bosses = [
     skillIndex: null, // pure loot boss
     itemIds: ["ezraprophecy"],
   },
+  // INT-gated specials (source: Bernardo 100k / Trans. 500k / Seria 1.5M INT,
+  // 18–30 min respawns). Free to challenge; pay in patience. `bag` = the
+  // guaranteed copper bounty on kill (they cost nothing to summon).
+  {
+    id: "bernardo", name: "Bernardo",
+    hp: 100_000_000, defense: 20_000, summonCost: 0, xp: 10_000_000,
+    reqInt: 100_000, respawnMs: 18 * 60_000, bag: 50_000_000,
+    skillIndex: null,
+    itemIds: ["siroccoheart"],
+  },
+  {
+    id: "bernardo2", name: "Transcendence Bernardo",
+    hp: 500_000_000, defense: 100_000, summonCost: 0, xp: 60_000_000,
+    reqInt: 500_000, respawnMs: 24 * 60_000, bag: 300_000_000,
+    skillIndex: null,
+    itemIds: ["ozmabrand"],
+  },
+  {
+    id: "seria", name: "Seria",
+    hp: 1_500_000_000, defense: 300_000, summonCost: 0, xp: 200_000_000,
+    reqInt: 1_500_000, respawnMs: 30 * 60_000, bag: 1_000_000_000,
+    skillIndex: null,
+    itemIds: ["tiamatcurse", "timewatch"],
+  },
 ];
 
 export const getBoss = id => bosses.find(b => b.id === id);
@@ -76,7 +100,7 @@ export function spawnBossMob(boss) {
     maxHp: boss.hp,
     defense: boss.defense,
     regen: boss.hp / 200, // bosses regen; out-DPS it or go home
-    copper: Math.round(boss.summonCost * INTEREST),
+    copper: boss.bag ?? Math.round(boss.summonCost * INTEREST),
     xp: boss.xp,
     isBoss: true,
   };

@@ -33,6 +33,7 @@ export function serialize(state) {
     currentZoneId: state.currentZoneId,
     currentVariant: state.currentVariant,
     autoResummon: state.autoResummon,
+    bossCooldowns: state.bossCooldowns,
     macro: state.macro,
     gathering: state.gathering,
     characters: state.characters.map(snapshotChar),
@@ -92,6 +93,7 @@ export function load(state) {
   state.currentZoneId = ZONE_RENAMES[s.currentZoneId] ?? s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;
   state.autoResummon = s.autoResummon ?? false;
+  state.bossCooldowns = s.bossCooldowns ?? {};
   if (s.macro) state.macro = { ...state.macro, ...s.macro };
   if (s.gathering) state.gathering = { ...state.gathering, ...s.gathering };
 

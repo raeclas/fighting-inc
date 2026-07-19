@@ -89,6 +89,12 @@ function renderChips(state, player) {
   if (state.currentZoneId) {
     chips.push({ label: "Field boss roams these grounds", time: "2% / kill" });
   }
+  // special-boss respawn timers (only once the INT gate is open)
+  for (const b of bosses) {
+    if (!b.reqInt || player.int < b.reqInt) continue;
+    const cd = Math.max(0, (state.bossCooldowns[b.id] || 0) - state.total_time);
+    chips.push({ label: b.name, time: cd > 0 ? fmtCountdown(cd) : "READY" });
+  }
   const key = chips.map(c => c.label + c.time).join("|");
   if (key === lastChipKey) return;
   lastChipKey = key;
@@ -254,18 +260,44 @@ export function renderEquipment(player, handlers) {
 }
 
 // handlers: { onSummon(bossId), onToggleAuto() }
-export function renderBossList(state, handlers) {
+function fmtCountdown(ms) {
+  const s = Math.ceil(ms / 1000);
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// called every frame; rebuilds only when a gate/cooldown/checkbox state changes
+let lastBossKey = "";
+export function renderBossList(state, player, handlers) {
+  const key = bosses.map(b => {
+    if (!b.reqInt) return "s";
+    const cd = Math.max(0, (state.bossCooldowns[b.id] || 0) - state.total_time);
+    return `${player.int >= b.reqInt}|${Math.ceil(cd / 1000)}`;
+  }).join(",") + `|${state.autoResummon}`;
+  if (key === lastBossKey) return;
+  lastBossKey = key;
+
   const container = document.querySelector(".bossList");
   container.innerHTML = "";
 
   bosses.forEach(boss => {
     const div = document.createElement("div");
     div.className = "bossEntry";
-    div.innerHTML = `<strong>${boss.name}</strong><br>
-      HP ${fmt(boss.hp)} · DEF ${fmt(boss.defense)} · Summon ${fmt(boss.summonCost)}c
-      (refund ${fmt(Math.round(boss.summonCost * INTEREST))}c on kill)`;
+    const cost = boss.reqInt
+      ? `Free challenge · Bounty ${fmt(boss.bag)}c · Respawn ${Math.round(boss.respawnMs / 60000)}m`
+      : `Summon ${fmt(boss.summonCost)}c (refund ${fmt(Math.round(boss.summonCost * INTEREST))}c on kill)`;
+    div.innerHTML = `<strong>${boss.name}</strong>${boss.reqInt ? ` <em>· requires ${fmt(boss.reqInt)} INT</em>` : ""}<br>
+      HP ${fmt(boss.hp)} · DEF ${fmt(boss.defense)} · ${cost}`;
     const btn = document.createElement("button");
-    btn.textContent = "Summon";
+    if (!boss.reqInt) {
+      btn.textContent = "Summon";
+    } else if (player.int < boss.reqInt) {
+      btn.textContent = `Locked (${fmt(boss.reqInt)} INT)`;
+      btn.disabled = true;
+    } else {
+      const cd = Math.max(0, (state.bossCooldowns[boss.id] || 0) - state.total_time);
+      btn.textContent = cd > 0 ? `Respawns in ${fmtCountdown(cd)}` : "Challenge";
+      btn.disabled = cd > 0;
+    }
     btn.onclick = () => handlers.onSummon(boss.id);
     div.appendChild(btn);
     container.appendChild(div);

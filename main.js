@@ -135,6 +135,11 @@ window.addEventListener("keydown", e => {
 ///// BOSSES /////
 function summonBoss(bossId) {
   const boss = getBoss(bossId);
+  if (boss.reqInt) {
+    if (player.int < boss.reqInt) return logLine(`${boss.name} ignores you. Requires ${fmt(boss.reqInt)} INT.`, "fail");
+    if ((gameState.bossCooldowns[boss.id] || 0) > gameState.total_time)
+      return logLine(`${boss.name} has not respawned yet.`, "fail");
+  }
   if (player.copper < boss.summonCost) return logLine(`Need ${fmt(boss.summonCost)}c to summon ${boss.name}.`, "fail");
   player.copper -= boss.summonCost;
   gameState.field = [spawnBossMob(boss)];
@@ -428,9 +433,10 @@ function resolveKill(mob) {
   if (mob.isBoss) {
     gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
     const boss = getBoss(mob.bossId);
-    logLine(`${boss.name} defeated! Refund ${fmt(mob.copper)}c.`, "success");
+    logLine(`${boss.name} defeated! ${boss.respawnMs ? "Bounty" : "Refund"} ${fmt(mob.copper)}c.`, "success");
     rollBossDrops(boss);
-    if (gameState.autoResummon && player.copper >= boss.summonCost) {
+    if (boss.respawnMs) gameState.bossCooldowns[boss.id] = gameState.total_time + boss.respawnMs;
+    if (gameState.autoResummon && !boss.respawnMs && player.copper >= boss.summonCost) {
       player.copper -= boss.summonCost;
       gameState.field = [spawnBossMob(boss)];
     } else if (gameState.currentZoneId) {
@@ -572,12 +578,18 @@ function simulateBatch(dt) {
 }
 
 ///// RENDER /////
+const bossHandlers = {
+  onSummon: summonBoss,
+  onToggleAuto: () => { gameState.autoResummon = !gameState.autoResummon; },
+};
+
 function render() {
   updateUI(gameState, player);
   renderBattle(gameState, player);
   renderSkillBar(gameState, player, effectiveStats().skillAtk, castSkill);
   renderBestiary(gameState);
   renderLegion(gameState, rosterHandlers);
+  renderBossList(gameState, player, bossHandlers);
 }
 
 ///// SAVE ON EXIT /////
@@ -601,10 +613,6 @@ initBattle(document.getElementById("battleCanvas"));
 if (!player.classId) renderClassSelect(pickClass);
 initTabs();
 renderZoneList(gameState, selectZone);
-renderBossList(gameState, {
-  onSummon: summonBoss,
-  onToggleAuto: () => { gameState.autoResummon = !gameState.autoResummon; },
-});
 renderShop(buy);
 renderEquipment(player, equipHandlers);
 refreshMacro();
