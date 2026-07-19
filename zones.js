@@ -19,19 +19,21 @@ const mk = (id, mobName, copper, bag, hp1x, def) => ({
   xp: Math.max(10, copper),   // level pace tracks income
 });
 
+// Original worksite/worker names (source zone names deliberately not copied);
+// copper/bag/hp/def are the decompiled ground-truth values.
 export const zones = [
-  mk("temple",        "Fallen Temple Labourer", 2,             30,          200,        0),
-  mk("magtonium",     "Magtonium Miner",        52,            1_200,       8_000,      5),
-  mk("otherverse",    "Otherverse Drone",       1_799,         48_000,      400_000,    20),
-  mk("terranium",     "Terranium Golem",        179_999,       5e6,         40_000_000, 50),
+  mk("kiln",    "Kiln-Ash Drudge",       2,             30,          200,        0),
+  mk("slag",    "Slagworks Grunt",       52,            1_200,       8_000,      5),
+  mk("rift",    "Riftseam Picker",       1_799,         48_000,      400_000,    20),
+  mk("loam",    "Loamgrave Hauler",      179_999,       5e6,         40_000_000, 50),
   // past here the map clamps hp at 1e9; extrapolate hp ≈ copper × 666, def from map
-  mk("harlemdungeon", "Harlem Delinquent",      1_199_999,     28e6,        8e8,        90),
-  mk("lukelab",       "Luke's Apprentice",      119_999_992,   2e9,         8e10,       160),
-  mk("fiendwar",      "Lesser Fiend",           35e9,          300e9,       23e12,      600),
-  mk("stormy",        "Storm Wisp",             1_079e9,       9_000e9,     720e12,     720),
-  mk("aiolite",       "Aiolite Sentinel",       16_199e9,      135_000e9,   10.8e15,    800),
-  mk("despairore",    "Despair Ore Sprite",     1_619_999e9,   13.5e15,     1.08e18,    800),
-  mk("goldenberyl",   "Beryl Guardian",         119_999_992e9, 1e18,        80e18,      800),
+  mk("market",  "Nightmarket Runner",    1_199_999,     28e6,        8e8,        90),
+  mk("spire",   "Spireworks Apprentice", 119_999_992,   2e9,         8e10,       160),
+  mk("warpit",  "Warpit Conscript",      35e9,          300e9,       23e12,      600),
+  mk("tempest", "Tempest Dredger",       1_079e9,       9_000e9,     720e12,     720),
+  mk("prism",   "Prismvault Sentry",     16_199e9,      135_000e9,   10.8e15,    800),
+  mk("sorrow",  "Sorrowlode Breaker",    1_619_999e9,   13.5e15,     1.08e18,    800),
+  mk("aurum",   "Aurum Vault Warden",    119_999_992e9, 1e18,        80e18,      800),
 ];
 
 export function getZone(zoneId) {

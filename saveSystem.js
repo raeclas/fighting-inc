@@ -34,6 +34,14 @@ export function save(state, player) {
   localStorage.setItem(KEY, JSON.stringify(serialize(state, player)));
 }
 
+// Old zone ids -> new original names, so existing saves keep their spot and
+// bestiary kills after the 2026-07 zone rename. Drop once no old saves remain.
+const ZONE_RENAMES = {
+  temple: "kiln", magtonium: "slag", otherverse: "rift", terranium: "loam",
+  harlemdungeon: "market", lukelab: "spire", fiendwar: "warpit",
+  stormy: "tempest", aiolite: "prism", despairore: "sorrow", goldenberyl: "aurum",
+};
+
 // Applies a saved game onto live state/player.
 // Returns the raw save object (for lastSeen etc.) or null if no save.
 export function load(state, player) {
@@ -44,8 +52,11 @@ export function load(state, player) {
 
   state.total_time = s.total_time ?? 0;
   state.copper = s.copper ?? 0;
-  state.kills = s.kills ?? {};
-  state.currentZoneId = s.currentZoneId ?? null;
+  state.kills = {};
+  for (const [id, n] of Object.entries(s.kills ?? {})) {
+    state.kills[ZONE_RENAMES[id] ?? id] = n;
+  }
+  state.currentZoneId = ZONE_RENAMES[s.currentZoneId] ?? s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;
   state.autoResummon = s.autoResummon ?? false;
   if (s.macro) state.macro = { ...state.macro, ...s.macro };
