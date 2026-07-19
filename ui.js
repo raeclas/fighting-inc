@@ -480,9 +480,13 @@ export function renderLegion(state, handlers) {
   lastLegionKey = key;
 
   const leg = legionBonuses(state);
+  const LEGION_LABELS = { atkSpeedPct: "attack speed", skillDmgPct: "skill damage", dmgPct: "damage", copperPct: "copper find" };
+  const totals = Object.entries(leg)
+    .filter(([, v]) => v > 0)
+    .map(([k, v]) => `<strong>+${v.toFixed(1)}% ${LEGION_LABELS[k]}</strong>`)
+    .join(", ") || "<strong>none yet</strong>";
   let html = `<div>Legion board — every character boosts the whole account, scaled by its INT.</div>`;
-  html += `<div>Total: <strong>+${leg.atkSpeedPct.toFixed(1)}% attack speed</strong>, ` +
-          `<strong>+${leg.skillDmgPct.toFixed(1)}% skill damage</strong></div>`;
+  html += `<div>Total: ${totals}</div>`;
 
   state.characters.forEach((c, i) => {
     const cls = getClass(c.classId);

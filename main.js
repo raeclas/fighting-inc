@@ -89,7 +89,7 @@ function effectiveStats() {
   const { atk, spdPct } = aggregate(player.equipment);
   const leg = legionBonuses(gameState);
   const passive = getClass(player.classId)?.passive;
-  const bonus = 1 + bestiaryBonus(gameState) + (passive?.atkPct ?? 0) / 100;
+  const bonus = 1 + bestiaryBonus(gameState) + (passive?.atkPct ?? 0) / 100 + leg.dmgPct / 100;
   // INT is flat 1:1 damage (decompiled formula), added before the % multipliers.
   const atkTotal = Math.round((player.attack + atk + player.int) * bonus);
   return {
@@ -412,10 +412,16 @@ function tick() {
 // A single mob died: rewards, drops, and refill its slot (or transition the
 // whole field for a boss). Regular field mobs respawn in place so the grid
 // stays full to farm.
+// All copper income routes through here so the Legion copper-find % applies.
+function earnCopper(n) {
+  const boosted = Math.round(n * (1 + legionBonuses(gameState).copperPct / 100));
+  player.copper += boosted;
+  return boosted;
+}
+
 function resolveKill(mob) {
   if (mob.copper > 0) {
-    pushBattleEvent({ type: "kill", copper: mob.copper });
-    player.copper += mob.copper;
+    pushBattleEvent({ type: "kill", copper: earnCopper(mob.copper) });
   }
   gainXP(player, mob.xp);
 
@@ -436,10 +442,10 @@ function resolveKill(mob) {
   }
 
   if (mob.isFieldBoss) {
-    player.copper += mob.bag; // guaranteed bag (map: 100% drop)
-    pushBattleEvent({ type: "bag", copper: mob.bag });
+    const bag = earnCopper(mob.bag); // guaranteed bag (map: 100% drop)
+    pushBattleEvent({ type: "bag", copper: bag });
     gameState.fieldKills[mob.zoneId] = (gameState.fieldKills[mob.zoneId] || 0) + 1;
-    logLine(`${mob.name} felled! Bag: +${fmt(mob.bag)}c.`, "success");
+    logLine(`${mob.name} felled! Bag: +${fmt(bag)}c.`, "success");
     if (gameState.field.length === 1) selectZone(mob.zoneId, mob.variant); // solo hunt → back to field
     else replaceInField(mob, spawnMob(getZone(mob.zoneId), mob.variant));   // elite in the ranks → regular
     return;
@@ -449,8 +455,7 @@ function resolveKill(mob) {
   if (mob.intPerKill) player.int += mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
   if (Math.random() < BAG_CHANCE) {
-    player.copper += mob.bag;
-    pushBattleEvent({ type: "bag", copper: mob.bag });
+    pushBattleEvent({ type: "bag", copper: earnCopper(mob.bag) });
   }
   const zone = getZone(mob.zoneId);
   if (Math.random() < FIELD_BOSS_SPAWN_CHANCE) {
@@ -555,8 +560,7 @@ function simulateBatch(dt) {
   const kills = Math.floor((dt / 1000) * fieldDmgPerSec / mob.maxHp);
   if (kills <= 0) return;
 
-  const copper = Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag));
-  player.copper += copper;
+  const copper = earnCopper(Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag)));
   player.int += kills * mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
   gainXP(player, kills * mob.xp);

@@ -59,7 +59,7 @@ function stats() {
   // Legion: the bot is a 1-char account, so only its own class bonus applies
   // (skill damage for Overmind). Multi-char rosters compound further.
   const leg = legionBonuses({ characters: [{ classId: CLS.id, int: P.int }] });
-  const bonus = 1 + bestiaryBonus({ kills: P.kills }) + (CLS.passive?.atkPct ?? 0) / 100;
+  const bonus = 1 + bestiaryBonus({ kills: P.kills }) + (CLS.passive?.atkPct ?? 0) / 100 + leg.dmgPct / 100;
   const A = Math.round((P.attack + atk + P.int) * bonus);
   const skillAtk = Math.round(A * (1 + leg.skillDmgPct / 100));
   const interval = P.attackSpeed /

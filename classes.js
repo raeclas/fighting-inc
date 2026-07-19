@@ -108,6 +108,57 @@ export const classes = [
       { id: "moondance",  name: "Moonlight Dance",      procChance: 0.0003, mult: 5200, aoe: true, radius: 2.5 },
     ],
   },
+  // ponytail: source buff/clone mechanics (Revolver Enhancement procs, Heavy
+  // Weapons AoE autos, Doppelganger clones) modeled as stat passives / plain
+  // casts — upgrade when buff timers land with the unique-mechanic batch.
+  {
+    id: "desperado",
+    name: "Desperado",
+    archetype: "active",
+    desc: "Ranged revolver executions. Single targets die politely; crowds require reloading.",
+    passive: { name: "Revolver Enhancement", desc: "+20% attack power", atkPct: 20 },
+    skills: [
+      { id: "windmill",  key: "Q", name: "Windmill",            mult: 6,    cooldownMs: 2000 },
+      { id: "headshot",  key: "W", name: "Headshot",            mult: 19,   cooldownMs: 6000 },
+      { id: "suppress",  key: "E", name: "Suppressive Barrage", mult: 50,   cooldownMs: 15000 },
+      { id: "wildshot",  key: "R", name: "Wild Shot",           mult: 188,  cooldownMs: 60000,  aoe: true, radius: 1.5 },
+      { id: "deathrev",  key: "T", name: "Death by Revolver",   mult: 563,  cooldownMs: 120000 },
+      { id: "scud",      key: "F", name: "Scud Genocide",       mult: 1625, cooldownMs: 180000, aoe: true, radius: 2.5 },
+      { id: "seventh",   key: "D", name: "Seventh Flow",        mult: 5000, cooldownMs: 300000, aoe: true, radius: 2.5 },
+    ],
+  },
+  {
+    id: "stormtrooper",
+    name: "Storm Trooper",
+    archetype: "active",
+    desc: "Flamethrowers, lasers, quantum bombs. Trash mobs are a rounding error.",
+    passive: { name: "Heavy Weapons Mastery", desc: "+15% attack speed", atkSpdPct: 15 },
+    skills: [
+      { id: "sidearm",   key: "Q", name: "Sidearm Snap",     mult: 4,    cooldownMs: 2000 },
+      { id: "flamethrow", key: "W", name: "Flame Thrower",   mult: 12,   cooldownMs: 6000,   aoe: true, radius: 1.5 },
+      { id: "laser",     key: "E", name: "Laser Rifle",      mult: 32,   cooldownMs: 15000,  aoe: true, radius: 1.5 },
+      { id: "quantum",   key: "R", name: "Quantum Bomb",     mult: 120,  cooldownMs: 60000,  aoe: true, radius: 2.5 },
+      { id: "miracle",   key: "T", name: "Miracle Vision",   mult: 360,  cooldownMs: 120000, aoe: true, radius: 2.5 },
+      { id: "agenttrig", key: "F", name: "Agent Trigger",    mult: 1040, cooldownMs: 180000, aoe: true, radius: 4 },
+      { id: "opraids",   key: "D", name: "Operation Raids",  mult: 3200, cooldownMs: 300000, aoe: true, radius: 4 },
+    ],
+  },
+  {
+    id: "nenempress",
+    name: "Nen Empress",
+    archetype: "active",
+    desc: "Nen blasts and phantom clones (they're in your heart). Balanced caster.",
+    passive: { name: "Khai", desc: "+15% attack speed", atkSpdPct: 15 },
+    skills: [
+      { id: "nenshot",   key: "Q", name: "Nen Shot",        mult: 5,    cooldownMs: 2000 },
+      { id: "doppel",    key: "W", name: "Doppelganger",    mult: 15,   cooldownMs: 6000 },
+      { id: "lionroar",  key: "E", name: "Lion's Roar",     mult: 40,   cooldownMs: 15000,  aoe: true, radius: 1.5 },
+      { id: "energyshield", key: "R", name: "Energy Shield", mult: 150, cooldownMs: 60000,  aoe: true, radius: 2.5 },
+      { id: "tigerflash", key: "T", name: "Tiger Flash",    mult: 450,  cooldownMs: 120000 },
+      { id: "nenflower", key: "F", name: "Nen Flower",      mult: 1300, cooldownMs: 180000, aoe: true, radius: 2.5 },
+      { id: "brilliant", key: "D", name: "Brilliant Nen",   mult: 4000, cooldownMs: 300000, aoe: true, radius: 4 },
+    ],
+  },
 ];
 
 export const getClass = id => classes.find(c => c.id === id);
