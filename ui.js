@@ -1,7 +1,7 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS } from "./zones.js";
-import { items, getItem, statValue, aggregate } from "./items.js";
+import { items, getItem, statValue, intValue, aggregate } from "./items.js";
 import { enhanceChance, MAX_PLUS } from "./enhance.js";
 import { classes, getClass, skillDamage } from "./classes.js";
 import { bosses, INTEREST } from "./bosses.js";
@@ -104,15 +104,15 @@ function renderChips(state, player) {
 }
 
 export function updateUI(state, player) {
-  const { atk, spdPct } = aggregate(player.equipment);
+  const g = aggregate(player.equipment);
   const clsPassive = getClass(player.classId)?.passive;
   const interval = Math.round(player.attackSpeed /
-    (1 + (spdPct + legionBonuses(state).atkSpeedPct + (clsPassive?.atkSpdPct ?? 0)) / 100));
+    (1 + (g.spdPct + legionBonuses(state).atkSpeedPct + (clsPassive?.atkSpdPct ?? 0)) / 100));
 
   updateHud(state, player);
   renderChips(state, player);
-  document.getElementById("playerInt").textContent = fmt(player.int);
-  document.getElementById("playerDamage").textContent = fmt(player.attack + atk + player.int);
+  document.getElementById("playerInt").textContent = fmt(player.int + g.int);
+  document.getElementById("playerDamage").textContent = fmt(player.attack + g.atk + player.int + g.int);
   document.getElementById("playerAttackSpeed").textContent = interval;
   document.getElementById("playerXP").textContent = `${fmt(player.xp)}/${fmt(player.xpToNext)}`;
 
@@ -180,6 +180,25 @@ export function renderShop(onBuy) {
   });
 }
 
+// full stat line for an item at a plus level (primary + INT + signature effect)
+function itemLabel(def, plus) {
+  const v = statValue(def, plus);
+  let s = def.stat === "atk" ? `ATK +${fmt(v)}` : `ATK SPD +${v}%`;
+  const iv = intValue(def, plus);
+  if (iv) s += ` · INT +${fmt(iv)}`;
+  const e = def.effect;
+  if (e) {
+    if (e.atkPct) s += ` · +${e.atkPct}% dmg`;
+    if (e.skillDmgPct) s += ` · +${e.skillDmgPct}% skill dmg`;
+    if (e.itemIntPct) s += ` · +${e.itemIntPct}% item INT`;
+    if (e.cooldownPct) s += ` · −${e.cooldownPct}% cooldowns`;
+    if (e.skillLevelBonus) s += ` · +${e.skillLevelBonus} to all skills`;
+    if (e.intProc) s += ` · ${Math.round(e.intProc.chance * 100)}% proc ${e.intProc.mult}×INT`;
+    if (e.crit) s += ` · ${Math.round(e.crit.chance * 100)}% crit ×${e.crit.mult}`;
+  }
+  return s;
+}
+
 // handlers: { onEnhance(slotIdx, times), onUnequip(slotIdx), onDiscard(slotIdx),
 //             onEquipStash(stashIdx), onDiscardStash(stashIdx) }
 export function renderEquipment(player, handlers) {
@@ -197,14 +216,12 @@ export function renderEquipment(player, handlers) {
     }
 
     const def = getItem(eq.itemId);
-    const v = statValue(def, eq.plus);
-    const statLabel = def.stat === "atk" ? `ATK +${fmt(v)}` : `ATK SPD +${v}%`;
     const next = eq.plus >= MAX_PLUS
       ? "MAX"
       : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
 
     const info = document.createElement("div");
-    info.innerHTML = `<strong>${def.name} +${eq.plus}</strong><br>${statLabel} — ${next}`;
+    info.innerHTML = `<strong>${def.name} +${eq.plus}</strong><br>${itemLabel(def, eq.plus)} — ${next}`;
     div.appendChild(info);
 
     [1, 10, 30].forEach(times => {
@@ -237,11 +254,9 @@ export function renderEquipment(player, handlers) {
 
     stash.forEach((eq, i) => {
       const def = getItem(eq.itemId);
-      const v = statValue(def, eq.plus);
-      const statLabel = def.stat === "atk" ? `ATK +${fmt(v)}` : `ATK SPD +${v}%`;
       const div = document.createElement("div");
       div.className = "equipSlot";
-      div.innerHTML = `<span>${def.name} +${eq.plus} — ${statLabel}</span> `;
+      div.innerHTML = `<span>${def.name} +${eq.plus} — ${itemLabel(def, eq.plus)}</span> `;
 
       const equip = document.createElement("button");
       equip.textContent = "Equip";
@@ -337,8 +352,11 @@ export function hideClassSelect() {
 }
 
 // Called every frame: cooldowns tick down visibly.
+// eff: effectiveStats() bundle (skillAtk + skillLevelBonus used here).
 // onCast(skill): tap-to-cast for active classes (touch, no keyboard needed).
-export function renderSkillBar(state, player, atk, onCast) {
+export function renderSkillBar(state, player, eff, onCast) {
+  const atk = eff.skillAtk;
+  const slb = eff.skillLevelBonus ?? 0;
   const container = document.querySelector(".skillBar");
   const cls = getClass(player.classId);
   if (!cls) { container.textContent = ""; return; }
@@ -361,14 +379,15 @@ export function renderSkillBar(state, player, atk, onCast) {
       return;
     }
 
-    const dmg = fmt(skillDamage(skill, level, atk));
+    const lvLabel = slb > 0 ? `Lv${level}+${slb}` : `Lv${level}`;
+    const dmg = fmt(skillDamage(skill, level + slb, atk));
     if (cls.archetype === "active") {
       const readyAt = state.cooldowns[skill.id] || 0;
       const remaining = Math.max(0, readyAt - state.total_time);
       const ready = remaining <= 0;
       const btn = document.createElement("button");
       btn.className = "skillEntry skillCast" + (ready ? "" : " onCooldown");
-      btn.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> Lv${level} — ${dmg} dmg — ` +
+      btn.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel} — ${dmg} dmg — ` +
         (ready ? "READY" : `${(remaining / 1000).toFixed(1)}s`);
       btn.disabled = !ready;
       if (onCast) btn.onclick = () => onCast(skill);
@@ -377,7 +396,7 @@ export function renderSkillBar(state, player, atk, onCast) {
       const div = document.createElement("div");
       div.className = "skillEntry";
       const procs = state.procCounts[skill.id] || 0;
-      div.innerHTML = `<strong>${skill.name}</strong> Lv${level} — ${(skill.procChance * 100).toFixed(1)}% per attack — ${dmg} dmg — procs: ${fmt(procs)}`;
+      div.innerHTML = `<strong>${skill.name}</strong> ${lvLabel} — ${(skill.procChance * 100).toFixed(1)}% per attack — ${dmg} dmg — procs: ${fmt(procs)}`;
       container.appendChild(div);
     }
   });
