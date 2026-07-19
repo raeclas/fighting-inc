@@ -5,7 +5,7 @@ import { save, load, wipe } from "./saveSystem.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
-import { player } from "./player.js";
+import { newCharacter, gainXP, resetHealth } from "./player.js";
 import { getItem, aggregate } from "./items.js";
 import { tryEnhance, MAX_PLUS } from "./enhance.js";
 import { getClass, skillDamage, MAX_SKILL_LEVEL } from "./classes.js";
@@ -19,7 +19,11 @@ import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_CO
 import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE } from "./bosses.js";
 
 ///// LOAD SAVE /////
-const savedGame = load(gameState, player);
+const savedGame = load(gameState);
+if (gameState.characters.length === 0) gameState.characters.push(newCharacter());
+// The active character. Rebound when the roster switches (Legion step 4);
+// same object identity as gameState.characters[gameState.active].
+let player = gameState.characters[gameState.active];
 
 // The front (first living) mob — the auto-attack target and the "primary" mob
 // for UI/boss logic. A boss is just a field of one.
@@ -77,7 +81,7 @@ function pickClass(classId) {
   logLine(`You are now a ${cls.name}. Here's a Rafaros Staff — enhance it. Good luck.`, "success");
   renderEquipment(player, equipHandlers);
   refreshMacro();
-  save(gameState, player);
+  save(gameState);
 }
 
 function effectiveStats() {
@@ -348,7 +352,7 @@ function tick() {
   gatherTick(); // while-loop inside digests any gap, live or offline
 
   if (gameState.total_time - gameState.last_save >= 5000) {
-    save(gameState, player);
+    save(gameState);
     gameState.last_save = gameState.total_time;
   }
 }
@@ -361,7 +365,7 @@ function resolveKill(mob) {
     pushBattleEvent({ type: "kill", copper: mob.copper });
     player.copper += mob.copper;
   }
-  player.gainXP(mob.xp);
+  gainXP(player, mob.xp);
 
   if (mob.isBoss) {
     gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
@@ -453,7 +457,7 @@ function simulateLive(dt) {
     if (m.hp > 0 && m.regen) m.hp = Math.min(m.maxHp, m.hp + (m.regen / 1000) * dt);
   }
 
-  if (player.health <= 0) player.reset();
+  if (player.health <= 0) resetHealth(player);
 }
 
 // How many of the 4×4 field a radius covers (from the field centre) — used to
@@ -503,7 +507,7 @@ function simulateBatch(dt) {
   player.copper += copper;
   player.int += kills * mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
-  player.gainXP(kills * mob.xp);
+  gainXP(player, kills * mob.xp);
 
   if (dt >= 60_000) {
     const hours = (dt / 3600000).toFixed(1);
@@ -523,7 +527,7 @@ function render() {
 ///// SAVE ON EXIT /////
 let resetting = false;
 window.addEventListener("beforeunload", () => {
-  if (!resetting) save(gameState, player);
+  if (!resetting) save(gameState);
 });
 
 document.getElementById("huntFieldBoss").onclick = huntFieldBoss;

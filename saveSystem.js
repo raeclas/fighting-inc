@@ -1,7 +1,7 @@
 // saveSystem.js
 // One localStorage key, one serialize/deserialize pair for the whole game.
-// v2: account + character roster. The live `player` object is the active
-// character; serialize snapshots it back into characters[active].
+// v2: account + character roster. Live characters are plain data objects in
+// state.characters; snapshotChar strips transients (lastAttack).
 const KEY = "esrpg_save";
 
 // The persisted fields of one character.
@@ -23,9 +23,7 @@ export function snapshotChar(c) {
   };
 }
 
-export function serialize(state, player) {
-  const characters = state.characters.map(snapshotChar);
-  characters[state.active] = snapshotChar(player);
+export function serialize(state) {
   return {
     v: 2,
     lastSeen: Date.now(),   // offline-progress hook (Phase 6)
@@ -37,14 +35,14 @@ export function serialize(state, player) {
     autoResummon: state.autoResummon,
     macro: state.macro,
     gathering: state.gathering,
-    characters,
+    characters: state.characters.map(snapshotChar),
     active: state.active,
     slots: state.slots,
   };
 }
 
-export function save(state, player) {
-  localStorage.setItem(KEY, JSON.stringify(serialize(state, player)));
+export function save(state) {
+  localStorage.setItem(KEY, JSON.stringify(serialize(state)));
 }
 
 // Old zone ids -> new original names, so existing saves keep their spot and
@@ -60,6 +58,7 @@ function normalizeChar(c) {
   if (!Array.isArray(c.stash)) c.stash = [];
   c.int = c.int ?? 0;
   c.copper = c.copper ?? 0;
+  c.lastAttack = 0;
   return c;
 }
 
@@ -72,9 +71,9 @@ function migrateV1(s) {
   return s;
 }
 
-// Applies a saved game onto live state/player.
+// Applies a saved game onto live state.
 // Returns the raw save object (for lastSeen etc.) or null if no save.
-export function load(state, player) {
+export function load(state) {
   const raw = localStorage.getItem(KEY);
   if (!raw) return null;
   let s;
@@ -99,9 +98,6 @@ export function load(state, player) {
   state.characters = (s.characters ?? []).map(normalizeChar);
   state.slots = Math.max(s.slots ?? 1, state.characters.length, 1);
   state.active = Math.min(s.active ?? 0, Math.max(state.characters.length - 1, 0));
-  Object.assign(player, state.characters[state.active] ?? {});
-  normalizeChar(player);
-  player.lastAttack = 0;
   return s;
 }
 
