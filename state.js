@@ -21,6 +21,4 @@ export const gameState = {
 
   cooldowns: {},        // skillId -> total_time when ready again (transient)
   procCounts: {},       // skillId -> lifetime proc count this session (transient)
-
-  update_rate: 10,
 };

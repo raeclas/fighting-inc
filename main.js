@@ -32,31 +32,13 @@ function selectZone(zoneId, variantIndex) {
 // resume farming where the save left off
 if (gameState.currentZoneId) selectZone(gameState.currentZoneId, gameState.currentVariant);
 
-///// OFFLINE PROGRESS /////
-// ponytail: closed-form average DPS only — no passive procs, no bosses offline.
+///// TIME /////
+// Wall clock is the source of truth. A 250ms tick and an 8h offline gap run
+// through the same code: small deltas simulate attack-by-attack, big deltas
+// use closed-form expected value.
 const OFFLINE_CAP_MS = 12 * 3600 * 1000;
-function applyOfflineProgress(lastSeen) {
-  if (!lastSeen || !gameState.currentMob) return;
-  const elapsed = Math.min(Date.now() - lastSeen, OFFLINE_CAP_MS);
-  if (elapsed < 60_000) return;
-
-  const mob = gameState.currentMob;
-  const { atk, interval } = effectiveStats();
-  const netDps = Math.max(0, atk - mob.defense) / (interval / 1000) - mob.regen;
-  if (netDps <= 0) return;
-
-  const kills = Math.floor(elapsed / (mob.maxHp / netDps * 1000));
-  if (kills <= 0) return;
-
-  const copper = kills * mob.copper;
-  gameState.copper += copper;
-  gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
-  player.gainXP(kills * mob.xp);
-
-  const hours = (elapsed / 3600000).toFixed(1);
-  logLine(`Welcome back! While you were gone (${hours}h): ${fmt(kills)} × ${mob.name} slain, +${fmt(copper)}c.`, "success");
-}
-applyOfflineProgress(savedGame?.lastSeen);
+const BATCH_THRESHOLD_MS = 2000;
+let lastLogicTime = savedGame?.lastSeen ?? Date.now();
 
 ///// CLASS /////
 function pickClass(classId) {
@@ -251,14 +233,20 @@ function gatherTick() {
   const g = gameState.gathering;
   if (!g.activity || gameState.total_time < g.nextTickAt) return;
   const act = ACTIVITIES[g.activity];
-  g.resources[act.resource]++;
-  g.xp[g.activity] += 10;
-  while (g.xp[g.activity] >= xpToNext(g.level[g.activity])) {
-    g.xp[g.activity] -= xpToNext(g.level[g.activity]);
-    g.level[g.activity]++;
-    logLine(`${act.noun} skill is now Lv${g.level[g.activity]}.`, "success");
+
+  // catch-up loop: digests offline gaps tick by tick (bounded by 12h cap)
+  let guard = 0;
+  while (gameState.total_time >= g.nextTickAt && guard++ < 20_000) {
+    g.resources[act.resource]++;
+    g.xp[g.activity] += 10;
+    while (g.xp[g.activity] >= xpToNext(g.level[g.activity])) {
+      g.xp[g.activity] -= xpToNext(g.level[g.activity]);
+      g.level[g.activity]++;
+      logLine(`${act.noun} skill is now Lv${g.level[g.activity]}.`, "success");
+    }
+    g.nextTickAt += tickIntervalMs(g.level[g.activity]);
   }
-  g.nextTickAt = gameState.total_time + tickIntervalMs(g.level[g.activity]);
+  if (g.nextTickAt < gameState.total_time) g.nextTickAt = gameState.total_time;
   refreshGathering();
 }
 
@@ -305,30 +293,74 @@ function discard(slotIdx) {
   renderEquipment(player, equipHandlers);
 }
 
-///// UPDATE /////
-function update(fixed_delta, real_delta = 0) {
-  if (real_delta > 0) gameState.total_time += real_delta;
+///// TICK /////
+function tick() {
+  const now = Date.now();
+  const dt = Math.max(0, Math.min(now - lastLogicTime, OFFLINE_CAP_MS));
+  lastLogicTime = now;
+  if (dt === 0) return;
+
+  gameState.total_time += dt;
+
+  if (dt > BATCH_THRESHOLD_MS) simulateBatch(dt);
+  else simulateLive(dt);
+
+  gatherTick(); // while-loop inside digests any gap, live or offline
 
   if (gameState.total_time - gameState.last_save >= 5000) {
     save(gameState, player);
     gameState.last_save = gameState.total_time;
   }
+}
 
-  gatherTick(); // gathering runs even with no mob selected
+// Mob died: rewards, drops, respawn. Shared by live and (indirectly) batch.
+function killMob(mob) {
+  gameState.copper += mob.copper;
+  player.gainXP(mob.xp);
+  const killKey = mob.isBoss ? mob.bossId : mob.zoneId;
+  gameState.kills[killKey] = (gameState.kills[killKey] || 0) + 1;
 
-  const mob = gameState.currentMob;
-  if (!mob) return;
+  if (mob.isBoss) {
+    const boss = getBoss(mob.bossId);
+    logLine(`${boss.name} defeated! Refund ${fmt(mob.copper)}c.`, "success");
+    rollBossDrops(boss);
+    if (gameState.autoResummon && gameState.copper >= boss.summonCost) {
+      gameState.copper -= boss.summonCost;
+      gameState.currentMob = spawnBossMob(boss);
+    } else if (gameState.currentZoneId) {
+      selectZone(gameState.currentZoneId, gameState.currentVariant);
+    } else {
+      gameState.currentMob = null;
+    }
+  } else {
+    gameState.currentMob = spawnMob(getZone(mob.zoneId), mob.variant);
+  }
+}
+
+// Small dt: attack-by-attack with real RNG procs, macro, cooldowns.
+function simulateLive(dt) {
+  if (!gameState.currentMob) return;
 
   runMacro();
 
-  // player auto-attack (equipment-adjusted stats)
   const { atk, interval } = effectiveStats();
-  if (gameState.total_time - player.lastAttack >= interval) {
+  const cls = getClass(player.classId);
+
+  // don't let a stale lastAttack (old save) turn into an attack storm
+  if (gameState.total_time - player.lastAttack > BATCH_THRESHOLD_MS + interval) {
+    player.lastAttack = gameState.total_time - interval;
+  }
+
+  // catch-up: cadence-preserving, supports intervals faster than the tick rate
+  let guard = 0;
+  while (gameState.total_time - player.lastAttack >= interval && guard++ < 1000) {
+    player.lastAttack += interval;
+    const mob = gameState.currentMob;
+    if (!mob) break;
+
     mob.hp -= Math.max(0, atk - mob.defense);
-    player.lastAttack = gameState.total_time;
 
     // passive class: each known skill rolls its proc chance per attack
-    const cls = getClass(player.classId);
     if (cls && cls.archetype === "passive") {
       for (const skill of cls.skills) {
         const level = player.skills[skill.id];
@@ -338,39 +370,56 @@ function update(fixed_delta, real_delta = 0) {
         }
       }
     }
+
+    if (mob.hp <= 0) killMob(mob);
   }
 
-  // mob regen
-  const dt = real_delta > 0 ? real_delta : fixed_delta;
-  mob.hp = Math.min(mob.maxHp, mob.hp + (mob.regen / 1000) * dt);
-
-  // mob defeated
-  if (mob.hp <= 0) {
-    gameState.copper += mob.copper;
-    player.gainXP(mob.xp);
-    const killKey = mob.isBoss ? mob.bossId : mob.zoneId;
-    gameState.kills[killKey] = (gameState.kills[killKey] || 0) + 1;
-
-    if (mob.isBoss) {
-      const boss = getBoss(mob.bossId);
-      logLine(`${boss.name} defeated! Refund ${fmt(mob.copper)}c.`, "success");
-      rollBossDrops(boss);
-      if (gameState.autoResummon && gameState.copper >= boss.summonCost) {
-        gameState.copper -= boss.summonCost;
-        gameState.currentMob = spawnBossMob(boss);
-      } else if (gameState.currentZoneId) {
-        selectZone(gameState.currentZoneId, gameState.currentVariant);
-      } else {
-        gameState.currentMob = null;
-      }
-    } else {
-      gameState.currentMob = spawnMob(getZone(mob.zoneId), mob.variant);
-    }
-  }
+  const mob = gameState.currentMob;
+  if (mob) mob.hp = Math.min(mob.maxHp, mob.hp + (mob.regen / 1000) * dt);
 
   if (player.health <= 0) {
     player.reset();
     gameState.currentMob = null;
+  }
+}
+
+// Big dt (offline, throttled background tab): closed-form expected value.
+// ponytail: auto-attack + passive-proc EV only — no macro skills, no boss
+// farming offline (an active boss reverts to the selected zone first).
+function simulateBatch(dt) {
+  if (gameState.currentMob?.isBoss) {
+    if (gameState.currentZoneId) selectZone(gameState.currentZoneId, gameState.currentVariant);
+    else gameState.currentMob = null;
+  }
+  const mob = gameState.currentMob;
+  player.lastAttack = gameState.total_time;
+  if (!mob) return;
+
+  const { atk, interval } = effectiveStats();
+  const cls = getClass(player.classId);
+
+  let perAttack = Math.max(0, atk - mob.defense);
+  if (cls && cls.archetype === "passive") {
+    for (const skill of cls.skills) {
+      const level = player.skills[skill.id];
+      if (level) perAttack += skill.procChance * skillDamage(skill, level, atk);
+    }
+  }
+
+  const netDps = perAttack / (interval / 1000) - mob.regen;
+  if (netDps <= 0) return;
+
+  const kills = Math.floor(dt / (mob.maxHp / netDps * 1000));
+  if (kills <= 0) return;
+
+  const copper = kills * mob.copper;
+  gameState.copper += copper;
+  gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
+  player.gainXP(kills * mob.xp);
+
+  if (dt >= 60_000) {
+    const hours = (dt / 3600000).toFixed(1);
+    logLine(`Welcome back! While you were gone (${hours}h): ${fmt(kills)} × ${mob.name} slain, +${fmt(copper)}c.`, "success");
   }
 }
 
@@ -380,11 +429,6 @@ function render() {
   renderSkillBar(gameState, player, effectiveStats().atk);
   renderBestiary(gameState);
   renderLegion(gameState, player, retireCharacter);
-}
-
-///// PANIC (loop fell too far behind: missed time is dropped by the loop) /////
-function panic() {
-  console.warn("game loop fell behind; dropped catch-up updates");
 }
 
 ///// SAVE ON EXIT /////
@@ -413,4 +457,4 @@ renderEquipment(player, equipHandlers);
 refreshMacro();
 refreshGathering();
 updateUI(gameState, player);
-startGameLoop(update, render, panic, gameState.update_rate);
+startGameLoop(tick, render);
