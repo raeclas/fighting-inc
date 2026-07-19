@@ -17,7 +17,7 @@ import { renderGathering, renderLegion } from "./ui.js";
 import { legionBonuses, unlockedSlots } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
-import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE } from "./bosses.js";
+import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS } from "./bosses.js";
 
 ///// LOAD SAVE /////
 const savedGame = load(gameState);
@@ -86,18 +86,30 @@ function pickClass(classId) {
 }
 
 function effectiveStats() {
-  const { atk, spdPct } = aggregate(player.equipment);
+  const g = aggregate(player.equipment);
   const leg = legionBonuses(gameState);
   const passive = getClass(player.classId)?.passive;
-  const bonus = 1 + bestiaryBonus(gameState) + (passive?.atkPct ?? 0) / 100 + leg.dmgPct / 100;
-  // INT is flat 1:1 damage (decompiled formula), added before the % multipliers.
-  const atkTotal = Math.round((player.attack + atk + player.int) * bonus);
+  const bonus = 1 + bestiaryBonus(gameState) + (passive?.atkPct ?? 0) / 100
+    + leg.dmgPct / 100 + g.atkPct / 100;
+  // INT (character + item) is flat 1:1 damage, added before the % multipliers.
+  const totalInt = player.int + g.int;
+  const atkTotal = Math.round((player.attack + g.atk + totalInt) * bonus);
   return {
     atk: atkTotal,
-    // skillDamage is linear in atk, so the Legion skill% folds in here
-    skillAtk: Math.round(atkTotal * (1 + leg.skillDmgPct / 100)),
-    interval: player.attackSpeed / (1 + (spdPct + leg.atkSpeedPct + (passive?.atkSpdPct ?? 0)) / 100),
+    // skillDamage is linear in atk, so skill-damage %s fold in here
+    skillAtk: Math.round(atkTotal * (1 + (leg.skillDmgPct + g.skillDmgPct) / 100)),
+    interval: player.attackSpeed / (1 + (g.spdPct + leg.atkSpeedPct + (passive?.atkSpdPct ?? 0)) / 100),
+    totalInt,
+    crit: g.crit,             // {chance, mult} | null — auto-attacks only
+    intProcs: g.intProcs,     // [{chance, mult}] — mult × INT bonus per auto
+    cdMult: 1 - g.cooldownPct / 100,
+    skillLevelBonus: g.skillLevelBonus,
   };
+}
+
+// talisman-adjusted skill level for damage math
+function effSkillLevel(level, eff) {
+  return level + (eff?.skillLevelBonus ?? 0);
 }
 
 // Apply a skill's damage. AoE hits every living mob within its grid-radius of
@@ -119,8 +131,9 @@ function castSkill(skill) {
   if (!level || !target) return;
   if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) return;
 
-  gameState.cooldowns[skill.id] = gameState.total_time + skill.cooldownMs;
-  const dmg = skillDamage(skill, level, effectiveStats().skillAtk);
+  const eff = effectiveStats();
+  gameState.cooldowns[skill.id] = gameState.total_time + Math.round(skill.cooldownMs * eff.cdMult);
+  const dmg = skillDamage(skill, effSkillLevel(level, eff), eff.skillAtk);
   applySkillDamage(skill, dmg, target);
   pushBattleEvent({ type: "skill", dmg });
 }
@@ -161,10 +174,20 @@ function acquireItem(itemId, sourceLabel) {
 }
 
 function rollBossDrops(boss) {
-  // items
-  for (const itemId of boss.itemIds) {
-    if (Math.random() >= ITEM_DROP_CHANCE) continue;
-    acquireItem(itemId, `${boss.name} dropped`);
+  const d = boss.drops;
+  if (d) {
+    // bounty: tier-N amount = bounty × 1e9^tier copper (silver/gold tiers)
+    if (d.bounty) {
+      const paid = earnCopper(d.bounty * 1e9 ** (d.bountyTier ?? 0));
+      pushBattleEvent({ type: "bag", copper: paid });
+      logLine(`Bounty: +${fmt(paid)}c.`, "success");
+    }
+    if (d.pool?.length && Math.random() < d.itemChance) {
+      acquireItem(d.pool[Math.floor(Math.random() * d.pool.length)], `${boss.name} dropped`);
+    }
+    if (d.rare && Math.random() < d.rare.chance) {
+      acquireItem(d.rare.itemId, `${boss.name} dropped a RARE find:`);
+    }
   }
 
   // skill ticket
@@ -478,7 +501,8 @@ function simulateLive(dt) {
 
   runMacro();
 
-  const { atk, skillAtk, interval } = effectiveStats();
+  const eff = effectiveStats();
+  const { atk, skillAtk, interval, crit, intProcs, totalInt } = eff;
   const cls = getClass(player.classId);
 
   // don't let a stale lastAttack (old save) turn into an attack storm
@@ -493,11 +517,24 @@ function simulateLive(dt) {
     const target = frontMob();
     if (!target) break;
 
-    // auto-attack: single target (the front mob)
-    const dealt = Math.max(0, atk - target.defense);
+    // auto-attack: single target (the front mob); item crit multiplies it
+    let dealt = Math.max(0, atk - target.defense);
+    if (crit && Math.random() < crit.chance) dealt = Math.round(dealt * crit.mult);
     target.hp -= dealt;
     pushBattleEvent({ type: "hit", dmg: dealt });
     if (target.hp <= 0) resolveKill(target);
+
+    // item INT procs: mult × INT bonus hits (ignore defense, like skills)
+    for (const p of intProcs) {
+      if (Math.random() < p.chance) {
+        const t2 = frontMob();
+        if (!t2) break;
+        const bonus = Math.round(p.mult * totalInt);
+        t2.hp -= bonus;
+        pushBattleEvent({ type: "skill", dmg: bonus });
+        if (t2.hp <= 0) resolveKill(t2);
+      }
+    }
 
     // passive class: each known skill rolls its proc chance per attack; AoE
     // skills sweep the field around the front mob (the farm-vs-boss lever).
@@ -506,7 +543,7 @@ function simulateLive(dt) {
       for (const skill of cls.skills) {
         const level = player.skills[skill.id];
         if (level && Math.random() < skill.procChance) {
-          const procDmg = skillDamage(skill, level, skillAtk);
+          const procDmg = skillDamage(skill, effSkillLevel(level, eff), skillAtk);
           applySkillDamage(skill, procDmg, center);
           pushBattleEvent({ type: "skill", dmg: procDmg });
           gameState.procCounts[skill.id] = (gameState.procCounts[skill.id] || 0) + 1;
@@ -548,16 +585,19 @@ function simulateBatch(dt) {
   player.lastAttack = gameState.total_time;
   if (!mob || mob.isBoss || mob.isFieldBoss) return; // only estimate regular zone farming
 
-  const { atk, skillAtk, interval } = effectiveStats();
+  const eff = effectiveStats();
+  const { atk, skillAtk, interval, crit, intProcs, totalInt } = eff;
   const cls = getClass(player.classId);
 
-  // total damage the field soaks per attack: auto hits 1, each AoE proc hits its coverage
-  let fieldDmgPerAttack = Math.max(0, atk - mob.defense);
+  // total damage the field soaks per attack: auto hits 1 (crit EV), item INT
+  // procs hit 1, each AoE proc hits its coverage
+  let fieldDmgPerAttack = Math.max(0, atk - mob.defense) * (1 + (crit ? crit.chance * (crit.mult - 1) : 0));
+  for (const p of intProcs) fieldDmgPerAttack += p.chance * p.mult * totalInt;
   if (cls && cls.archetype === "passive") {
     for (const skill of cls.skills) {
       const level = player.skills[skill.id];
       if (!level) continue;
-      const per = skill.procChance * skillDamage(skill, level, skillAtk);
+      const per = skill.procChance * skillDamage(skill, effSkillLevel(level, eff), skillAtk);
       fieldDmgPerAttack += per * (skill.aoe ? aoeCoverage(skill.radius) : 1);
     }
   }
@@ -586,7 +626,7 @@ const bossHandlers = {
 function render() {
   updateUI(gameState, player);
   renderBattle(gameState, player);
-  renderSkillBar(gameState, player, effectiveStats().skillAtk, castSkill);
+  renderSkillBar(gameState, player, effectiveStats(), castSkill);
   renderBestiary(gameState);
   renderLegion(gameState, rosterHandlers);
   renderBossList(gameState, player, bossHandlers);
