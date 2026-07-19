@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node test.js"
+    "test": "node internal/test.js",
+    "sim": "node internal/sim.js"
   }
 }

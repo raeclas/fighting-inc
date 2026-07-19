@@ -11,12 +11,12 @@
 // (passive procs counted as EV damage). Not modeled: macros, gathering
 // buffs, Legion retirement, active-class play.
 import fs from "node:fs";
-import { zones, VARIANTS, spawnMob, BAG_CHANCE } from "./zones.js";
-import { getItem, statValue, aggregate } from "./items.js";
-import { enhanceChance } from "./enhance.js";
-import { bosses, getBoss, spawnBossMob, TICKET_CHANCE, ITEM_DROP_CHANCE } from "./bosses.js";
-import { getClass, skillDamage } from "./classes.js";
-import { bestiaryBonus } from "./bestiary.js";
+import { zones, VARIANTS, spawnMob, BAG_CHANCE } from "../zones.js";
+import { getItem, statValue, aggregate } from "../items.js";
+import { enhanceChance } from "../enhance.js";
+import { bosses, getBoss, spawnBossMob, TICKET_CHANCE, ITEM_DROP_CHANCE } from "../bosses.js";
+import { getClass, skillDamage } from "../classes.js";
+import { bestiaryBonus } from "../bestiary.js";
 
 const MAX_SIM_S = 365 * 86400;
 const CLS = getClass("overmind");

@@ -18,12 +18,13 @@ browser's localStorage. Works on desktop and mobile.
 - Bestiary, mining/fishing, offline catch-up, macro automation, Legion prestige
 
 ## Develop
-- `node test.js` — enhancement-odds and stat-stacking checks
-- `node sim.js` — deterministic progression simulator + balance tracker
-  (`--compare` flags drift against `baseline.json`)
+- `npm test` — enhancement-odds and stat-stacking checks
+- `npm run sim` — deterministic progression simulator + balance tracker
+  (`node internal/sim.js --compare` flags drift against the baseline)
 - Serve locally over http (ES modules need it): `npx serve` then open the URL
 
-Design notes and balance study live in `ECONOMY.md`.
+Design docs, the balance study, and the roadmap live in `internal/`
+(not published to the live site).
 
 ## Credits
 Original game by me. Built with AI assistance for the code; design, balance,

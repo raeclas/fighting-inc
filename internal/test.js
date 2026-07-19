@@ -1,8 +1,8 @@
 // test.js — run with `node test.js`
 // Smallest checks that fail if the enhance odds or stat stacking break.
 import assert from "node:assert/strict";
-import { enhanceChance, tryEnhance, MAX_PLUS } from "./enhance.js";
-import { statValue, aggregate, getItem } from "./items.js";
+import { enhanceChance, tryEnhance, MAX_PLUS } from "../enhance.js";
+import { statValue, aggregate, getItem } from "../items.js";
 
 // odds table (decompiled map values, see DECOMPILE.md)
 assert.equal(enhanceChance(0), 1);

@@ -1,0 +1,9 @@
+# GitHub Pages (Jekyll) config.
+# Only the game itself is published. Everything listed here stays in the repo
+# but is NOT copied to the public Pages site.
+exclude:
+  - internal/        # design docs, balance sim, decompile notes, tests
+  - .claude/         # local dev-server + agent config
+  - package.json
+  - .gitignore
+  - README.md        # repo front page, not needed on the live game

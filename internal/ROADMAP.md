@@ -18,8 +18,8 @@ higher zones drip per kill (Harlem onward). It's the endgame scaling lever.
 **Us:** add `player.int`, fold it into `effectiveStats().atk` as a flat `+int`.
 Zones past a threshold award `intPerKill` on kill (0 for early zones). INT
 persists across Legion retirement (it's the account-power fantasy).
-**Touches:** [player.js](player.js), [main.js](main.js) effectiveStats + killMob,
-[zones.js](zones.js) add `intPerKill`, save, [ui.js](ui.js) show INT.
+**Touches:** [player.js](../player.js), [main.js](../main.js) effectiveStats + killMob,
+[zones.js](../zones.js) add `intPerKill`, save, [ui.js](../ui.js) show INT.
 **Why first:** every zone gate and the whole post-gear curve keys off INT.
 
 ### 2. Zone gates + "No Entry after X"
@@ -29,7 +29,7 @@ and *lock out* once you outgrow them ("No Entry after INT X") — anti-boosting.
 shows locked zones greyed with the requirement; the lockout is the honest
 anti-Temple-forever fix the sim flagged (F2/F3). Gate values scaled to OUR
 curve, not the map's (our levels top ~45, not 2750).
-**Touches:** [zones.js](zones.js), [ui.js](ui.js) renderZoneList, [main.js](main.js) selectZone guard.
+**Touches:** [zones.js](../zones.js), [ui.js](../ui.js) renderZoneList, [main.js](../main.js) selectZone guard.
 **Depends on:** INT (1).
 
 ### 3. Party/lobby multiplier analogue (IV × YJ)
@@ -38,7 +38,7 @@ curve, not the map's (our levels top ~45, not 2750).
 **Us:** single-player, so no party. Fold into the existing gathering buffs +
 a new consumable/elixir: a global `dropBonus` multiplier the player builds up
 (brewed from non-combat resources, or timed elixirs). Reuses the buff plumbing
-in [gathering.js](gathering.js)/[enhance.js](enhance.js).
+in [gathering.js](../gathering.js)/[enhance.js](../enhance.js).
 **Touches:** enhance.js (already takes buffs), zones.js bag/coin rolls, a buff source.
 
 ## Later — content breadth (needs the systems above)
@@ -52,7 +52,7 @@ endgame sink — schedule after INT/gates make endgame reachable.
 ### 5. Special bosses (INT-gated summons)
 **Map:** Bernardo (100k INT), Trans. Bernardo (500k), Seria (1.5M) — rare
 class-weapon and Avatar drops, respawn timers 18–30 min.
-**Us:** extend [bosses.js](bosses.js) with `reqInt` and cooldown timers. The
+**Us:** extend [bosses.js](../bosses.js) with `reqInt` and cooldown timers. The
 full roster (Anton, Luke, Sirocco, Ozma, Tiamat, Astaroth, Ezra…) with real
 def values is already decompiled and waiting.
 **Depends on:** INT (1).
