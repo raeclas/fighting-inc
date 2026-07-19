@@ -1,6 +1,23 @@
+/* WC3 "Enhancement Slave" chrome: near-black navy panels, gold borders,
+   parchment text, dark green field. Faithful skin, web-native skeleton. */
+:root {
+    --bg: #101613;            /* dark field green-black */
+    --panel: #0c0f1a;         /* WC3 navy panel */
+    --panel-2: #131a2b;       /* raised panel */
+    --gold: #c8a84b;          /* bright gold accents */
+    --gold-dim: #8a7440;      /* border gold */
+    --text: #e8dcc0;          /* parchment */
+    --text-dim: #a49878;
+    --hp-green: #2fd42f;
+    --purple-plate: linear-gradient(90deg, #4a1a6e, #7a2fa8, #4a1a6e);
+    --success: #7fe07f;
+    --fail: #ff8080;
+}
+
 body {
-    color: light-dark(#333b3c, #efefec);
-    background-color: light-dark(#efedea, #223a2c);
+    color: var(--text);
+    background-color: var(--bg);
+    background-image: radial-gradient(ellipse at 50% 0%, #16211a 0%, var(--bg) 70%);
     font-family: system-ui, sans-serif;
     margin: 8px;
 }
@@ -10,7 +27,7 @@ body {
     margin: 40px auto 0;
 }
 
-/* tab navigation */
+/* tab navigation — WC3 menu buttons */
 .tabBar {
     display: flex;
     flex-wrap: wrap;
@@ -19,51 +36,74 @@ body {
 }
 .tabBar button {
     padding: 8px 14px;
-    border: 1px solid rgba(128, 128, 128, 0.5);
-    border-radius: 6px;
-    background: light-dark(#fff, #2c4a3a);
-    color: inherit;
-    cursor: pointer;
-}
-.tabBar button.active {
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    background: linear-gradient(180deg, #1a2338, var(--panel));
+    color: var(--gold);
     font-weight: bold;
-    background: light-dark(#d8e8d8, #3a6a4a);
-    border-color: rgba(128, 128, 128, 0.9);
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.tabBar button:hover { border-color: var(--gold); }
+.tabBar button.active {
+    background: linear-gradient(180deg, #2b3854, #1a2338);
+    border-color: var(--gold);
+    color: #fff2cc;
+    box-shadow: inset 0 0 6px rgba(200, 168, 75, 0.35);
 }
 .tabPanel { display: none; }
 .tabPanel.active { display: block; }
 
 .panel {
-    border: 1px solid rgba(128, 128, 128, 0.5);
-    border-radius: 6px;
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
     padding: 8px;
     margin-bottom: 12px;
+    background: var(--panel);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .panel h3 {
     margin: 0 0 6px 0;
+    color: var(--gold);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid rgba(138, 116, 64, 0.4);
+    padding-bottom: 3px;
 }
 
-.playerInfoWrapper {
-    background: rgba(200, 54, 54, 0.5);
-}
-
-.mobInfoWrapper {
-    background: rgba(0, 200, 255, 0.5);
-}
+.playerInfoWrapper { background: var(--panel-2); }
+.mobInfoWrapper { background: var(--panel-2); }
 
 #battleCanvas {
     display: block;
     width: 100%;
     margin: 6px 0;
-    border-radius: 4px;
+    border-radius: 3px;
+    border: 1px solid var(--gold-dim);
     image-rendering: pixelated;
+    background: #17301c;
 }
 
 #mobInfoHeader, #playerInfoHeader {
     font-weight: bold;
     font-size: larger;
+    color: var(--gold);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
 }
+
+button {
+    background: linear-gradient(180deg, #1a2338, var(--panel));
+    color: var(--text);
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--gold); color: #fff2cc; }
+button:disabled { opacity: 0.45; cursor: default; }
 
 #resetGame {
     position: absolute;
@@ -74,7 +114,7 @@ body {
 .zoneEntry, .shopEntry, .equipSlot, .bossEntry {
     margin-bottom: 8px;
     padding-bottom: 6px;
-    border-bottom: 1px dashed rgba(128, 128, 128, 0.4);
+    border-bottom: 1px dashed rgba(138, 116, 64, 0.35);
 }
 
 .zoneEntry button, .equipSlot button {
@@ -87,30 +127,35 @@ body {
     font-size: 0.85em;
 }
 
-#feed .success { color: light-dark(#1a7f1a, #7fe07f); }
-#feed .fail    { color: light-dark(#b02020, #ff8080); }
+#feed .success { color: var(--success); }
+#feed .fail    { color: var(--fail); }
 
 #classSelect {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.75);
     align-items: center;
     justify-content: center;
     z-index: 10;
 }
 
 .classSelectBox {
-    background: light-dark(#efedea, #223a2c);
-    border-radius: 8px;
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    border-radius: 4px;
     padding: 20px;
     max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
 }
+.classSelectBox h2 { color: var(--gold); font-variant: small-caps; margin-top: 0; }
 
 .classEntry {
     margin-bottom: 12px;
     padding-bottom: 8px;
-    border-bottom: 1px dashed rgba(128, 128, 128, 0.4);
+    border-bottom: 1px dashed rgba(138, 116, 64, 0.35);
 }
 
 .bestiaryEntry { margin-bottom: 2px; }
@@ -127,10 +172,10 @@ button.skillCast {
     text-align: left;
     padding: 8px;
     margin-bottom: 4px;
-    border: 1px solid rgba(128, 128, 128, 0.5);
-    border-radius: 4px;
-    background: light-dark(#fff, #2c4a3a);
-    color: inherit;
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    background: linear-gradient(180deg, #1a2338, var(--panel));
+    color: var(--text);
     cursor: pointer;
 }
 button.skillCast:disabled { cursor: default; }
