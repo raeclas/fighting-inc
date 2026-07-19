@@ -38,6 +38,22 @@ macros, gathering buffs, Legion retirement loops, active-class play.
 Money bags (5% drop, wiki values) roughly doubled income economy-wide and
 halved the clear time; F3 (more content) is what stretches it back out.
 
+## Ground truth (decompiled 2026-07-19)
+
+Zone HP/defense and enhancement odds now come from the actual map, not
+guesses — see [DECOMPILE.md](DECOMPILE.md). This lengthened a full clear from
+~5h (fake values) to **~3.4 days** (real HP), which is the authentic Korean
+idle-grinder pace. The sim caught two of my own modeling bugs while landing
+this: a regen floor that deadlocked the level-1 starter, and a seconds/ms
+units error in the time-to-kill floor that made the lowest zone look
+infinitely efficient. Both are exactly what the tracker exists to catch.
+
+Still open, now with real numbers: the game has **no reason to leave a zone
+for income alone** past the one-shot point — higher zones win only because
+they pay more per one-shot. The source game forces the climb with INT drops
+(Harlem+) and hard level/INT lockouts ("No Entry after X"), neither of which
+we've built yet. That's the real F3, and it's the next structural piece.
+
 ## Findings
 
 **F1 — RESOLVED. Early game was a desert.** 48 minutes of 0.15 c/s before

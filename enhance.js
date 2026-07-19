@@ -3,12 +3,14 @@
 // Failure keeps the current plus (source-game behavior) but the copper is gone.
 export const MAX_PLUS = 20;
 
+// Bands decompiled from the source map (war3map.j ~73896), keyed by the level
+// you enhance FROM. Wiki was wrong on the +10–15 band (said 2.1%, map is 1.8%).
 export function enhanceChance(plus) {
-  if (plus < 3) return 1;
-  if (plus < 7) return 0.3;
-  if (plus < 10) return 0.12;
-  if (plus < 15) return 0.021;
-  return 0.0045;
+  if (plus < 4) return 1;      // +0→+3 guaranteed
+  if (plus < 7) return 0.3;    // +4→+6
+  if (plus < 11) return 0.12;  // +7→+10
+  if (plus < 16) return 0.018; // +11→+15
+  return 0.0045;               // +16→+19
 }
 
 // One attempt. Mutates state.copper, eq.plus, and (if provided) buffs.

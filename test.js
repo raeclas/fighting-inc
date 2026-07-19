@@ -4,16 +4,16 @@ import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, MAX_PLUS } from "./enhance.js";
 import { statValue, aggregate, getItem } from "./items.js";
 
-// odds table (wiki values)
+// odds table (decompiled map values, see DECOMPILE.md)
 assert.equal(enhanceChance(0), 1);
-assert.equal(enhanceChance(2), 1);
-assert.equal(enhanceChance(3), 0.3);
+assert.equal(enhanceChance(3), 1);
+assert.equal(enhanceChance(4), 0.3);
 assert.equal(enhanceChance(6), 0.3);
 assert.equal(enhanceChance(7), 0.12);
-assert.equal(enhanceChance(9), 0.12);
-assert.equal(enhanceChance(10), 0.021);
-assert.equal(enhanceChance(14), 0.021);
-assert.equal(enhanceChance(15), 0.0045);
+assert.equal(enhanceChance(10), 0.12);
+assert.equal(enhanceChance(11), 0.018);
+assert.equal(enhanceChance(15), 0.018);
+assert.equal(enhanceChance(16), 0.0045);
 assert.equal(enhanceChance(19), 0.0045);
 
 // stat scaling endpoints

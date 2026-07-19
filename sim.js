@@ -70,15 +70,25 @@ function dpsAgainst(mob) {
   return (Math.max(0, atk - mob.defense) + procEV) / interval - mob.regen;
 }
 
+// Time to kill, floored at one attack interval: you can't attack faster than
+// your attack speed, so a one-shot still takes a full swing. Without this
+// floor a huge-DPS character "one-shots" low-HP mobs in ~0ms and the lowest
+// zone looks infinitely efficient — which is not how the discrete game plays.
+function timeToKill(mob) {
+  const { interval } = stats(); // already seconds
+  const dps = dpsAgainst(mob);
+  if (dps <= 0) return Infinity;
+  return Math.max(interval, mob.maxHp / dps);
+}
+
 // best zone×variant by copper/s; returns null if nothing farmable
 function bestZoneRate() {
   let best = null;
   for (const z of zones) {
     for (let v = 0; v < VARIANTS.length; v++) {
       const mob = spawnMob(z, v);
-      const dps = dpsAgainst(mob);
-      if (dps <= 0) continue;
-      const ttk = mob.maxHp / dps;
+      const ttk = timeToKill(mob);
+      if (!isFinite(ttk)) continue;
       const r = {
         zone: z, variant: v, name: mob.name,
         copperPerSec: (mob.copper + BAG_CHANCE * mob.bag) / ttk,
@@ -94,9 +104,7 @@ function bestZoneRate() {
 function bossInfo(bossId) {
   const boss = getBoss(bossId);
   const mob = spawnBossMob(boss);
-  const dps = dpsAgainst(mob);
-  if (dps <= 0) return null;
-  const ttk = mob.maxHp / dps;
+  const ttk = timeToKill(mob);
   if (ttk > 3600) return null; // not practically killable
   return { boss, mob, ttk, netPerKill: mob.copper - boss.summonCost };
 }

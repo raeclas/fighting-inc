@@ -1,142 +1,170 @@
 [
   {
     "t": 0,
-    "desc": "farm spot: Fallen Temple Labourer (0.23 c/s)"
+    "desc": "farm spot: Fallen Temple Labourer (5x) (0.03 c/s)"
   },
   {
-    "t": 5,
+    "t": 38,
     "desc": "bought Rafaros Staff"
   },
   {
-    "t": 1776,
-    "desc": "Rafaros Staff +10 (E[cost] 868)"
+    "t": 3638,
+    "desc": "farm spot: Fallen Temple Labourer (0.14 c/s)"
   },
   {
-    "t": 1776,
-    "desc": "farm spot: Magtonium Miner (44.30 c/s)"
+    "t": 7977,
+    "desc": "Rafaros Staff +10 (E[cost] 819)"
   },
   {
-    "t": 1788,
+    "t": 7977,
+    "desc": "farm spot: Fallen Temple Labourer (5x) (3.74 c/s)"
+  },
+  {
+    "t": 8110,
     "desc": "bought Defined Darkness"
   },
   {
-    "t": 1835,
-    "desc": "Defined Darkness +10 (E[cost] 2728)"
+    "t": 8660,
+    "desc": "Defined Darkness +10 (E[cost] 2574)"
   },
   {
-    "t": 1868,
+    "t": 9093,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 5160,
-    "desc": "Liberation Staff +20 (E[cost] 625.74k)"
+    "t": 43472,
+    "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 5166,
+    "t": 43472,
+    "desc": "farm spot: Fallen Temple Labourer (20x) (68.62 c/s)"
+  },
+  {
+    "t": 43544,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 5798,
-    "desc": "Liberation Staff +20 (E[cost] 625.74k)"
+    "t": 51148,
+    "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 5798,
-    "desc": "farm spot: Otherverse Drone (1743.69 c/s)"
+    "t": 51148,
+    "desc": "farm spot: Magtonium Miner (99.84 c/s)"
   },
   {
-    "t": 5801,
+    "t": 51198,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 6150,
-    "desc": "Liberation Staff +20 (E[cost] 625.74k)"
+    "t": 56507,
+    "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 6154,
+    "t": 56507,
+    "desc": "farm spot: Magtonium Miner (5x) (147.84 c/s)"
+  },
+  {
+    "t": 56575,
     "desc": "bought Lumen Caligo"
   },
   {
-    "t": 6457,
-    "desc": "Lumen Caligo +15 (E[cost] 1.09M)"
+    "t": 62045,
+    "desc": "Lumen Caligo +15 (E[cost] 1.05M)"
   },
   {
-    "t": 6458,
+    "t": 62060,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 6556,
-    "desc": "Liberation Staff +20 (E[cost] 625.74k)"
+    "t": 62060,
+    "desc": "farm spot: Magtonium Miner (334.95 c/s)"
   },
   {
-    "t": 6557,
+    "t": 63691,
+    "desc": "Liberation Staff +20 (E[cost] 546.30k)"
+  },
+  {
+    "t": 63691,
+    "desc": "farm spot: Magtonium Miner (5x) (432.77 c/s)"
+  },
+  {
+    "t": 63702,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 6632,
-    "desc": "Liberation Staff +20 (E[cost] 625.74k)"
+    "t": 65000,
+    "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 6650,
+    "t": 65055,
     "desc": "learned Mind Surge (ticket EV)"
   },
   {
-    "t": 6650,
+    "t": 65055,
     "desc": "got Rosetta Stone from Hell Party (E[13] kills)"
   },
   {
-    "t": 7748,
-    "desc": "Rosetta Stone +20 (E[cost] 13.91M)"
+    "t": 84301,
+    "desc": "Rosetta Stone +20 (E[cost] 12.14M)"
   },
   {
-    "t": 7758,
+    "t": 84330,
     "desc": "got Party Hat of Despair from Hell Party (E[13] kills)"
   },
   {
-    "t": 8514,
-    "desc": "Party Hat of Despair +20 (E[cost] 13.91M)"
+    "t": 98377,
+    "desc": "Party Hat of Despair +20 (E[cost] 12.14M)"
   },
   {
-    "t": 8593,
+    "t": 98548,
     "desc": "learned Synapse Storm (ticket EV)"
   },
   {
-    "t": 8593,
+    "t": 98548,
     "desc": "got Anton's Left Kneecap from Anton (E[13] kills)"
   },
   {
-    "t": 10912,
-    "desc": "Anton's Left Kneecap +20 (E[cost] 69.53M)"
+    "t": 141851,
+    "desc": "Anton's Left Kneecap +20 (E[cost] 60.70M)"
   },
   {
-    "t": 10942,
+    "t": 141851,
+    "desc": "farm spot: Magtonium Miner (20x) (2841.97 c/s)"
+  },
+  {
+    "t": 141918,
     "desc": "got Refined Lumen Caligo from Anton (E[13] kills)"
   },
   {
-    "t": 11239,
-    "desc": "Refined Lumen Caligo +15 (E[cost] 13.97M)"
+    "t": 148312,
+    "desc": "Refined Lumen Caligo +15 (E[cost] 13.48M)"
   },
   {
-    "t": 11493,
+    "t": 148720,
     "desc": "learned Ego Collapse (ticket EV)"
   },
   {
-    "t": 11493,
+    "t": 148720,
     "desc": "got Rosetta Stone 2: Rosettier from Luke (E[13] kills)"
   },
   {
-    "t": 14687,
-    "desc": "Rosetta Stone 2: Rosettier +20 (E[cost] 347.63M)"
+    "t": 209322,
+    "desc": "Rosetta Stone 2: Rosettier +20 (E[cost] 303.50M)"
   },
   {
-    "t": 15386,
+    "t": 209322,
+    "desc": "farm spot: Terranium Golem (11526.89 c/s)"
+  },
+  {
+    "t": 210289,
     "desc": "got Harlem Globetrophy from Harlem Hell Party (E[13] kills)"
   },
   {
-    "t": 18838,
-    "desc": "Harlem Globetrophy +20 (E[cost] 1.39B)"
+    "t": 296308,
+    "desc": "Harlem Globetrophy +20 (E[cost] 1.21B)"
   },
   {
-    "t": 18838,
-    "desc": "END: level 43, 0 copper banked"
+    "t": 296308,
+    "desc": "END: level 38, 0 copper banked"
   }
 ]

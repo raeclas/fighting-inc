@@ -3,36 +3,35 @@
 // variants (1x / 5x / 20x) that scale its stats and rewards.
 export const VARIANTS = [1, 5, 20];
 
-// Wiki hunting grounds give per-kill copper only (WC3 mobs are fodder);
-// hp/def/regen/xp are our difficulty curve derived from the coin value.
-// hpMult tapers DOWN the ladder so copper-per-hp IMPROVES as you climb
-// (0.10 → 0.25): every zone unlock is a real income jump per point of DPS.
 // Money bags: rare bonus drop worth many kills — values from the wiki.
 export const BAG_CHANCE = 0.05;
 
-const mk = (id, mobName, copper, bag, hpMult, overrides = {}) => ({
+// Copper/bag from the wiki; hp1x/def from the DECOMPILED map (see DECOMPILE.md).
+// Real 1x HP is exact up to Terranium then WC3 clamps at 1e9, so past that we
+// extrapolate the map's own hp-per-copper trend (~666×) instead of the clamp.
+// xp is ours (income has no source-game analogue). Variants: 5x mob = 5× hp,
+// 20x = 20× hp — matches the map exactly.
+const mk = (id, mobName, copper, bag, hp1x, def) => ({
   id, mobName, copper, bag,
-  hp: copper * hpMult,
-  defense: Math.round(copper * 0.5),
-  regen: copper * hpMult / 100,
-  xp: copper * 8,
-  ...overrides,
+  hp: hp1x,
+  defense: def,
+  regen: 0,                   // map mobs are one-shot fodder; regen is a future per-zone knob
+  xp: Math.max(10, copper),   // level pace tracks income
 });
 
-// The source game's hunting grounds ("Labour" camps), ascending;
-// per-kill copper and bag values straight from the wiki (1 silver = 1e9 copper).
 export const zones = [
-  mk("temple",        "Fallen Temple Labourer",   2,          30,        10, { defense: 0 }), // starter: must be killable at atk 1
-  mk("magtonium",     "Magtonium Miner",          52,         1_200,     9),
-  mk("otherverse",    "Otherverse Drone",         1_799,      48_000,    8),
-  mk("terranium",     "Terranium Golem",          179_999,    5e6,       7),
-  mk("harlemdungeon", "Harlem Delinquent",        1_199_999,  28e6,      6),
-  mk("lukelab",       "Luke's Apprentice",        119_999_992, 2e9,      5.5),
-  mk("fiendwar",      "Lesser Fiend",             35e9,       300e9,     5),
-  mk("stormy",        "Storm Wisp",               1_079e9,    9_000e9,   4.8),
-  mk("aiolite",       "Aiolite Sentinel",         16_199e9,   135_000e9, 4.5),
-  mk("despairore",    "Despair Ore Sprite",       1_619_999e9, 13.5e15,  4.2),
-  mk("goldenberyl",   "Beryl Guardian",           119_999_992e9, 1e18,   4),
+  mk("temple",        "Fallen Temple Labourer", 2,             30,          200,        0),
+  mk("magtonium",     "Magtonium Miner",        52,            1_200,       8_000,      5),
+  mk("otherverse",    "Otherverse Drone",       1_799,         48_000,      400_000,    20),
+  mk("terranium",     "Terranium Golem",        179_999,       5e6,         40_000_000, 50),
+  // past here the map clamps hp at 1e9; extrapolate hp ≈ copper × 666, def from map
+  mk("harlemdungeon", "Harlem Delinquent",      1_199_999,     28e6,        8e8,        90),
+  mk("lukelab",       "Luke's Apprentice",      119_999_992,   2e9,         8e10,       160),
+  mk("fiendwar",      "Lesser Fiend",           35e9,          300e9,       23e12,      600),
+  mk("stormy",        "Storm Wisp",             1_079e9,       9_000e9,     720e12,     720),
+  mk("aiolite",       "Aiolite Sentinel",       16_199e9,      135_000e9,   10.8e15,    800),
+  mk("despairore",    "Despair Ore Sprite",     1_619_999e9,   13.5e15,     1.08e18,    800),
+  mk("goldenberyl",   "Beryl Guardian",         119_999_992e9, 1e18,        80e18,      800),
 ];
 
 export function getZone(zoneId) {
