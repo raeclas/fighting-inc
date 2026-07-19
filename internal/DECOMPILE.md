@@ -69,3 +69,28 @@ Exact relationships (these drive our zone formula now):
 Also visible: dozens of summon bosses (Anton 160M/def80, Luke 600M/def120,
 Abyss Walker, Sirocco, Ozma, Tiamat, Astaroth, Ezra…) — the full boss roster
 for future content, most clamped at 1e9 HP with defense 500–1000.
+
+## Item effects (war3map.w3t) — our boss items are under-ported
+
+3517 item entries / 436 unique bases (rest are +N enhancement tiers). Our port
+reduced everything to flat atk / atkspd sticks; the source gives every real
+equipment **Attack + INT together** (INT ≈ 10% of the atk value; caster items
+higher — Rosetta Stone is 528 atk / 1070 INT) plus one signature effect:
+
+| Effect archetype | Count | Example (real numbers) |
+|---|---|---|
+| Increase attack power by N% ("applies only to damage increased by stats") | 78 | Rosetta Stone: **+380%**, "processed internally, not shown in status window" |
+| Additional damage +N% / Skill damage +N% | 57/40 | Tiamat's Distrust: +303% add, 925% skill |
+| N% chance to deal N×Intelligence damage on attack | 35 | Creation's Savior Staff: 20% for 1265×INT |
+| Increases item intelligence by N% | 34 | Tiamat's Curse: +120–132% |
+| N% chance of N× critical hit | 29 | Tiamat's Wrath: 45% for 853× |
+| Attack speed +N% (**"Only 1 attack speed item applies"**) | 3 | Lumen Caligo 36% — our non-stacking rule is decompile-accurate |
+| Reduce surrounding defense (aura, special slot) | 3 | Abyss Fragment Necklace: −2.8 → −115 |
+| Skill cooldown −N% | 3 | Abyssal Fragment Staff (class-exclusive line) |
+| Talisman: +N levels to specific skills (special slot) | 3 | Talisman Q/R/T +3; Transcendence W/F/D +4 |
+
+Also: class-exclusive "Abyssal Fragment" accessories (one per hero, each with a
+class-flavored effect — cooldown, proc chance, clone count, buff strength);
+INT-gated wear requirements ("intelligence of 500,000 or more"); consumables
+(money bundles per zone, INT potions, enhancement-protection tickets, job-change
+scrolls, skill-enhancement tickets per class, epic jars = loot boxes).
