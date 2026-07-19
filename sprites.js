@@ -16,6 +16,13 @@ export const SHEETS = {
   overmind:        { src: "assets/overmind.png",        size: 64, frames: 6, fps: 6,  fallback: "🧠" },
   overmind_attack: { src: "assets/overmind_attack.png", size: 64, frames: 6, fps: 12, fallback: null },
   hero:            { src: "assets/hero.png",            size: 64, frames: 4, fps: 6,  fallback: "🧑" }, // no class yet
+  omniblade:       { src: "assets/omniblade.png",       size: 64, frames: 4, fps: 6,  fallback: "⚔️" },
+  bloodevil:       { src: "assets/bloodevil.png",       size: 64, frames: 4, fps: 6,  fallback: "🩸" },
+  indra:           { src: "assets/indra.png",           size: 64, frames: 4, fps: 6,  fallback: "🌊" },
+  vagabond:        { src: "assets/vagabond.png",        size: 64, frames: 4, fps: 6,  fallback: "🗡️" },
+  desperado:       { src: "assets/desperado.png",       size: 64, frames: 4, fps: 6,  fallback: "🤠" },
+  stormtrooper:    { src: "assets/stormtrooper.png",    size: 64, frames: 4, fps: 6,  fallback: "🔫" },
+  nenempress:      { src: "assets/nenempress.png",      size: 64, frames: 4, fps: 6,  fallback: "👑" },
 
   // zone mobs (keyed by zone id)
   kiln:    { src: "assets/kiln.png",    size: 64, frames: 4, fps: 4, fallback: "😩" },

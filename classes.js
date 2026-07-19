@@ -42,6 +42,72 @@ export const classes = [
       { id: "sesto",    name: "Sesto Elemental",   procChance: 0.0003, mult: 4000, aoe: true, radius: 4 },
     ],
   },
+  // ponytail: the four proc-passives share Overmind's proc ladder; flavor =
+  // AoE width vs single-target multiplier trade (wide pays a mult tax).
+  {
+    id: "omniblade",
+    name: "Omniblade",
+    archetype: "passive",
+    desc: "Sword procs, all single-target, all huge. The boss executioner — fields bore it.",
+    passive: { name: "Lightsword Mastery", desc: "+25% attack power", atkPct: 25 },
+    skills: [
+      { id: "ironstrike", name: "Ultimate Slay: Iron Strike", procChance: 0.10,   mult: 8 },
+      { id: "overdrive",  name: "Overdrive",                  procChance: 0.04,   mult: 24 },
+      { id: "drawsword",  name: "Draw Sword",                 procChance: 0.015,  mult: 64 },
+      { id: "sworddance", name: "Illusion Sword Dance",       procChance: 0.004,  mult: 240 },
+      { id: "mindsword",  name: "Omnislay: Mind's Sword",     procChance: 0.0015, mult: 720 },
+      { id: "tempestslay", name: "Ultimate Slay: Tempest",    procChance: 0.0006, mult: 2080 },
+      { id: "pentastrike", name: "Pentastrike",               procChance: 0.0003, mult: 6400 },
+    ],
+  },
+  {
+    id: "bloodevil",
+    name: "Blood Evil",
+    archetype: "passive",
+    desc: "Everything explodes around you. The widest field-clearer in the game — bosses shrug.",
+    passive: { name: "Bloodlust", desc: "+15% attack speed", atkSpdPct: 15 },
+    skills: [
+      { id: "gorecross",  name: "Gore Cross",       procChance: 0.10,   mult: 4 },
+      { id: "ragingfury", name: "Raging Fury",      procChance: 0.04,   mult: 11,   aoe: true, radius: 1.5 },
+      { id: "bloodsword", name: "Blood Sword",      procChance: 0.015,  mult: 30,   aoe: true, radius: 1.5 },
+      { id: "bloodboom",  name: "Blood Boom",       procChance: 0.004,  mult: 113,  aoe: true, radius: 2.5 },
+      { id: "outrage",    name: "Outrage Break",    procChance: 0.0015, mult: 338,  aoe: true, radius: 2.5 },
+      { id: "overkill",   name: "Extreme Overkill", procChance: 0.0006, mult: 975,  aoe: true, radius: 4 },
+      { id: "bloodriven", name: "Blood Riven",      procChance: 0.0003, mult: 3000, aoe: true, radius: 4 },
+    ],
+  },
+  {
+    id: "indra",
+    name: "Indra",
+    archetype: "passive",
+    desc: "Waves on waves — steady mid-size AoE procs. The comfortable middle path.",
+    passive: { name: "Wave Attunement", desc: "+15% attack power", atkPct: 15 },
+    skills: [
+      { id: "wavewheel",  name: "Wave Wheel Slasher", procChance: 0.10,   mult: 6 },
+      { id: "waverad",    name: "Wave Radiation",     procChance: 0.04,   mult: 17,   aoe: true, radius: 1.5 },
+      { id: "heatwave",   name: "Heat Wave Sword",    procChance: 0.015,  mult: 44,   aoe: true, radius: 1.5 },
+      { id: "crescent",   name: "Spirit Crescent",    procChance: 0.004,  mult: 165,  aoe: true, radius: 1.5 },
+      { id: "agni",       name: "Agni Pentacle",      procChance: 0.0015, mult: 495 },
+      { id: "waveeye",    name: "Wave Eye",           procChance: 0.0006, mult: 1430, aoe: true, radius: 2.5 },
+      { id: "thundergod", name: "Thunder God",        procChance: 0.0003, mult: 4400, aoe: true, radius: 2.5 },
+    ],
+  },
+  {
+    id: "vagabond",
+    name: "Neo: Vagabond",
+    archetype: "passive",
+    desc: "A duelist's blade with the occasional explosion. Single-target lean, two wide finishers.",
+    passive: { name: "Wanderer's Edge", desc: "+15% attack speed", atkSpdPct: 15 },
+    skills: [
+      { id: "soaring",    name: "Soaring",              procChance: 0.10,   mult: 7 },
+      { id: "oppress",    name: "Oppressive Pressure",  procChance: 0.04,   mult: 20 },
+      { id: "explsword",  name: "Explosive Sword",      procChance: 0.015,  mult: 52 },
+      { id: "crosssword", name: "Cross Sword",          procChance: 0.004,  mult: 195 },
+      { id: "blastpalm",  name: "Blasting Palm",        procChance: 0.0015, mult: 585,  aoe: true, radius: 1.5 },
+      { id: "verdant",    name: "Verdant Blast",        procChance: 0.0006, mult: 1690 },
+      { id: "moondance",  name: "Moonlight Dance",      procChance: 0.0003, mult: 5200, aoe: true, radius: 2.5 },
+    ],
+  },
 ];
 
 export const getClass = id => classes.find(c => c.id === id);
