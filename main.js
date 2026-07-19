@@ -14,6 +14,7 @@ import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
+import { legionBonuses } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
 import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE } from "./bosses.js";
@@ -86,11 +87,15 @@ function pickClass(classId) {
 
 function effectiveStats() {
   const { atk, spdPct } = aggregate(player.equipment);
+  const leg = legionBonuses(gameState);
   const bonus = 1 + bestiaryBonus(gameState);
   // INT is flat 1:1 damage (decompiled formula), added before the % multipliers.
+  const atkTotal = Math.round((player.attack + atk + player.int) * bonus);
   return {
-    atk: Math.round((player.attack + atk + player.int) * bonus),
-    interval: player.attackSpeed / (1 + spdPct / 100),
+    atk: atkTotal,
+    // skillDamage is linear in atk, so the Legion skill% folds in here
+    skillAtk: Math.round(atkTotal * (1 + leg.skillDmgPct / 100)),
+    interval: player.attackSpeed / (1 + (spdPct + leg.atkSpeedPct) / 100),
   };
 }
 
@@ -114,7 +119,7 @@ function castSkill(skill) {
   if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) return;
 
   gameState.cooldowns[skill.id] = gameState.total_time + skill.cooldownMs;
-  const dmg = skillDamage(skill, level, effectiveStats().atk);
+  const dmg = skillDamage(skill, level, effectiveStats().skillAtk);
   applySkillDamage(skill, dmg, target);
   pushBattleEvent({ type: "skill", dmg });
 }
@@ -415,7 +420,7 @@ function simulateLive(dt) {
 
   runMacro();
 
-  const { atk, interval } = effectiveStats();
+  const { atk, skillAtk, interval } = effectiveStats();
   const cls = getClass(player.classId);
 
   // don't let a stale lastAttack (old save) turn into an attack storm
@@ -443,7 +448,7 @@ function simulateLive(dt) {
       for (const skill of cls.skills) {
         const level = player.skills[skill.id];
         if (level && Math.random() < skill.procChance) {
-          const procDmg = skillDamage(skill, level, atk);
+          const procDmg = skillDamage(skill, level, skillAtk);
           applySkillDamage(skill, procDmg, center);
           pushBattleEvent({ type: "skill", dmg: procDmg });
           gameState.procCounts[skill.id] = (gameState.procCounts[skill.id] || 0) + 1;
@@ -485,7 +490,7 @@ function simulateBatch(dt) {
   player.lastAttack = gameState.total_time;
   if (!mob || mob.isBoss || mob.isFieldBoss) return; // only estimate regular zone farming
 
-  const { atk, interval } = effectiveStats();
+  const { atk, skillAtk, interval } = effectiveStats();
   const cls = getClass(player.classId);
 
   // total damage the field soaks per attack: auto hits 1, each AoE proc hits its coverage
@@ -494,7 +499,7 @@ function simulateBatch(dt) {
     for (const skill of cls.skills) {
       const level = player.skills[skill.id];
       if (!level) continue;
-      const per = skill.procChance * skillDamage(skill, level, atk);
+      const per = skill.procChance * skillDamage(skill, level, skillAtk);
       fieldDmgPerAttack += per * (skill.aoe ? aoeCoverage(skill.radius) : 1);
     }
   }
@@ -519,7 +524,7 @@ function simulateBatch(dt) {
 function render() {
   updateUI(gameState, player);
   renderBattle(gameState, player);
-  renderSkillBar(gameState, player, effectiveStats().atk, castSkill);
+  renderSkillBar(gameState, player, effectiveStats().skillAtk, castSkill);
   renderBestiary(gameState);
   renderLegion(gameState, player);
 }

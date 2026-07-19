@@ -8,6 +8,7 @@ import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
+import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT } from "./legion.js";
 
 // 1234567 -> "1.23M"
 export function fmt(n) {
@@ -19,7 +20,7 @@ export function fmt(n) {
 
 export function updateUI(state, player) {
   const { atk, spdPct } = aggregate(player.equipment);
-  const interval = Math.round(player.attackSpeed / (1 + spdPct / 100));
+  const interval = Math.round(player.attackSpeed / (1 + (spdPct + legionBonuses(state).atkSpeedPct) / 100));
 
   document.getElementById("playerHealth").textContent = player.health;
   document.getElementById("playerCopper").textContent = fmt(player.copper);
@@ -378,13 +379,28 @@ export function renderBestiary(state) {
   container.innerHTML = html;
 }
 
-let legionStubDone = false;
+let lastLegionKey = "";
 export function renderLegion(state, player) {
-  // Placeholder until the Legion board lands (roster rebuild step 3).
-  if (legionStubDone) return;
-  legionStubDone = true;
-  document.querySelector(".legionPanel").innerHTML =
-    `<div>The Legion is reorganizing. Roster board coming soon.</div>`;
+  // called every frame; only rebuild when roster numbers change
+  const key = state.characters.map(c => `${c.classId}|${c.level}|${Math.floor(c.int)}`).join(",");
+  if (key === lastLegionKey) return;
+  lastLegionKey = key;
+
+  const leg = legionBonuses(state);
+  let html = `<div>Legion board — every character boosts the whole account, scaled by its INT.</div>`;
+  html += `<div>Total: <strong>+${leg.atkSpeedPct.toFixed(1)}% attack speed</strong>, ` +
+          `<strong>+${leg.skillDmgPct.toFixed(1)}% skill damage</strong></div>`;
+
+  for (const c of state.characters) {
+    const cls = getClass(c.classId);
+    const b = CLASS_BONUSES[c.classId];
+    const pct = charBonus(c);
+    const status = !b ? "no bonus"
+      : c.int < MASTERY_INT ? `inactive — needs ${fmt(MASTERY_INT)} INT (has ${fmt(c.int)})`
+      : `+${pct.toFixed(1)}% ${b.label}`;
+    html += `<div>· ${cls ? cls.name : "No class"} Lv${c.level} — INT ${fmt(c.int)} — ${status}</div>`;
+  }
+  document.querySelector(".legionPanel").innerHTML = html;
 }
 
 // One panel visible at a time; tab bar toggles the .active class.
