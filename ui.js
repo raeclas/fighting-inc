@@ -182,7 +182,8 @@ export function hideClassSelect() {
 }
 
 // Called every frame: cooldowns tick down visibly.
-export function renderSkillBar(state, player, atk) {
+// onCast(skill): tap-to-cast for active classes (touch, no keyboard needed).
+export function renderSkillBar(state, player, atk, onCast) {
   const container = document.querySelector(".skillBar");
   const cls = getClass(player.classId);
   if (!cls) { container.textContent = ""; return; }
@@ -190,12 +191,11 @@ export function renderSkillBar(state, player, atk) {
   container.innerHTML = "";
   cls.skills.forEach(skill => {
     const level = player.skills[skill.id];
-    const div = document.createElement("div");
-    div.className = "skillEntry";
 
     if (!level) {
+      const div = document.createElement("div");
+      div.className = "skillEntry locked";
       div.textContent = `${skill.key ? `[${skill.key}] ` : ""}${skill.name} — locked (boss ticket)`;
-      div.classList.add("locked");
       container.appendChild(div);
       return;
     }
@@ -204,14 +204,21 @@ export function renderSkillBar(state, player, atk) {
     if (cls.archetype === "active") {
       const readyAt = state.cooldowns[skill.id] || 0;
       const remaining = Math.max(0, readyAt - state.total_time);
-      const status = remaining > 0 ? `${(remaining / 1000).toFixed(1)}s` : "READY";
-      div.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> Lv${level} — ${dmg} dmg — ${status}`;
-      if (remaining > 0) div.classList.add("onCooldown");
+      const ready = remaining <= 0;
+      const btn = document.createElement("button");
+      btn.className = "skillEntry skillCast" + (ready ? "" : " onCooldown");
+      btn.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> Lv${level} — ${dmg} dmg — ` +
+        (ready ? "READY" : `${(remaining / 1000).toFixed(1)}s`);
+      btn.disabled = !ready;
+      if (onCast) btn.onclick = () => onCast(skill);
+      container.appendChild(btn);
     } else {
+      const div = document.createElement("div");
+      div.className = "skillEntry";
       const procs = state.procCounts[skill.id] || 0;
       div.innerHTML = `<strong>${skill.name}</strong> Lv${level} — ${(skill.procChance * 100).toFixed(1)}% per attack — ${dmg} dmg — procs: ${fmt(procs)}`;
+      container.appendChild(div);
     }
-    container.appendChild(div);
   });
 }
 

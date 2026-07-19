@@ -468,7 +468,7 @@ function simulateBatch(dt) {
 function render() {
   updateUI(gameState, player);
   renderBattle(gameState, player);
-  renderSkillBar(gameState, player, effectiveStats().atk);
+  renderSkillBar(gameState, player, effectiveStats().atk, castSkill);
   renderBestiary(gameState);
   renderLegion(gameState, player, retireCharacter);
 }
