@@ -36,6 +36,14 @@ export function updateUI(state, player) {
   document.getElementById("mobRegen").textContent = mob ? fmt(mob.regen) : "";
   document.getElementById("mobCopper").textContent = mob ? fmt(mob.copper) : "";
   document.getElementById("mobKills").textContent = mob ? (state.kills[mob.isBoss ? mob.bossId : mob.zoneId] || 0) : "";
+
+  const fbBtn = document.getElementById("huntFieldBoss");
+  const onFieldBoss = mob && mob.isFieldBoss;
+  fbBtn.disabled = !state.currentZoneId || onFieldBoss;
+  fbBtn.style.display = state.currentZoneId ? "" : "none";
+  const fk = state.currentZoneId ? (state.fieldKills[state.currentZoneId] || 0) : 0;
+  document.getElementById("fieldKills").textContent =
+    state.currentZoneId ? ` Field bosses felled here: ${fmt(fk)}` : "";
 }
 
 export function renderZoneList(state, onSelect) {

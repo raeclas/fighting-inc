@@ -9,6 +9,7 @@ export function serialize(state, player) {
     total_time: state.total_time,
     copper: state.copper,
     kills: state.kills,
+    fieldKills: state.fieldKills,
     currentZoneId: state.currentZoneId,
     currentVariant: state.currentVariant,
     autoResummon: state.autoResummon,
@@ -55,6 +56,10 @@ export function load(state, player) {
   state.kills = {};
   for (const [id, n] of Object.entries(s.kills ?? {})) {
     state.kills[ZONE_RENAMES[id] ?? id] = n;
+  }
+  state.fieldKills = {};
+  for (const [id, n] of Object.entries(s.fieldKills ?? {})) {
+    state.fieldKills[ZONE_RENAMES[id] ?? id] = n;
   }
   state.currentZoneId = ZONE_RENAMES[s.currentZoneId] ?? s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;

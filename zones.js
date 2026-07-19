@@ -3,8 +3,11 @@
 // variants (1x / 5x / 20x) that scale its stats and rewards.
 export const VARIANTS = [1, 5, 20];
 
-// Money bags: rare bonus drop worth many kills — values from the wiki.
-export const BAG_CHANCE = 0.05;
+// Money bags: the source map drops these at 0.15% on regular kills (×lobby
+// multipliers we don't have), and GUARANTEED from field bosses. We lack the
+// party multipliers, so 0.5% keeps regular bags a rare tease without them.
+// ponytail: 0.5% is a playable stand-in for 0.15%×IV×YJ; retune if IV lands.
+export const BAG_CHANCE = 0.005;
 
 // Copper/bag from the wiki; hp1x/def from the DECOMPILED map (see DECOMPILE.md).
 // Real 1x HP is exact up to Terranium then WC3 clamps at 1e9, so past that we
@@ -53,5 +56,29 @@ export function spawnMob(zone, variantIndex) {
     copper: zone.copper * m,
     bag: zone.bag * m,
     xp: zone.xp * m,
+  };
+}
+
+// Field boss: the decompiled "N laps Boss" — a pre-placed elite standing in
+// each zone. 10× mob HP, 20× XP, and a GUARANTEED fat bag (20× the mob bag);
+// gives no per-kill coin, matching the map.
+export const FIELD_BOSS_HP_MULT = 10;
+export const FIELD_BOSS_XP_MULT = 20;
+export const FIELD_BOSS_BAG_MULT = 20;
+
+export function spawnFieldBoss(zone, variantIndex) {
+  const m = VARIANTS[variantIndex];
+  return {
+    zoneId: zone.id,
+    variant: variantIndex,
+    name: m > 1 ? `${zone.mobName} Foreman (${m}x)` : `${zone.mobName} Foreman`,
+    hp: zone.hp * m * FIELD_BOSS_HP_MULT,
+    maxHp: zone.hp * m * FIELD_BOSS_HP_MULT,
+    defense: zone.defense * m,
+    regen: 0,
+    copper: 0,
+    bag: zone.bag * m * FIELD_BOSS_BAG_MULT,
+    xp: zone.xp * m * FIELD_BOSS_XP_MULT,
+    isFieldBoss: true,
   };
 }

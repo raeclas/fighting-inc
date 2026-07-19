@@ -11,7 +11,8 @@ export const gameState = {
   last_save: 0,
 
   copper: 0,
-  kills: {},            // zoneId -> lifetime kill count (feeds bestiary later)
+  kills: {},            // zoneId/bossId -> lifetime kill count (feeds bestiary)
+  fieldKills: {},       // zoneId -> field-boss kill count
 
   currentZoneId: null,
   currentVariant: 0,

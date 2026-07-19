@@ -108,17 +108,18 @@ export function renderBattle(state, player) {
   if (mob) {
     const flashing = now < flashUntil;
     const shake = flashing ? (Math.random() - 0.5) * 6 : 0;
+    const big = mob.isBoss || mob.isFieldBoss;
     const key = mob.isBoss ? mob.bossId : mob.zoneId;
     drawActor(key, MOB.x + shake, MOB.y, now, {
-      scale: mob.isBoss ? 1.6 : 1,
+      scale: big ? 1.6 : 1,
       flip: true,
       bright: flashing,
     });
 
     // HP bar
-    const bw = mob.isBoss ? 160 : 110;
+    const bw = big ? 160 : 110;
     const bx = MOB.x - bw / 2;
-    const by = mob.isBoss ? 14 : 34;
+    const by = big ? 14 : 34;
     const frac = Math.max(0, mob.hp / mob.maxHp);
     ctx.fillStyle = "rgba(0,0,0,0.45)";
     ctx.fillRect(bx - 1, by - 1, bw + 2, 10);

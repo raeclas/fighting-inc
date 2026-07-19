@@ -1,170 +1,170 @@
 [
   {
     "t": 0,
-    "desc": "farm spot: Kiln-Ash Drudge (5x) (0.03 c/s)"
+    "desc": "farm spot: Kiln-Ash Drudge (5x) (0.02 c/s)"
   },
   {
-    "t": 38,
+    "t": 62,
     "desc": "bought Rafaros Staff"
   },
   {
-    "t": 3638,
-    "desc": "farm spot: Kiln-Ash Drudge (0.14 c/s)"
+    "t": 3662,
+    "desc": "farm spot: Kiln-Ash Drudge (0.08 c/s)"
   },
   {
-    "t": 7977,
+    "t": 10659,
     "desc": "Rafaros Staff +10 (E[cost] 819)"
   },
   {
-    "t": 7977,
-    "desc": "farm spot: Kiln-Ash Drudge (5x) (3.74 c/s)"
+    "t": 10659,
+    "desc": "farm spot: Kiln-Ash Drudge (5x) (2.34 c/s)"
   },
   {
-    "t": 8110,
+    "t": 10873,
     "desc": "bought Defined Darkness"
   },
   {
-    "t": 8660,
+    "t": 11752,
     "desc": "Defined Darkness +10 (E[cost] 2574)"
   },
   {
-    "t": 9093,
+    "t": 12439,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 43472,
+    "t": 67105,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 43472,
-    "desc": "farm spot: Kiln-Ash Drudge (20x) (68.62 c/s)"
+    "t": 67105,
+    "desc": "farm spot: Kiln-Ash Drudge (20x) (42.72 c/s)"
   },
   {
-    "t": 43544,
+    "t": 67222,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 51148,
+    "t": 79453,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 51148,
-    "desc": "farm spot: Slagworks Grunt (99.84 c/s)"
-  },
-  {
-    "t": 51198,
+    "t": 79540,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 56507,
+    "t": 89068,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 56507,
-    "desc": "farm spot: Slagworks Grunt (5x) (147.84 c/s)"
+    "t": 89068,
+    "desc": "farm spot: Slagworks Grunt (77.71 c/s)"
   },
   {
-    "t": 56575,
+    "t": 89197,
     "desc": "bought Lumen Caligo"
   },
   {
-    "t": 62045,
+    "t": 92797,
+    "desc": "farm spot: Slagworks Grunt (5x) (102.25 c/s)"
+  },
+  {
+    "t": 99491,
     "desc": "Lumen Caligo +15 (E[cost] 1.05M)"
   },
   {
-    "t": 62060,
+    "t": 99519,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 62060,
-    "desc": "farm spot: Slagworks Grunt (334.95 c/s)"
+    "t": 99519,
+    "desc": "farm spot: Slagworks Grunt (178.21 c/s)"
   },
   {
-    "t": 63691,
+    "t": 102584,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 63691,
-    "desc": "farm spot: Slagworks Grunt (5x) (432.77 c/s)"
+    "t": 102584,
+    "desc": "farm spot: Slagworks Grunt (5x) (230.24 c/s)"
   },
   {
-    "t": 63702,
+    "t": 102606,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 65000,
+    "t": 105045,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 65055,
+    "t": 105134,
     "desc": "learned Mind Surge (ticket EV)"
   },
   {
-    "t": 65055,
+    "t": 105134,
     "desc": "got Rosetta Stone from Hell Party (E[13] kills)"
   },
   {
-    "t": 84301,
+    "t": 141365,
     "desc": "Rosetta Stone +20 (E[cost] 12.14M)"
   },
   {
-    "t": 84330,
+    "t": 141412,
     "desc": "got Party Hat of Despair from Hell Party (E[13] kills)"
   },
   {
-    "t": 98377,
+    "t": 167898,
     "desc": "Party Hat of Despair +20 (E[cost] 12.14M)"
   },
   {
-    "t": 98548,
+    "t": 168145,
     "desc": "learned Synapse Storm (ticket EV)"
   },
   {
-    "t": 98548,
+    "t": 168145,
     "desc": "got Anton's Left Kneecap from Anton (E[13] kills)"
   },
   {
-    "t": 141851,
+    "t": 249747,
     "desc": "Anton's Left Kneecap +20 (E[cost] 60.70M)"
   },
   {
-    "t": 141851,
-    "desc": "farm spot: Slagworks Grunt (20x) (2841.97 c/s)"
+    "t": 249747,
+    "desc": "farm spot: Slagworks Grunt (20x) (1493.13 c/s)"
   },
   {
-    "t": 141918,
+    "t": 249845,
     "desc": "got Refined Lumen Caligo from Anton (E[13] kills)"
   },
   {
-    "t": 148312,
+    "t": 261839,
     "desc": "Refined Lumen Caligo +15 (E[cost] 13.48M)"
   },
   {
-    "t": 148720,
+    "t": 262358,
     "desc": "learned Ego Collapse (ticket EV)"
   },
   {
-    "t": 148720,
+    "t": 262358,
     "desc": "got Rosetta Stone 2: Rosettier from Luke (E[13] kills)"
   },
   {
-    "t": 209322,
+    "t": 376407,
     "desc": "Rosetta Stone 2: Rosettier +20 (E[cost] 303.50M)"
   },
   {
-    "t": 209322,
-    "desc": "farm spot: Loamgrave Hauler (11526.89 c/s)"
+    "t": 376407,
+    "desc": "farm spot: Loamgrave Hauler (5664.61 c/s)"
   },
   {
-    "t": 210289,
+    "t": 377523,
     "desc": "got Harlem Globetrophy from Harlem Hell Party (E[13] kills)"
   },
   {
-    "t": 296308,
+    "t": 552983,
     "desc": "Harlem Globetrophy +20 (E[cost] 1.21B)"
   },
   {
-    "t": 296308,
-    "desc": "END: level 38, 0 copper banked"
+    "t": 552983,
+    "desc": "END: level 39, 0 copper banked"
   }
 ]

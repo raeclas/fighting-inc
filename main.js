@@ -4,7 +4,7 @@ import { gameState } from "./state.js";
 import { save, load, wipe } from "./saveSystem.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
-import { getZone, spawnMob, BAG_CHANCE } from "./zones.js";
+import { getZone, spawnMob, spawnFieldBoss, BAG_CHANCE } from "./zones.js";
 import { player } from "./player.js";
 import { getItem, aggregate } from "./items.js";
 import { tryEnhance, MAX_PLUS } from "./enhance.js";
@@ -28,6 +28,14 @@ function selectZone(zoneId, variantIndex) {
   gameState.currentZoneId = zoneId;
   gameState.currentVariant = variantIndex;
   gameState.currentMob = spawnMob(zone, variantIndex);
+}
+
+// Hunt the field boss for the currently selected zone/variant.
+function huntFieldBoss() {
+  if (!gameState.currentZoneId) return logLine("Select a hunting ground first.", "fail");
+  const zone = getZone(gameState.currentZoneId);
+  gameState.currentMob = spawnFieldBoss(zone, gameState.currentVariant);
+  logLine(`A ${gameState.currentMob.name} lumbers into view.`);
 }
 
 // resume farming where the save left off
@@ -319,17 +327,14 @@ function tick() {
 
 // Mob died: rewards, drops, respawn. Shared by live and (indirectly) batch.
 function killMob(mob) {
-  pushBattleEvent({ type: "kill", copper: mob.copper });
-  gameState.copper += mob.copper;
-  if (!mob.isBoss && Math.random() < BAG_CHANCE) {
-    gameState.copper += mob.bag;
-    pushBattleEvent({ type: "bag", copper: mob.bag });
+  if (mob.copper > 0) {
+    pushBattleEvent({ type: "kill", copper: mob.copper });
+    gameState.copper += mob.copper;
   }
   player.gainXP(mob.xp);
-  const killKey = mob.isBoss ? mob.bossId : mob.zoneId;
-  gameState.kills[killKey] = (gameState.kills[killKey] || 0) + 1;
 
   if (mob.isBoss) {
+    gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
     const boss = getBoss(mob.bossId);
     logLine(`${boss.name} defeated! Refund ${fmt(mob.copper)}c.`, "success");
     rollBossDrops(boss);
@@ -341,9 +346,26 @@ function killMob(mob) {
     } else {
       gameState.currentMob = null;
     }
-  } else {
-    gameState.currentMob = spawnMob(getZone(mob.zoneId), mob.variant);
+    return;
   }
+
+  if (mob.isFieldBoss) {
+    // guaranteed bag (map: 100% drop), separate kill counter, back to farming
+    gameState.copper += mob.bag;
+    pushBattleEvent({ type: "bag", copper: mob.bag });
+    gameState.fieldKills[mob.zoneId] = (gameState.fieldKills[mob.zoneId] || 0) + 1;
+    logLine(`${mob.name} felled! Bag: +${fmt(mob.bag)}c.`, "success");
+    selectZone(mob.zoneId, mob.variant); // return to the regular mob
+    return;
+  }
+
+  // regular mob: rare bag roll, respawn
+  gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
+  if (Math.random() < BAG_CHANCE) {
+    gameState.copper += mob.bag;
+    pushBattleEvent({ type: "bag", copper: mob.bag });
+  }
+  gameState.currentMob = spawnMob(getZone(mob.zoneId), mob.variant);
 }
 
 // Small dt: attack-by-attack with real RNG procs, macro, cooldowns.
@@ -450,6 +472,8 @@ let resetting = false;
 window.addEventListener("beforeunload", () => {
   if (!resetting) save(gameState, player);
 });
+
+document.getElementById("huntFieldBoss").onclick = huntFieldBoss;
 
 document.getElementById("resetGame").onclick = () => {
   if (confirm("Are you sure you want to reset the game? This cannot be undone.")) {
