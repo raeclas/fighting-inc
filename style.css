@@ -180,6 +180,23 @@ button.skillCast {
 }
 button.skillCast:disabled { cursor: default; }
 
+/* ---- battlefield tooltip (WC3 hover box) ---- */
+.battleTooltip {
+    display: none;
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    background: rgba(8, 10, 18, 0.95);
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 0.8em;
+    color: var(--text);
+    max-width: 180px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+.battleTooltip strong { color: var(--gold); }
+
 /* ---- battlefield info line ---- */
 .mobInfo {
     display: flex;
