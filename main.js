@@ -4,7 +4,7 @@ import { gameState } from "./state.js";
 import { save, load, wipe } from "./saveSystem.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
-import { getZone, spawnMob, spawnFieldBoss, BAG_CHANCE } from "./zones.js";
+import { getZone, spawnMob, spawnFieldBoss, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
 import { player } from "./player.js";
 import { getItem, aggregate } from "./items.js";
 import { tryEnhance, MAX_PLUS } from "./enhance.js";
@@ -359,13 +359,19 @@ function killMob(mob) {
     return;
   }
 
-  // regular mob: rare bag roll, respawn
+  // regular mob: rare bag roll, then respawn — or a field boss wanders in
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
   if (Math.random() < BAG_CHANCE) {
     gameState.copper += mob.bag;
     pushBattleEvent({ type: "bag", copper: mob.bag });
   }
-  gameState.currentMob = spawnMob(getZone(mob.zoneId), mob.variant);
+  const zone = getZone(mob.zoneId);
+  if (Math.random() < FIELD_BOSS_SPAWN_CHANCE) {
+    gameState.currentMob = spawnFieldBoss(zone, mob.variant);
+    logLine(`A ${gameState.currentMob.name} wanders in!`);
+  } else {
+    gameState.currentMob = spawnMob(zone, mob.variant);
+  }
 }
 
 // Small dt: attack-by-attack with real RNG procs, macro, cooldowns.

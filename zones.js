@@ -65,6 +65,7 @@ export function spawnMob(zone, variantIndex) {
 export const FIELD_BOSS_HP_MULT = 10;
 export const FIELD_BOSS_XP_MULT = 20;
 export const FIELD_BOSS_BAG_MULT = 20;
+export const FIELD_BOSS_SPAWN_CHANCE = 0.02; // per regular kill, a field boss wanders in
 
 export function spawnFieldBoss(zone, variantIndex) {
   const m = VARIANTS[variantIndex];
