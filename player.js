@@ -6,8 +6,8 @@ export const player = {
   maxHealth: 100,
 
   // combat stats
-  attack: 1,
-  attackSpeed: 1000, // ms - 1 attack per second
+  attack: 5,          // meaningful base so the first mob (200 hp) isn't a 200s slog
+  attackSpeed: 1000,  // ms between attacks
   lastAttack: 0,
 
   // leveling
@@ -46,9 +46,11 @@ export const player = {
   levelUp: function() {
     this.level++;
     this.xpToNext = Math.floor(this.xpToNext * 1.5);
-    // level up bonuses
     this.attack += 1;
-    this.attackSpeed = Math.max(10, this.attackSpeed - 10); // faster, min 10ms
+    // Haste front-loaded: big early gains de-torture the start (our idle
+    // analogue of the map's AGI-from-leveling), tapering to a sane floor.
+    const step = this.level <= 12 ? 35 : 10;
+    this.attackSpeed = Math.max(100, this.attackSpeed - step);
   },
 
   reset: function() {

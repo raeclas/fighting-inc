@@ -54,8 +54,14 @@ function pickClass(classId) {
   const cls = getClass(classId);
   player.classId = classId;
   player.skills = { [cls.skills[0].id]: 1 };
+  // Free starter staff — something to enhance from turn one (the +0→+3 band is
+  // guaranteed, so kill-time drops fast) and teaches the core loop.
+  if (player.equipment.every(e => e === null)) {
+    player.equipment[0] = { itemId: "rafaros", plus: 0 };
+  }
   hideClassSelect();
-  logLine(`You are now a ${cls.name}. There is no repick. Good luck.`, "success");
+  logLine(`You are now a ${cls.name}. Here's a Rafaros Staff — enhance it. Good luck.`, "success");
+  renderEquipment(player, equipHandlers);
   refreshMacro();
   save(gameState, player);
 }
@@ -196,7 +202,7 @@ function retireCharacter() {
   // fresh character; account-wide systems untouched
   Object.assign(player, {
     health: 100, maxHealth: 100,
-    attack: 1, attackSpeed: 1000, lastAttack: 0,
+    attack: 5, attackSpeed: 1000, lastAttack: 0,
     level: 1, xp: 0, xpToNext: 100,
     equipment: [null, null, null, null, null, null],
     classId: null, skills: {},
