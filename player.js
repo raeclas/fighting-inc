@@ -18,6 +18,9 @@ export const player = {
   // 6 item slots, each null or {itemId, plus}
   equipment: [null, null, null, null, null, null],
 
+  // overflow storage for drops when all 6 slots are full (no ground chests here)
+  stash: [],
+
   // class + known skills (skillId -> level 1..7)
   classId: null,
   skills: {},

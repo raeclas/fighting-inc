@@ -25,6 +25,7 @@ export function serialize(state, player) {
       xp: player.xp,
       xpToNext: player.xpToNext,
       equipment: player.equipment,
+      stash: player.stash,
       classId: player.classId,
       skills: player.skills,
     },
@@ -69,6 +70,7 @@ export function load(state, player) {
   if (s.legion) state.legion = s.legion;
   Object.assign(player, s.player ?? {});
   if (!Array.isArray(player.equipment)) player.equipment = [null, null, null, null, null, null];
+  if (!Array.isArray(player.stash)) player.stash = [];
   player.lastAttack = 0;
   return s;
 }

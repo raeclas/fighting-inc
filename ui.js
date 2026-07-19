@@ -133,6 +133,37 @@ export function renderEquipment(player, handlers) {
 
     container.appendChild(div);
   });
+
+  // Stash: overflow drops waiting for a free slot.
+  const stash = player.stash || [];
+  if (stash.length) {
+    const header = document.createElement("div");
+    header.innerHTML = `<strong>Stash (${stash.length})</strong> — free a slot, then Equip`;
+    header.style.marginTop = "8px";
+    container.appendChild(header);
+
+    stash.forEach((eq, i) => {
+      const def = getItem(eq.itemId);
+      const v = statValue(def, eq.plus);
+      const statLabel = def.stat === "atk" ? `ATK +${fmt(v)}` : `ATK SPD +${v}%`;
+      const div = document.createElement("div");
+      div.className = "equipSlot";
+      div.innerHTML = `<span>${def.name} +${eq.plus} — ${statLabel}</span> `;
+
+      const equip = document.createElement("button");
+      equip.textContent = "Equip";
+      equip.disabled = !player.equipment.includes(null);
+      equip.onclick = () => handlers.onEquipStash(i);
+      div.appendChild(equip);
+
+      const discard = document.createElement("button");
+      discard.textContent = "Discard";
+      discard.onclick = () => handlers.onDiscardStash(i);
+      div.appendChild(discard);
+
+      container.appendChild(div);
+    });
+  }
 }
 
 // handlers: { onSummon(bossId), onToggleAuto() }

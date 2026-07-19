@@ -131,19 +131,25 @@ function summonBoss(bossId) {
   logLine(`Summoned ${boss.name}.`);
 }
 
+// Give the player an item: into a free equipment slot, else the stash (never lost).
+function acquireItem(itemId, sourceLabel) {
+  const def = getItem(itemId);
+  const slot = player.equipment.indexOf(null);
+  if (slot !== -1) {
+    player.equipment[slot] = { itemId, plus: 0 };
+    logLine(`${sourceLabel} ${def.name}!`, "success");
+  } else {
+    player.stash.push({ itemId, plus: 0 });
+    logLine(`${sourceLabel} ${def.name} — slots full, sent to stash.`, "success");
+  }
+  renderEquipment(player, equipHandlers);
+}
+
 function rollBossDrops(boss) {
   // items
   for (const itemId of boss.itemIds) {
     if (Math.random() >= ITEM_DROP_CHANCE) continue;
-    const def = getItem(itemId);
-    const slot = player.equipment.indexOf(null);
-    if (slot === -1) {
-      logLine(`${def.name} dropped, but your bags are full. It disintegrates.`, "fail");
-    } else {
-      player.equipment[slot] = { itemId, plus: 0 };
-      logLine(`${boss.name} dropped ${def.name}!`, "success");
-      renderEquipment(player, equipHandlers);
-    }
+    acquireItem(itemId, `${boss.name} dropped`);
   }
 
   // skill ticket
@@ -232,6 +238,7 @@ function retireCharacter() {
     attack: 5, attackSpeed: 1000, lastAttack: 0,
     level: 1, xp: 0, xpToNext: 100,
     equipment: [null, null, null, null, null, null],
+    stash: [],
     classId: null, skills: {},
   });
   gameState.cooldowns = {};
@@ -296,7 +303,27 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onDiscard: discard };
+const equipHandlers = { onEnhance: enhance, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash };
+
+function equipStash(stashIdx) {
+  const slot = player.equipment.indexOf(null);
+  if (slot === -1) return logLine("No free slot — discard something first.", "fail");
+  const eq = player.stash.splice(stashIdx, 1)[0];
+  if (!eq) return;
+  player.equipment[slot] = eq;
+  logLine(`Equipped ${getItem(eq.itemId).name} +${eq.plus} from stash.`);
+  renderEquipment(player, equipHandlers);
+}
+
+function discardStash(stashIdx) {
+  const eq = player.stash[stashIdx];
+  if (!eq) return;
+  const def = getItem(eq.itemId);
+  if (!confirm(`Discard ${def.name} +${eq.plus} from stash? No refund.`)) return;
+  player.stash.splice(stashIdx, 1);
+  logLine(`Discarded ${def.name} +${eq.plus} from stash.`);
+  renderEquipment(player, equipHandlers);
+}
 
 function buy(itemId) {
   const def = getItem(itemId);
