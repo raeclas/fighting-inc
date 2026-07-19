@@ -11,7 +11,7 @@
 // (passive procs counted as EV damage). Not modeled: macros, gathering
 // buffs, Legion retirement, active-class play.
 import fs from "node:fs";
-import { zones, VARIANTS, spawnMob, getZone } from "./zones.js";
+import { zones, VARIANTS, spawnMob, BAG_CHANCE } from "./zones.js";
 import { getItem, statValue, aggregate } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { bosses, getBoss, spawnBossMob, TICKET_CHANCE, ITEM_DROP_CHANCE } from "./bosses.js";
@@ -81,7 +81,7 @@ function bestZoneRate() {
       const ttk = mob.maxHp / dps;
       const r = {
         zone: z, variant: v, name: mob.name,
-        copperPerSec: mob.copper / ttk,
+        copperPerSec: (mob.copper + BAG_CHANCE * mob.bag) / ttk,
         xpPerSec: mob.xp / ttk,
         killsPerSec: 1 / ttk,
       };

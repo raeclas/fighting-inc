@@ -4,7 +4,7 @@ import { gameState } from "./state.js";
 import { save, load, wipe } from "./saveSystem.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
-import { getZone, spawnMob } from "./zones.js";
+import { getZone, spawnMob, BAG_CHANCE } from "./zones.js";
 import { player } from "./player.js";
 import { getItem, aggregate } from "./items.js";
 import { tryEnhance, MAX_PLUS } from "./enhance.js";
@@ -321,6 +321,10 @@ function tick() {
 function killMob(mob) {
   pushBattleEvent({ type: "kill", copper: mob.copper });
   gameState.copper += mob.copper;
+  if (!mob.isBoss && Math.random() < BAG_CHANCE) {
+    gameState.copper += mob.bag;
+    pushBattleEvent({ type: "bag", copper: mob.bag });
+  }
   player.gainXP(mob.xp);
   const killKey = mob.isBoss ? mob.bossId : mob.zoneId;
   gameState.kills[killKey] = (gameState.kills[killKey] || 0) + 1;
@@ -421,7 +425,7 @@ function simulateBatch(dt) {
   const kills = Math.floor(dt / (mob.maxHp / netDps * 1000));
   if (kills <= 0) return;
 
-  const copper = kills * mob.copper;
+  const copper = Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag));
   gameState.copper += copper;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
   player.gainXP(kills * mob.xp);

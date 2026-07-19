@@ -23,26 +23,27 @@ node sim.js --compare  # diff current balance vs baseline.json; exit 1 on >25% d
 Not modeled (acceptable blind spots, revisit if they become primary income):
 macros, gathering buffs, Legion retirement loops, active-class play.
 
-## Baseline timeline (2026-07-19)
+## Baseline timeline (2026-07-19, after bags + zone taper)
 
 | t | milestone |
 |---|---|
-| 7s | Rafaros Staff bought |
-| 48m | Rafaros +10 (the slime crawl, 0.15 c/s) |
-| 51m | first Liberation Staff |
-| 2.4h | first Liberation +20 (E 625k copper) |
-| 3.2h | 5× Liberation +20 + Lumen +15, Hell Party farmable |
-| 4.3h | Hell Party items +20, Anton farmable |
-| 6.0h | Anton/Luke items done |
-| 10.3h | Globetrophy +20 — **all current content cleared, level 45** |
+| 5s | Rafaros Staff bought |
+| 30m | Rafaros +10, switch to Magtonium |
+| 1.4h | first Liberation +20 (E 625k copper) |
+| 1.8h | 5× Liberation +20 + Lumen +15, Hell Party farmable |
+| 2.4h | Hell Party items +20, Anton farmable |
+| 3.1h | Anton/Luke items done |
+| 5.2h | Globetrophy +20 — **all current content cleared, level 43** |
+
+Money bags (5% drop, wiki values) roughly doubled income economy-wide and
+halved the clear time; F3 (more content) is what stretches it back out.
 
 ## Findings
 
-**F1 — Early game is a desert.** 48 minutes of watching slimes at 0.15 c/s
-before the first satisfying milestone. Fix: money bags — rare drop
-(~1/20 kills) worth 15–30 kills, straight from the source game. Adds
-variance dopamine and roughly doubles early income without touching the
-curve elsewhere.
+**F1 — RESOLVED. Early game was a desert.** 48 minutes of 0.15 c/s before
+the first milestone. Fix applied: money bags at `BAG_CHANCE = 5%` with
+per-zone values from the wiki (Temple 30c … Golden Beryl 1e18c). First
+milestone now ~30m; big gold 💰 floater on drop for the variance dopamine.
 
 **F2 — RESOLVED. All wiki zones were strictly dominated by the placeholder
 goblin.** The three placeholder intro mobs (slime/slime2/goblin) had better
@@ -57,10 +58,10 @@ still waits on future gear tiers (see F3).
 release. The gear ladder (not the zone ladder) is the ceiling — see the
 gear-cliff note in the fun review. New item tiers stretch this linearly.
 
-**F4 — Legion is unreachable.** Full clear ends at level 45; retirement
-needs 50. The xp requirement grows ×1.5/level against roughly linear xp
-income. Fix: retire at ~35, or slow xpToNext growth to ×1.35, or add xp
-multipliers to later zones.
+**F4 — RESOLVED. Legion was unreachable.** Full clear ends level ~43;
+retirement needed 50 (xpToNext grows ×1.5/level against roughly linear xp
+income). Fix applied: `RETIRE_MIN_LEVEL = 35`, comfortably inside a clear.
+Revisit if xp curve or content length changes.
 
 **F5 — Enhancement is ~80% of all spending, and it's one number.** Spend
 per +20 runs 625k (Liberation) → 13.9M (Rosetta) → 69.5M (Kneecap) → 347M

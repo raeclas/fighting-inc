@@ -68,6 +68,7 @@ export function renderBattle(state, player) {
     if (e.type === "hit") { hits++; hitDmg += e.dmg; }
     else if (e.type === "skill") spawnFloater(fmtNum(e.dmg), "#ffb02e", 22);
     else if (e.type === "kill") spawnFloater(`+${fmtNum(e.copper)}c`, "#ffd700", 18);
+    else if (e.type === "bag") spawnFloater(`💰 +${fmtNum(e.copper)}c!`, "#ffd700", 26);
   }
   events.length = 0;
 
