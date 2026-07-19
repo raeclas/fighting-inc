@@ -3,6 +3,7 @@
 // v2: account + character roster. Live characters are plain data objects in
 // state.characters; snapshotChar strips transients (lastAttack).
 const KEY = "esrpg_save";
+import { getItem } from "./items.js";
 
 // The persisted fields of one character.
 export function snapshotChar(c) {
@@ -57,6 +58,11 @@ const ZONE_RENAMES = {
 function normalizeChar(c) {
   if (!Array.isArray(c.equipment)) c.equipment = [null, null, null, null, null, null];
   if (!Array.isArray(c.stash)) c.stash = [];
+  // quarantine item ids this build doesn't know (save from a newer/older
+  // version) — an unknown id in aggregate() would throw every tick and
+  // silently freeze the game
+  c.equipment = c.equipment.map(eq => (eq && getItem(eq.itemId)) ? eq : null);
+  c.stash = c.stash.filter(eq => eq && getItem(eq.itemId));
   c.int = c.int ?? 0;
   c.copper = c.copper ?? 0;
   c.lastAttack = 0;
