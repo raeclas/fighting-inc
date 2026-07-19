@@ -88,14 +88,15 @@ function pickClass(classId) {
 function effectiveStats() {
   const { atk, spdPct } = aggregate(player.equipment);
   const leg = legionBonuses(gameState);
-  const bonus = 1 + bestiaryBonus(gameState);
+  const passive = getClass(player.classId)?.passive;
+  const bonus = 1 + bestiaryBonus(gameState) + (passive?.atkPct ?? 0) / 100;
   // INT is flat 1:1 damage (decompiled formula), added before the % multipliers.
   const atkTotal = Math.round((player.attack + atk + player.int) * bonus);
   return {
     atk: atkTotal,
     // skillDamage is linear in atk, so the Legion skill% folds in here
     skillAtk: Math.round(atkTotal * (1 + leg.skillDmgPct / 100)),
-    interval: player.attackSpeed / (1 + (spdPct + leg.atkSpeedPct) / 100),
+    interval: player.attackSpeed / (1 + (spdPct + leg.atkSpeedPct + (passive?.atkSpdPct ?? 0)) / 100),
   };
 }
 

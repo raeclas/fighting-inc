@@ -99,7 +99,9 @@ function renderChips(state, player) {
 
 export function updateUI(state, player) {
   const { atk, spdPct } = aggregate(player.equipment);
-  const interval = Math.round(player.attackSpeed / (1 + (spdPct + legionBonuses(state).atkSpeedPct) / 100));
+  const clsPassive = getClass(player.classId)?.passive;
+  const interval = Math.round(player.attackSpeed /
+    (1 + (spdPct + legionBonuses(state).atkSpeedPct + (clsPassive?.atkSpdPct ?? 0)) / 100));
 
   updateHud(state, player);
   renderChips(state, player);
@@ -310,6 +312,12 @@ export function renderSkillBar(state, player, atk, onCast) {
   if (!cls) { container.textContent = ""; return; }
 
   container.innerHTML = "";
+  if (cls.passive) {
+    const div = document.createElement("div");
+    div.className = "skillEntry";
+    div.innerHTML = `<strong>${cls.passive.name}</strong> (passive) — ${cls.passive.desc}`;
+    container.appendChild(div);
+  }
   cls.skills.forEach(skill => {
     const level = player.skills[skill.id];
 

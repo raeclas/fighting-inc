@@ -7,17 +7,23 @@
 // target on the 4×4 field (radius 1 ≈ 5 mobs, 1.5 ≈ 9, 2.5 ≈ 13, 4 ≈ all 16).
 // Non-AoE skills hit the front mob only. This is the farm-vs-boss lever: wide
 // skills clear fields fast; on a boss (a field of 1) that width is wasted.
+// passive: the class's always-on stat skill (source: every hero has one).
+// atkPct multiplies damage; atkSpdPct speeds attacks — folded into effectiveStats.
 export const classes = [
   {
     id: "striker",
     name: "Striker",
     archetype: "active",
-    desc: "Cast skills yourself with Q/W/E/R. Big damage, big cooldowns. Wrists optional.",
+    desc: "Cast skills yourself with Q/W/E/R/T/F/D. Big damage, big cooldowns. Wrists optional.",
+    passive: { name: "Equip Boxing Gloves", desc: "+20% attack speed", atkSpdPct: 20 },
     skills: [
-      { id: "jab",     key: "Q", name: "Lightning Jab",       mult: 5,   cooldownMs: 2000 },
-      { id: "kick",    key: "W", name: "Cyclone Kick",        mult: 15,  cooldownMs: 6000,  aoe: true, radius: 1.5 },
-      { id: "barrage", key: "E", name: "Fist Barrage",        mult: 40,  cooldownMs: 15000, aoe: true, radius: 2.2 },
-      { id: "nuke",    key: "R", name: "One Inch Apocalypse", mult: 150, cooldownMs: 60000, aoe: true, radius: 4 },
+      { id: "jab",      key: "Q", name: "Lightning Jab",             mult: 5,    cooldownMs: 2000 },
+      { id: "kick",     key: "W", name: "Cyclone Kick",              mult: 15,   cooldownMs: 6000,   aoe: true, radius: 1.5 },
+      { id: "barrage",  key: "E", name: "Fist Barrage",              mult: 40,   cooldownMs: 15000,  aoe: true, radius: 2.2 },
+      { id: "nuke",     key: "R", name: "One Inch Apocalypse",       mult: 150,  cooldownMs: 60000,  aoe: true, radius: 4 },
+      { id: "powfist",  key: "T", name: "Power Fist",                mult: 450,  cooldownMs: 120000 },
+      { id: "kihop",    key: "F", name: "Kihop Low Kick",            mult: 1300, cooldownMs: 180000, aoe: true, radius: 2.2 },
+      { id: "climax",   key: "D", name: "Empress's Climactic Fist",  mult: 4000, cooldownMs: 300000, aoe: true, radius: 4 },
     ],
   },
   {
@@ -25,11 +31,15 @@ export const classes = [
     name: "Overmind",
     archetype: "passive",
     desc: "Skills fire themselves on a tiny chance per attack. Flashy AoE — a field-clearing farmer.",
+    passive: { name: "Psychic Focus", desc: "+20% attack power", atkPct: 20 },
     skills: [
-      { id: "spark",    name: "Psychic Spark", procChance: 0.10,  mult: 5 },
-      { id: "surge",    name: "Mind Surge",    procChance: 0.04,  mult: 15, aoe: true, radius: 1.5 },
-      { id: "storm",    name: "Synapse Storm", procChance: 0.015, mult: 40, aoe: true, radius: 2.5 },
-      { id: "collapse", name: "Ego Collapse",  procChance: 0.004, mult: 150, aoe: true, radius: 4 },
+      { id: "spark",    name: "Psychic Spark",     procChance: 0.10,   mult: 5 },
+      { id: "surge",    name: "Mind Surge",        procChance: 0.04,   mult: 15,   aoe: true, radius: 1.5 },
+      { id: "storm",    name: "Synapse Storm",     procChance: 0.015,  mult: 40,   aoe: true, radius: 2.5 },
+      { id: "collapse", name: "Ego Collapse",      procChance: 0.004,  mult: 150,  aoe: true, radius: 4 },
+      { id: "curtain",  name: "Elemental Curtain", procChance: 0.0015, mult: 450,  aoe: true, radius: 2.5 },
+      { id: "gate",     name: "The Gate",          procChance: 0.0006, mult: 1300, aoe: true, radius: 4 },
+      { id: "sesto",    name: "Sesto Elemental",   procChance: 0.0003, mult: 4000, aoe: true, radius: 4 },
     ],
   },
 ];
