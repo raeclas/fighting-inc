@@ -2,7 +2,8 @@
 // Smallest checks that fail if the enhance odds or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, MAX_PLUS } from "../enhance.js";
-import { statValue, aggregate, getItem } from "../items.js";
+import { statValue, intValue, aggregate, getItem } from "../items.js";
+import { bosses, spawnBossMob } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
 import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES } from "../legion.js";
 import { load, serialize } from "../saveSystem.js";
@@ -94,6 +95,39 @@ for (const cls of classes) {
     if (s.aoe) assert.ok(s.radius > 0, s.id);
   }
 }
+
+// boss schema: sane numbers, resolvable drop pools, unique ids, regen math
+const bossIds = new Set();
+for (const b of bosses) {
+  assert.ok(!bossIds.has(b.id), `dup boss id ${b.id}`);
+  bossIds.add(b.id);
+  assert.ok(b.hp > 0 && b.defense >= 0, b.id);
+  const r = b.regenPct ?? 0.005;
+  assert.ok(r >= 0 && r <= 1, `${b.id} regenPct`);
+  assert.ok(b.drops && b.drops.bounty > 0 && b.drops.itemChance > 0, `${b.id} drops`);
+  for (const id of b.drops.pool) assert.ok(getItem(id), `${b.id} pool item ${id}`);
+  if (b.drops.rare) assert.ok(getItem(b.drops.rare.itemId), `${b.id} rare item`);
+}
+const wall = spawnBossMob(bosses.find(b => b.id === "prey"));
+assert.equal(wall.regen, wall.maxHp); // 100%/s wall: full heal per second
+
+// item effect folding
+const fx = aggregate([
+  { itemId: "rosetta", plus: 0 },       // atkPct 10, int 30
+  { itemId: "kneecap", plus: 0 },       // crit 15% x2
+  { itemId: "ezraprophecy", plus: 0 },  // crit 20% x3 (better -> wins)
+  { itemId: "partyhat", plus: 0 },      // intProc 10% x2
+  { itemId: "tiamatcurse", plus: 0 },   // itemIntPct 30
+  { itemId: "talisman", plus: 0 },      // +1 all skills
+]);
+assert.equal(fx.atkPct, 10);
+assert.equal(fx.crit.mult, 3);              // best crit item only
+assert.equal(fx.intProcs.length, 1);
+assert.equal(fx.skillLevelBonus, 1);
+const rawInt = 30 + 80 + 1_200_000 + 20 + 76_000; // int sum at +0
+assert.equal(fx.int, Math.round(rawInt * 1.3));   // itemIntPct applies to total
+// int scales with plus on the primary-stat ramp
+assert.equal(intValue(getItem("rosetta"), 20), Math.round(30 * (4000 / 300)));
 
 // save migration: v1 single-player save -> v2 roster
 globalThis.localStorage = {
