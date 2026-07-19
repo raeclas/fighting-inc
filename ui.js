@@ -8,7 +8,6 @@ import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
-import { RETIRE_MIN_LEVEL, legionBonus } from "./legion.js";
 
 // 1234567 -> "1.23M"
 export function fmt(n) {
@@ -23,9 +22,9 @@ export function updateUI(state, player) {
   const interval = Math.round(player.attackSpeed / (1 + spdPct / 100));
 
   document.getElementById("playerHealth").textContent = player.health;
-  document.getElementById("playerCopper").textContent = fmt(state.copper);
-  document.getElementById("playerInt").textContent = fmt(state.int);
-  document.getElementById("playerDamage").textContent = fmt(player.attack + atk + state.int);
+  document.getElementById("playerCopper").textContent = fmt(player.copper);
+  document.getElementById("playerInt").textContent = fmt(player.int);
+  document.getElementById("playerDamage").textContent = fmt(player.attack + atk + player.int);
   document.getElementById("playerAttackSpeed").textContent = interval;
   document.getElementById("playerLevel").textContent = player.level;
   document.getElementById("playerXP").textContent = `${fmt(player.xp)}/${fmt(player.xpToNext)}`;
@@ -379,31 +378,13 @@ export function renderBestiary(state) {
   container.innerHTML = html;
 }
 
-let lastLegionKey = "";
-export function renderLegion(state, player, onRetire) {
-  // called every frame; only rebuild (and its button) when something changed
-  const key = `${player.level}|${state.legion.retired.length}`;
-  if (key === lastLegionKey) return;
-  lastLegionKey = key;
-
-  const container = document.querySelector(".legionPanel");
-  const bonus = legionBonus(state.legion.retired);
-  let html = `<div>Legion bonus: <strong>+${(bonus * 100).toFixed(1)}% damage</strong></div>`;
-
-  for (const r of state.legion.retired) {
-    const cls = getClass(r.classId);
-    html += `<div>· ${cls ? cls.name : r.classId} — retired at Lv${r.level}</div>`;
-  }
-  container.innerHTML = html;
-
-  const btn = document.createElement("button");
-  const ready = player.level >= RETIRE_MIN_LEVEL;
-  btn.textContent = ready
-    ? `Retire this character (Lv${player.level})`
-    : `Retire at Lv${RETIRE_MIN_LEVEL} (now Lv${player.level})`;
-  btn.disabled = !ready;
-  btn.onclick = onRetire;
-  container.appendChild(btn);
+let legionStubDone = false;
+export function renderLegion(state, player) {
+  // Placeholder until the Legion board lands (roster rebuild step 3).
+  if (legionStubDone) return;
+  legionStubDone = true;
+  document.querySelector(".legionPanel").innerHTML =
+    `<div>The Legion is reorganizing. Roster board coming soon.</div>`;
 }
 
 // One panel visible at a time; tab bar toggles the .active class.

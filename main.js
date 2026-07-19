@@ -14,7 +14,6 @@ import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
-import { RETIRE_MIN_LEVEL, legionBonus } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
 import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE } from "./bosses.js";
@@ -83,10 +82,10 @@ function pickClass(classId) {
 
 function effectiveStats() {
   const { atk, spdPct } = aggregate(player.equipment);
-  const bonus = 1 + bestiaryBonus(gameState) + legionBonus(gameState.legion.retired);
+  const bonus = 1 + bestiaryBonus(gameState);
   // INT is flat 1:1 damage (decompiled formula), added before the % multipliers.
   return {
-    atk: Math.round((player.attack + atk + gameState.int) * bonus),
+    atk: Math.round((player.attack + atk + player.int) * bonus),
     interval: player.attackSpeed / (1 + spdPct / 100),
   };
 }
@@ -126,8 +125,8 @@ window.addEventListener("keydown", e => {
 ///// BOSSES /////
 function summonBoss(bossId) {
   const boss = getBoss(bossId);
-  if (gameState.copper < boss.summonCost) return logLine(`Need ${fmt(boss.summonCost)}c to summon ${boss.name}.`, "fail");
-  gameState.copper -= boss.summonCost;
+  if (player.copper < boss.summonCost) return logLine(`Need ${fmt(boss.summonCost)}c to summon ${boss.name}.`, "fail");
+  player.copper -= boss.summonCost;
   gameState.field = [spawnBossMob(boss)];
   logLine(`Summoned ${boss.name}.`);
 }
@@ -175,8 +174,8 @@ function rollBossDrops(boss) {
 ///// MACRO WORKSHOP /////
 const macroHandlers = {
   onUnlock() {
-    if (gameState.copper < UNLOCK_COST) return logLine("Can't afford the macro workshop yet.", "fail");
-    gameState.copper -= UNLOCK_COST;
+    if (player.copper < UNLOCK_COST) return logLine("Can't afford the macro workshop yet.", "fail");
+    player.copper -= UNLOCK_COST;
     gameState.macro.unlocked = true;
     logLine("Macro Workshop unlocked. Definitely not bannable.", "success");
     refreshMacro();
@@ -184,15 +183,15 @@ const macroHandlers = {
   onToggle() { gameState.macro.enabled = !gameState.macro.enabled; refreshMacro(); },
   onUpgradeInterval() {
     const cost = intervalUpgradeCost(gameState.macro.intervalLevel);
-    if (gameState.copper < cost) return logLine("Fingers not affordable.", "fail");
-    gameState.copper -= cost;
+    if (player.copper < cost) return logLine("Fingers not affordable.", "fail");
+    player.copper -= cost;
     gameState.macro.intervalLevel++;
     refreshMacro();
   },
   onBuySlot() {
     const cost = slotCost(gameState.macro.slots.length + 1);
-    if (gameState.copper < cost) return logLine("Can't afford another macro step.", "fail");
-    gameState.copper -= cost;
+    if (player.copper < cost) return logLine("Can't afford another macro step.", "fail");
+    player.copper -= cost;
     gameState.macro.slots.push(null);
     refreshMacro();
   },
@@ -220,38 +219,6 @@ function runMacro() {
     m.ptr = (idx + 1) % m.slots.length;
     break;
   }
-}
-
-///// LEGION /////
-function retireCharacter() {
-  if (player.level < RETIRE_MIN_LEVEL) return;
-  const cls = getClass(player.classId);
-  if (!confirm(`Retire your Lv${player.level} ${cls.name} into the Legion? ` +
-    `Class, level, skills and equipment are gone forever. ` +
-    `Copper, bestiary, gathering and macros stay.`)) return;
-
-  gameState.legion.retired.push({ classId: player.classId, level: player.level });
-  logLine(`${cls.name} retired at Lv${player.level}. The Legion grows.`, "success");
-
-  // fresh character; account-wide systems untouched
-  Object.assign(player, {
-    health: 100, maxHealth: 100,
-    attack: 5, attackSpeed: 1000, lastAttack: 0,
-    level: 1, xp: 0, xpToNext: 100,
-    equipment: [null, null, null, null, null, null],
-    stash: [],
-    classId: null, skills: {},
-  });
-  gameState.cooldowns = {};
-  gameState.procCounts = {};
-  gameState.field = [];
-  gameState.currentZoneId = null;
-  gameState.macro.enabled = false;
-
-  renderEquipment(player, equipHandlers);
-  refreshMacro();
-  renderClassSelect(pickClass);
-  save(gameState, player);
 }
 
 ///// GATHERING /////
@@ -330,8 +297,8 @@ function buy(itemId) {
   const def = getItem(itemId);
   const slot = player.equipment.indexOf(null);
   if (slot === -1) return logLine("No free item slots.", "fail");
-  if (gameState.copper < def.cost) return logLine(`Not enough copper for ${def.name}.`, "fail");
-  gameState.copper -= def.cost;
+  if (player.copper < def.cost) return logLine(`Not enough copper for ${def.name}.`, "fail");
+  player.copper -= def.cost;
   player.equipment[slot] = { itemId, plus: 0 };
   logLine(`Bought ${def.name} for ${fmt(def.cost)}c.`, "success");
   renderEquipment(player, equipHandlers);
@@ -343,7 +310,7 @@ function enhance(slotIdx, times) {
   const def = getItem(eq.itemId);
 
   for (let i = 0; i < times; i++) {
-    const { result, chance } = tryEnhance(gameState, eq, def, Math.random, gameState.gathering.buffs);
+    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs);
     if (result === "max") { logLine(`${def.name} is already +${MAX_PLUS}.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
     const pct = (chance * 100).toFixed(2);
@@ -392,7 +359,7 @@ function tick() {
 function resolveKill(mob) {
   if (mob.copper > 0) {
     pushBattleEvent({ type: "kill", copper: mob.copper });
-    gameState.copper += mob.copper;
+    player.copper += mob.copper;
   }
   player.gainXP(mob.xp);
 
@@ -401,8 +368,8 @@ function resolveKill(mob) {
     const boss = getBoss(mob.bossId);
     logLine(`${boss.name} defeated! Refund ${fmt(mob.copper)}c.`, "success");
     rollBossDrops(boss);
-    if (gameState.autoResummon && gameState.copper >= boss.summonCost) {
-      gameState.copper -= boss.summonCost;
+    if (gameState.autoResummon && player.copper >= boss.summonCost) {
+      player.copper -= boss.summonCost;
       gameState.field = [spawnBossMob(boss)];
     } else if (gameState.currentZoneId) {
       selectZone(gameState.currentZoneId, gameState.currentVariant);
@@ -413,7 +380,7 @@ function resolveKill(mob) {
   }
 
   if (mob.isFieldBoss) {
-    gameState.copper += mob.bag; // guaranteed bag (map: 100% drop)
+    player.copper += mob.bag; // guaranteed bag (map: 100% drop)
     pushBattleEvent({ type: "bag", copper: mob.bag });
     gameState.fieldKills[mob.zoneId] = (gameState.fieldKills[mob.zoneId] || 0) + 1;
     logLine(`${mob.name} felled! Bag: +${fmt(mob.bag)}c.`, "success");
@@ -423,10 +390,10 @@ function resolveKill(mob) {
   }
 
   // regular field mob: INT, rare bag roll, refill the slot — or a field boss joins the ranks
-  if (mob.intPerKill) gameState.int += mob.intPerKill;
+  if (mob.intPerKill) player.int += mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
   if (Math.random() < BAG_CHANCE) {
-    gameState.copper += mob.bag;
+    player.copper += mob.bag;
     pushBattleEvent({ type: "bag", copper: mob.bag });
   }
   const zone = getZone(mob.zoneId);
@@ -533,8 +500,8 @@ function simulateBatch(dt) {
   if (kills <= 0) return;
 
   const copper = Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag));
-  gameState.copper += copper;
-  gameState.int += kills * mob.intPerKill;
+  player.copper += copper;
+  player.int += kills * mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
   player.gainXP(kills * mob.xp);
 
@@ -550,7 +517,7 @@ function render() {
   renderBattle(gameState, player);
   renderSkillBar(gameState, player, effectiveStats().atk, castSkill);
   renderBestiary(gameState);
-  renderLegion(gameState, player, retireCharacter);
+  renderLegion(gameState, player);
 }
 
 ///// SAVE ON EXIT /////

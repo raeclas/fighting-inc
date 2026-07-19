@@ -15,6 +15,11 @@ export const player = {
   xp: 0,
   xpToNext: 100,
 
+  // per-character resources (Legion rebuild): each roster character farms
+  // and spends its own copper and grinds its own INT.
+  int: 0,     // flat 1:1 damage (decompiled formula)
+  copper: 0,
+
   // 6 item slots, each null or {itemId, plus}
   equipment: [null, null, null, null, null, null],
 

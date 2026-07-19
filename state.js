@@ -6,12 +6,15 @@ import { defaultGathering } from "./gathering.js";
 export const gameState = {
   macro: defaultMacro(),
   gathering: defaultGathering(),
-  legion: { retired: [] },  // [{classId, level}]
   total_time: 0,
   last_save: 0,
 
-  copper: 0,
-  int: 0,               // account-level flat +damage; survives Legion retirement
+  // Legion roster: account holds characters; the active one is what plays.
+  // int + copper live on each character, not here.
+  characters: [],       // plain char objects (see player.js shape)
+  active: 0,
+  slots: 1,
+
   kills: {},            // zoneId/bossId -> lifetime kill count (feeds bestiary)
   fieldKills: {},       // zoneId -> field-boss kill count
 
