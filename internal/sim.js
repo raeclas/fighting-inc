@@ -11,7 +11,7 @@
 // (passive procs counted as EV damage). Not modeled: macros, gathering
 // buffs, Legion retirement, active-class play.
 import fs from "node:fs";
-import { zones, VARIANTS, spawnMob, BAG_CHANCE } from "../zones.js";
+import { zones, VARIANTS, spawnMob, BAG_CHANCE, FIELD_COLS, FIELD_ROWS } from "../zones.js";
 import { getItem, statValue, aggregate } from "../items.js";
 import { enhanceChance } from "../enhance.js";
 import { bosses, getBoss, spawnBossMob, TICKET_CHANCE, ITEM_DROP_CHANCE } from "../bosses.js";
@@ -70,6 +70,32 @@ function dpsAgainst(mob) {
   return (Math.max(0, atk - mob.defense) + procEV) / interval - mob.regen;
 }
 
+// mobs of the 4×4 field within `radius` of the centre — AoE coverage.
+function aoeCoverage(radius) {
+  let n = 0;
+  for (let gy = 0; gy < FIELD_ROWS; gy++)
+    for (let gx = 0; gx < FIELD_COLS; gx++)
+      if (Math.hypot(gx - 1.5, gy - 1.5) <= radius) n++;
+  return Math.max(1, n);
+}
+
+// Kills/sec against a field of these mobs. Auto-attack is single-target (≤1
+// kill per hit); each AoE proc kills up to its coverage; each source kills at
+// most 1 mob per mob it hits. This is the farm-vs-boss lever in the tracker.
+function fieldKillsPerSec(mob) {
+  const { atk, interval } = stats();
+  const hp = mob.maxHp;
+  let killsPerAtk = Math.min(1, Math.max(0, atk - mob.defense) / hp); // auto, single-target
+  for (const s of CLS.skills) {
+    const lvl = P.skills[s.id];
+    if (!lvl) continue;
+    const dmg = skillDamage(s, lvl, atk);
+    const cover = s.aoe ? aoeCoverage(s.radius) : 1;
+    killsPerAtk += s.procChance * cover * Math.min(1, dmg / hp);
+  }
+  return killsPerAtk / interval;
+}
+
 // Time to kill, floored at one attack interval: you can't attack faster than
 // your attack speed, so a one-shot still takes a full swing. Without this
 // floor a huge-DPS character "one-shots" low-HP mobs in ~0ms and the lowest
@@ -87,13 +113,13 @@ function bestZoneRate() {
   for (const z of zones) {
     for (let v = 0; v < VARIANTS.length; v++) {
       const mob = spawnMob(z, v);
-      const ttk = timeToKill(mob);
-      if (!isFinite(ttk)) continue;
+      const kps = fieldKillsPerSec(mob);
+      if (kps <= 0) continue;
       const r = {
         zone: z, variant: v, name: mob.name,
-        copperPerSec: (mob.copper + BAG_CHANCE * mob.bag) / ttk,
-        xpPerSec: mob.xp / ttk,
-        killsPerSec: 1 / ttk,
+        copperPerSec: kps * (mob.copper + BAG_CHANCE * mob.bag),
+        xpPerSec: kps * mob.xp,
+        killsPerSec: kps,
       };
       if (!best || r.copperPerSec > best.copperPerSec) best = r;
     }

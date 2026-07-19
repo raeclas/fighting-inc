@@ -29,8 +29,13 @@ export function updateUI(state, player) {
   document.getElementById("playerLevel").textContent = player.level;
   document.getElementById("playerXP").textContent = `${fmt(player.xp)}/${fmt(player.xpToNext)}`;
 
-  const mob = state.currentMob;
-  document.getElementById("mobName").textContent = mob ? mob.name : "No zone selected";
+  const field = state.field || [];
+  const mob = field.find(m => m.hp > 0) || field[0] || null;
+  const living = field.filter(m => m.hp > 0).length;
+  const solo = field.length <= 1;
+
+  document.getElementById("mobName").textContent =
+    mob ? (solo ? mob.name : `${mob.name}  (${living} in the field)`) : "No zone selected";
   document.getElementById("mobHealth").textContent = mob ? `${fmt(Math.max(0, mob.hp))}/${fmt(mob.maxHp)}` : "";
   document.getElementById("mobDefense").textContent = mob ? fmt(mob.defense) : "";
   document.getElementById("mobRegen").textContent = mob ? fmt(mob.regen) : "";
@@ -38,8 +43,8 @@ export function updateUI(state, player) {
   document.getElementById("mobKills").textContent = mob ? (state.kills[mob.isBoss ? mob.bossId : mob.zoneId] || 0) : "";
 
   const fbBtn = document.getElementById("huntFieldBoss");
-  const onFieldBoss = mob && mob.isFieldBoss;
-  fbBtn.disabled = !state.currentZoneId || onFieldBoss;
+  const soloFieldBoss = solo && mob && mob.isFieldBoss;
+  fbBtn.disabled = !state.currentZoneId || soloFieldBoss;
   fbBtn.style.display = state.currentZoneId ? "" : "none";
   const fk = state.currentZoneId ? (state.fieldKills[state.currentZoneId] || 0) : 0;
   document.getElementById("fieldKills").textContent =

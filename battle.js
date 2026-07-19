@@ -94,9 +94,12 @@ export function renderBattle(state, player) {
   ctx.fillStyle = "rgba(90, 70, 40, 0.35)";
   ctx.fillRect(0, H - 44, W, 44); // ground
 
-  const mob = state.currentMob;
+  const field = state.field || [];
+  const solo = field.length <= 1;
+  const primary = field.find(m => m.hp > 0) || field[0] || null;
+  const flashing = now < flashUntil;
 
-  // hero (lunges toward the mob while attacking)
+  // hero (lunges toward the field while attacking)
   let heroX = HERO.x;
   if (now < attackUntil) {
     const t = 1 - (attackUntil - now) / 250;
@@ -104,22 +107,18 @@ export function renderBattle(state, player) {
   }
   drawActor(player.classId ?? "hero", heroX, HERO.y, now, { scale: 2 });
 
-  // mob (flash + shake when hit)
-  if (mob) {
-    const flashing = now < flashUntil;
+  if (!primary) {
+    ctx.fillStyle = "rgba(128,128,128,0.8)";
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Pick a hunting ground", MOB.x, MOB.y - 40);
+  } else if (solo) {
+    // single big enemy (summon boss or a solo-hunted field boss)
+    const mob = primary;
     const shake = flashing ? (Math.random() - 0.5) * 6 : 0;
-    const big = mob.isBoss || mob.isFieldBoss;
-    const key = mob.isBoss ? mob.bossId : mob.zoneId;
-    drawActor(key, MOB.x + shake, MOB.y, now, {
-      scale: big ? 1.6 : 1,
-      flip: true,
-      bright: flashing,
-    });
-
-    // HP bar
-    const bw = big ? 160 : 110;
-    const bx = MOB.x - bw / 2;
-    const by = big ? 14 : 34;
+    drawActor(mob.isBoss ? mob.bossId : mob.zoneId, MOB.x + shake, MOB.y, now,
+      { scale: 1.6, flip: true, bright: flashing });
+    const bw = 160, bx = MOB.x - bw / 2, by = 14;
     const frac = Math.max(0, mob.hp / mob.maxHp);
     ctx.fillStyle = "rgba(0,0,0,0.45)";
     ctx.fillRect(bx - 1, by - 1, bw + 2, 10);
@@ -130,10 +129,28 @@ export function renderBattle(state, player) {
     ctx.textAlign = "center";
     ctx.fillText(mob.name, MOB.x, by - 5);
   } else {
-    ctx.fillStyle = "rgba(128,128,128,0.8)";
-    ctx.font = "13px system-ui, sans-serif";
+    // a field: draw the 4×4 grid as a cluster with tiny HP bars
+    const cellW = 30, cellH = 26, cols = 4;
+    const ox = MOB.x - (cols * cellW) / 2 + cellW / 2;
+    const oy = 58;
+    for (const m of field) {
+      if (m.hp <= 0) continue;
+      const jitter = flashing ? (Math.random() - 0.5) * 4 : 0;
+      const x = ox + (m.gx || 0) * cellW + jitter;
+      const y = oy + (m.gy || 0) * cellH;
+      drawActor(m.zoneId, x, y, now, { scale: m.isFieldBoss ? 0.85 : 0.5, flip: true, bright: flashing });
+      const frac = Math.max(0, m.hp / m.maxHp);
+      if (frac < 1) {
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(x - 11, y + 2, 22, 3);
+        ctx.fillStyle = m.isFieldBoss ? "#ffd700" : "#3fbf3f";
+        ctx.fillRect(x - 11, y + 2, 22 * frac, 3);
+      }
+    }
+    ctx.fillStyle = "#fff";
+    ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("Pick a hunting ground", MOB.x, MOB.y - 40);
+    ctx.fillText(`${primary.name} ×${field.filter(m => m.hp > 0).length}`, MOB.x, oy - 12);
   }
 
   // floating damage numbers

@@ -4,7 +4,7 @@ import { gameState } from "./state.js";
 import { save, load, wipe } from "./saveSystem.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
-import { getZone, spawnMob, spawnFieldBoss, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
+import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
 import { player } from "./player.js";
 import { getItem, aggregate } from "./items.js";
 import { tryEnhance, MAX_PLUS } from "./enhance.js";
@@ -22,20 +22,35 @@ import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE 
 ///// LOAD SAVE /////
 const savedGame = load(gameState, player);
 
+// The front (first living) mob — the auto-attack target and the "primary" mob
+// for UI/boss logic. A boss is just a field of one.
+function frontMob() {
+  return gameState.field.find(m => m.hp > 0) || null;
+}
+
+function replaceInField(oldMob, newMob) {
+  const i = gameState.field.indexOf(oldMob);
+  if (i === -1) return;
+  newMob.gx = oldMob.gx;
+  newMob.gy = oldMob.gy;
+  gameState.field[i] = newMob;
+}
+
 function selectZone(zoneId, variantIndex) {
   const zone = getZone(zoneId);
   if (!zone) return;
   gameState.currentZoneId = zoneId;
   gameState.currentVariant = variantIndex;
-  gameState.currentMob = spawnMob(zone, variantIndex);
+  gameState.field = spawnField(zone, variantIndex);
 }
 
-// Hunt the field boss for the currently selected zone/variant.
+// Hunt the field boss for the currently selected zone/variant (solo).
 function huntFieldBoss() {
   if (!gameState.currentZoneId) return logLine("Select a hunting ground first.", "fail");
   const zone = getZone(gameState.currentZoneId);
-  gameState.currentMob = spawnFieldBoss(zone, gameState.currentVariant);
-  logLine(`A ${gameState.currentMob.name} lumbers into view.`);
+  const fb = spawnFieldBoss(zone, gameState.currentVariant);
+  gameState.field = [fb];
+  logLine(`A ${fb.name} lumbers into view.`);
 }
 
 // resume farming where the save left off
@@ -75,17 +90,29 @@ function effectiveStats() {
   };
 }
 
+// Apply a skill's damage. AoE hits every living mob within its grid-radius of
+// the target; single-target hits just the target. Targets are snapshotted so a
+// slot that respawns mid-cast isn't hit twice.
+function applySkillDamage(skill, dmg, target) {
+  const hits = skill.aoe
+    ? gameState.field.filter(m => m.hp > 0 && gridDist(m, target) <= skill.radius)
+    : [target];
+  for (const m of hits) {
+    m.hp -= dmg;
+    if (m.hp <= 0) resolveKill(m);
+  }
+}
+
 function castSkill(skill) {
   const level = player.skills[skill.id];
-  const mob = gameState.currentMob;
-  if (!level || !mob) return;
+  const target = frontMob();
+  if (!level || !target) return;
   if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) return;
 
   gameState.cooldowns[skill.id] = gameState.total_time + skill.cooldownMs;
   const dmg = skillDamage(skill, level, effectiveStats().atk);
-  mob.hp -= dmg;
+  applySkillDamage(skill, dmg, target);
   pushBattleEvent({ type: "skill", dmg });
-  if (mob.hp <= 0) killMob(mob);
 }
 
 window.addEventListener("keydown", e => {
@@ -100,7 +127,7 @@ function summonBoss(bossId) {
   const boss = getBoss(bossId);
   if (gameState.copper < boss.summonCost) return logLine(`Need ${fmt(boss.summonCost)}c to summon ${boss.name}.`, "fail");
   gameState.copper -= boss.summonCost;
-  gameState.currentMob = spawnBossMob(boss);
+  gameState.field = [spawnBossMob(boss)];
   logLine(`Summoned ${boss.name}.`);
 }
 
@@ -209,7 +236,7 @@ function retireCharacter() {
   });
   gameState.cooldowns = {};
   gameState.procCounts = {};
-  gameState.currentMob = null;
+  gameState.field = [];
   gameState.currentZoneId = null;
   gameState.macro.enabled = false;
 
@@ -331,8 +358,10 @@ function tick() {
   }
 }
 
-// Mob died: rewards, drops, respawn. Shared by live and (indirectly) batch.
-function killMob(mob) {
+// A single mob died: rewards, drops, and refill its slot (or transition the
+// whole field for a boss). Regular field mobs respawn in place so the grid
+// stays full to farm.
+function resolveKill(mob) {
   if (mob.copper > 0) {
     pushBattleEvent({ type: "kill", copper: mob.copper });
     gameState.copper += mob.copper;
@@ -346,26 +375,26 @@ function killMob(mob) {
     rollBossDrops(boss);
     if (gameState.autoResummon && gameState.copper >= boss.summonCost) {
       gameState.copper -= boss.summonCost;
-      gameState.currentMob = spawnBossMob(boss);
+      gameState.field = [spawnBossMob(boss)];
     } else if (gameState.currentZoneId) {
       selectZone(gameState.currentZoneId, gameState.currentVariant);
     } else {
-      gameState.currentMob = null;
+      gameState.field = [];
     }
     return;
   }
 
   if (mob.isFieldBoss) {
-    // guaranteed bag (map: 100% drop), separate kill counter, back to farming
-    gameState.copper += mob.bag;
+    gameState.copper += mob.bag; // guaranteed bag (map: 100% drop)
     pushBattleEvent({ type: "bag", copper: mob.bag });
     gameState.fieldKills[mob.zoneId] = (gameState.fieldKills[mob.zoneId] || 0) + 1;
     logLine(`${mob.name} felled! Bag: +${fmt(mob.bag)}c.`, "success");
-    selectZone(mob.zoneId, mob.variant); // return to the regular mob
+    if (gameState.field.length === 1) selectZone(mob.zoneId, mob.variant); // solo hunt → back to field
+    else replaceInField(mob, spawnMob(getZone(mob.zoneId), mob.variant));   // elite in the ranks → regular
     return;
   }
 
-  // regular mob: rare bag roll, then respawn — or a field boss wanders in
+  // regular field mob: rare bag roll, refill the slot — or a field boss joins the ranks
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
   if (Math.random() < BAG_CHANCE) {
     gameState.copper += mob.bag;
@@ -373,16 +402,16 @@ function killMob(mob) {
   }
   const zone = getZone(mob.zoneId);
   if (Math.random() < FIELD_BOSS_SPAWN_CHANCE) {
-    gameState.currentMob = spawnFieldBoss(zone, mob.variant);
-    logLine(`A ${gameState.currentMob.name} wanders in!`);
+    replaceInField(mob, spawnFieldBoss(zone, mob.variant));
+    logLine(`A field boss wanders into the ranks!`);
   } else {
-    gameState.currentMob = spawnMob(zone, mob.variant);
+    replaceInField(mob, spawnMob(zone, mob.variant));
   }
 }
 
 // Small dt: attack-by-attack with real RNG procs, macro, cooldowns.
 function simulateLive(dt) {
-  if (!gameState.currentMob) return;
+  if (!frontMob()) return;
 
   runMacro();
 
@@ -398,65 +427,80 @@ function simulateLive(dt) {
   let guard = 0;
   while (gameState.total_time - player.lastAttack >= interval && guard++ < 1000) {
     player.lastAttack += interval;
-    const mob = gameState.currentMob;
-    if (!mob) break;
+    const target = frontMob();
+    if (!target) break;
 
-    const dealt = Math.max(0, atk - mob.defense);
-    mob.hp -= dealt;
+    // auto-attack: single target (the front mob)
+    const dealt = Math.max(0, atk - target.defense);
+    target.hp -= dealt;
     pushBattleEvent({ type: "hit", dmg: dealt });
+    if (target.hp <= 0) resolveKill(target);
 
-    // passive class: each known skill rolls its proc chance per attack
+    // passive class: each known skill rolls its proc chance per attack; AoE
+    // skills sweep the field around the front mob (the farm-vs-boss lever).
     if (cls && cls.archetype === "passive") {
+      const center = frontMob() || target;
       for (const skill of cls.skills) {
         const level = player.skills[skill.id];
         if (level && Math.random() < skill.procChance) {
           const procDmg = skillDamage(skill, level, atk);
-          mob.hp -= procDmg;
+          applySkillDamage(skill, procDmg, center);
           pushBattleEvent({ type: "skill", dmg: procDmg });
           gameState.procCounts[skill.id] = (gameState.procCounts[skill.id] || 0) + 1;
         }
       }
     }
-
-    if (mob.hp <= 0) killMob(mob);
   }
 
-  const mob = gameState.currentMob;
-  if (mob) mob.hp = Math.min(mob.maxHp, mob.hp + (mob.regen / 1000) * dt);
-
-  if (player.health <= 0) {
-    player.reset();
-    gameState.currentMob = null;
+  // mob regen (rare; zones are 0)
+  for (const m of gameState.field) {
+    if (m.hp > 0 && m.regen) m.hp = Math.min(m.maxHp, m.hp + (m.regen / 1000) * dt);
   }
+
+  if (player.health <= 0) player.reset();
 }
 
-// Big dt (offline, throttled background tab): closed-form expected value.
-// ponytail: auto-attack + passive-proc EV only — no macro skills, no boss
-// farming offline (an active boss reverts to the selected zone first).
-function simulateBatch(dt) {
-  if (gameState.currentMob?.isBoss) {
-    if (gameState.currentZoneId) selectZone(gameState.currentZoneId, gameState.currentVariant);
-    else gameState.currentMob = null;
+// How many of the 4×4 field a radius covers (from the field centre) — used to
+// value AoE throughput offline.
+function aoeCoverage(radius) {
+  let n = 0;
+  for (let gy = 0; gy < FIELD_ROWS; gy++) {
+    for (let gx = 0; gx < FIELD_COLS; gx++) {
+      if (Math.hypot(gx - 1.5, gy - 1.5) <= radius) n++;
+    }
   }
-  const mob = gameState.currentMob;
+  return Math.max(1, n);
+}
+
+// Big dt (offline, throttled background tab): closed-form expected value over
+// the whole field, so AoE farmers earn their field-clear advantage offline too.
+// ponytail: auto-attack + passive-proc EV only — no macro skills, no boss farming
+// offline (an active boss reverts to the selected zone field first).
+function simulateBatch(dt) {
+  if (frontMob()?.isBoss) {
+    if (gameState.currentZoneId) selectZone(gameState.currentZoneId, gameState.currentVariant);
+    else gameState.field = [];
+  }
+  const mob = frontMob();
   player.lastAttack = gameState.total_time;
-  if (!mob) return;
+  if (!mob || mob.isBoss || mob.isFieldBoss) return; // only estimate regular zone farming
 
   const { atk, interval } = effectiveStats();
   const cls = getClass(player.classId);
 
-  let perAttack = Math.max(0, atk - mob.defense);
+  // total damage the field soaks per attack: auto hits 1, each AoE proc hits its coverage
+  let fieldDmgPerAttack = Math.max(0, atk - mob.defense);
   if (cls && cls.archetype === "passive") {
     for (const skill of cls.skills) {
       const level = player.skills[skill.id];
-      if (level) perAttack += skill.procChance * skillDamage(skill, level, atk);
+      if (!level) continue;
+      const per = skill.procChance * skillDamage(skill, level, atk);
+      fieldDmgPerAttack += per * (skill.aoe ? aoeCoverage(skill.radius) : 1);
     }
   }
 
-  const netDps = perAttack / (interval / 1000) - mob.regen;
-  if (netDps <= 0) return;
-
-  const kills = Math.floor(dt / (mob.maxHp / netDps * 1000));
+  const fieldDmgPerSec = fieldDmgPerAttack / (interval / 1000);
+  const kills = Math.floor((dt / 1000) * fieldDmgPerSec / mob.maxHp);
   if (kills <= 0) return;
 
   const copper = Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag));

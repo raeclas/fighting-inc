@@ -1,15 +1,11 @@
 [
   {
     "t": 0,
-    "desc": "farm spot: Kiln-Ash Drudge (5x) (0.02 c/s)"
+    "desc": "farm spot: Kiln-Ash Drudge (0.02 c/s)"
   },
   {
     "t": 62,
     "desc": "bought Rafaros Staff"
-  },
-  {
-    "t": 3662,
-    "desc": "farm spot: Kiln-Ash Drudge (0.08 c/s)"
   },
   {
     "t": 10659,
@@ -28,143 +24,131 @@
     "desc": "Defined Darkness +10 (E[cost] 2574)"
   },
   {
+    "t": 11752,
+    "desc": "farm spot: Kiln-Ash Drudge (20x) (7.28 c/s)"
+  },
+  {
     "t": 12439,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 67105,
+    "t": 67118,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 67105,
-    "desc": "farm spot: Kiln-Ash Drudge (20x) (42.72 c/s)"
-  },
-  {
-    "t": 67222,
+    "t": 67265,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 79453,
+    "t": 82675,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 79540,
+    "t": 82761,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 89068,
+    "t": 91952,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 89068,
-    "desc": "farm spot: Slagworks Grunt (77.71 c/s)"
+    "t": 91952,
+    "desc": "farm spot: Slagworks Grunt (5x) (77.51 c/s)"
   },
   {
-    "t": 89197,
+    "t": 92081,
     "desc": "bought Lumen Caligo"
   },
   {
-    "t": 92797,
-    "desc": "farm spot: Slagworks Grunt (5x) (102.25 c/s)"
-  },
-  {
-    "t": 99491,
+    "t": 102396,
     "desc": "Lumen Caligo +15 (E[cost] 1.05M)"
   },
   {
-    "t": 99519,
+    "t": 102424,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 99519,
-    "desc": "farm spot: Slagworks Grunt (178.21 c/s)"
-  },
-  {
-    "t": 102584,
+    "t": 105497,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 102584,
-    "desc": "farm spot: Slagworks Grunt (5x) (230.24 c/s)"
-  },
-  {
-    "t": 102606,
+    "t": 105519,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 105045,
+    "t": 107958,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 105134,
+    "t": 107958,
+    "desc": "farm spot: Slagworks Grunt (20x) (274.80 c/s)"
+  },
+  {
+    "t": 108047,
     "desc": "learned Mind Surge (ticket EV)"
   },
   {
-    "t": 105134,
+    "t": 108047,
     "desc": "got Rosetta Stone from Hell Party (E[13] kills)"
   },
   {
-    "t": 141365,
+    "t": 127602,
     "desc": "Rosetta Stone +20 (E[cost] 12.14M)"
   },
   {
-    "t": 141412,
+    "t": 127632,
     "desc": "got Party Hat of Despair from Hell Party (E[13] kills)"
   },
   {
-    "t": 167898,
+    "t": 141907,
     "desc": "Party Hat of Despair +20 (E[cost] 12.14M)"
   },
   {
-    "t": 168145,
+    "t": 142084,
     "desc": "learned Synapse Storm (ticket EV)"
   },
   {
-    "t": 168145,
+    "t": 142084,
     "desc": "got Anton's Left Kneecap from Anton (E[13] kills)"
   },
   {
-    "t": 249747,
+    "t": 142084,
+    "desc": "farm spot: Loamgrave Hauler (2547.79 c/s)"
+  },
+  {
+    "t": 165063,
     "desc": "Anton's Left Kneecap +20 (E[cost] 60.70M)"
   },
   {
-    "t": 249747,
-    "desc": "farm spot: Slagworks Grunt (20x) (1493.13 c/s)"
-  },
-  {
-    "t": 249845,
+    "t": 165112,
     "desc": "got Refined Lumen Caligo from Anton (E[13] kills)"
   },
   {
-    "t": 261839,
+    "t": 168518,
     "desc": "Refined Lumen Caligo +15 (E[cost] 13.48M)"
   },
   {
-    "t": 262358,
+    "t": 168850,
     "desc": "learned Ego Collapse (ticket EV)"
   },
   {
-    "t": 262358,
+    "t": 168850,
     "desc": "got Rosetta Stone 2: Rosettier from Luke (E[13] kills)"
   },
   {
-    "t": 376407,
+    "t": 191662,
     "desc": "Rosetta Stone 2: Rosettier +20 (E[cost] 303.50M)"
   },
   {
-    "t": 376407,
-    "desc": "farm spot: Loamgrave Hauler (5664.61 c/s)"
-  },
-  {
-    "t": 377523,
+    "t": 192460,
     "desc": "got Harlem Globetrophy from Harlem Hell Party (E[13] kills)"
   },
   {
-    "t": 552983,
+    "t": 217584,
     "desc": "Harlem Globetrophy +20 (E[cost] 1.21B)"
   },
   {
-    "t": 552983,
+    "t": 217584,
     "desc": "END: level 39, 0 copper banked"
   }
 ]

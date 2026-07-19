@@ -43,6 +43,30 @@ export function getZone(zoneId) {
   return zones.find(z => z.id === zoneId);
 }
 
+// A hunting ground is a fixed grid of individual mobs. Single-target attacks
+// hit one; AoE skills hit everything within their grid-radius of the target.
+// This is what makes radius (and AoE heroes) matter without an RTS engine —
+// it's a circle-vs-grid distance test, no movement/AI.
+export const FIELD_COLS = 4;
+export const FIELD_ROWS = 4;
+
+export function spawnField(zone, variantIndex) {
+  const field = [];
+  for (let gy = 0; gy < FIELD_ROWS; gy++) {
+    for (let gx = 0; gx < FIELD_COLS; gx++) {
+      const m = spawnMob(zone, variantIndex);
+      m.gx = gx;
+      m.gy = gy;
+      field.push(m);
+    }
+  }
+  return field;
+}
+
+export function gridDist(a, b) {
+  return Math.hypot((a.gx ?? 0) - (b.gx ?? 0), (a.gy ?? 0) - (b.gy ?? 0));
+}
+
 export function spawnMob(zone, variantIndex) {
   const m = VARIANTS[variantIndex];
   return {

@@ -16,7 +16,7 @@ export const gameState = {
 
   currentZoneId: null,
   currentVariant: 0,
-  currentMob: null,     // live mob instance, never saved
+  field: [],            // live combat grid (16 mobs for a zone, 1 for a boss); never saved
 
   autoResummon: false,  // resummon the boss on kill if copper allows
 

@@ -3,6 +3,17 @@
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, MAX_PLUS } from "../enhance.js";
 import { statValue, aggregate, getItem } from "../items.js";
+import { spawnField, gridDist, getZone } from "../zones.js";
+
+// field: 16 mobs on a 4×4 grid, AoE radius → coverage
+const field = spawnField(getZone("kiln"), 0);
+assert.equal(field.length, 16);
+const centre = field.find(m => m.gx === 1 && m.gy === 1);
+const cover = r => field.filter(m => gridDist(m, centre) <= r).length;
+assert.equal(cover(0), 1);      // single-target hits one
+assert.equal(cover(1.5), 9);    // 3×3-ish
+assert.equal(cover(4), 16);     // whole field
+assert.ok(cover(2.5) > cover(1.5)); // bigger radius → more mobs
 
 // odds table (decompiled map values, see DECOMPILE.md)
 assert.equal(enhanceChance(0), 1);
