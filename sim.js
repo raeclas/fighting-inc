@@ -239,20 +239,30 @@ if (!compare) {
   console.log("\nbaseline.json written");
 } else {
   const base = JSON.parse(fs.readFileSync(new URL("./baseline.json", import.meta.url)));
-  const byDesc = new Map(base.map(m => [m.desc, m.t]));
+  // repeated descriptions (e.g. 5x "bought Liberation Staff") are keyed by occurrence
+  const keyed = list => {
+    const seen = {}, out = new Map();
+    for (const m of list) {
+      const n = seen[m.desc] = (seen[m.desc] || 0) + 1;
+      out.set(`${m.desc}#${n}`, m.t);
+    }
+    return out;
+  };
+  const baseMap = keyed(base);
+  const nowMap = keyed(milestones);
   let drifted = 0;
-  for (const m of milestones) {
-    const old = byDesc.get(m.desc);
-    if (old === undefined) { console.log(`     NEW  ${m.desc} @ ${fmtT(m.t)}`); continue; }
-    const pct = old === 0 ? 0 : ((m.t - old) / old) * 100;
+  for (const [key, t] of nowMap) {
+    const old = baseMap.get(key);
+    if (old === undefined) { console.log(`     NEW  ${key} @ ${fmtT(t)}`); continue; }
+    const pct = old === 0 ? 0 : ((t - old) / old) * 100;
     const flag = Math.abs(pct) > 25 ? " <<< DRIFT" : "";
     if (Math.abs(pct) > 1 || flag) {
-      console.log(`${fmtT(m.t).padStart(8)}  ${m.desc}  (${pct > 0 ? "+" : ""}${pct.toFixed(0)}% vs baseline)${flag}`);
+      console.log(`${fmtT(t).padStart(8)}  ${key}  (${pct > 0 ? "+" : ""}${pct.toFixed(0)}% vs baseline)${flag}`);
       if (flag) drifted++;
     }
   }
-  for (const b of base) {
-    if (!milestones.find(m => m.desc === b.desc)) { console.log(` MISSING  ${b.desc}`); drifted++; }
+  for (const key of baseMap.keys()) {
+    if (!nowMap.has(key)) { console.log(` MISSING  ${key}`); drifted++; }
   }
   console.log(drifted ? `\n${drifted} milestone(s) drifted >25%` : "\nno significant drift");
   process.exit(drifted ? 1 : 0);
