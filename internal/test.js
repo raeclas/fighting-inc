@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, MAX_PLUS } from "../enhance.js";
 import { statValue, aggregate, getItem } from "../items.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
+import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT } from "../legion.js";
+import { load, serialize } from "../saveSystem.js";
 
 // field: 16 mobs on a 4×4 grid, AoE radius → coverage
 const field = spawnField(getZone("kiln"), 0);
@@ -58,5 +60,50 @@ assert.equal(state.copper, 100 - 2 * def.enhCost);
 // guards
 assert.equal(tryEnhance({ copper: 0 }, { itemId: "rafaros", plus: 5 }, def).result, "poor");
 assert.equal(tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: MAX_PLUS }, def).result, "max");
+
+// Legion board: mastery gate, log10 scaling, per-class stat routing, slots
+assert.equal(charBonus({ classId: "striker", int: MASTERY_INT - 1 }), 0);       // below gate
+assert.equal(charBonus({ classId: null, int: 1e9 }), 0);                        // no class
+assert.equal(charBonus({ classId: "striker", int: 999 * MASTERY_INT }), 4 * 3); // log10(1000)=3
+const leg = legionBonuses({ characters: [
+  { classId: "striker", int: 999 * MASTERY_INT },
+  { classId: "overmind", int: 999 * MASTERY_INT },
+  { classId: "overmind", int: 0 },                 // gated, contributes nothing
+] });
+assert.equal(leg.atkSpeedPct, 12);
+assert.equal(leg.skillDmgPct, 15);
+assert.equal(unlockedSlots({ characters: [{ int: 0 }] }), 1);
+assert.equal(unlockedSlots({ characters: [{ int: 100e3 }] }), 2);
+assert.equal(unlockedSlots({ characters: [{ int: 60e3 }, { int: 40e3 }] }), 2); // account total
+assert.equal(unlockedSlots({ characters: [{ int: 1e6 }] }), 3);
+
+// save migration: v1 single-player save -> v2 roster
+globalThis.localStorage = {
+  store: {},
+  getItem(k) { return this.store[k] ?? null; },
+  setItem(k, v) { this.store[k] = v; },
+  removeItem(k) { delete this.store[k]; },
+};
+localStorage.setItem("esrpg_save", JSON.stringify({
+  v: 1, copper: 5555, int: 777,
+  kills: { temple: 8 }, currentZoneId: "temple",
+  legion: { retired: [{ classId: "striker", level: 40 }] },
+  player: { level: 12, classId: "striker", attack: 25, skills: { jab: 1 } },
+}));
+const st = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: {} };
+load(st);
+assert.equal(st.characters.length, 1);
+assert.equal(st.characters[0].int, 777);      // account int moved onto the char
+assert.equal(st.characters[0].copper, 5555);  // account copper too
+assert.equal(st.characters[0].level, 12);
+assert.equal(st.kills.kiln, 8);               // zone rename still applies
+assert.equal(st.currentZoneId, "kiln");
+assert.equal(st.active, 0);
+assert.equal(st.slots, 1);
+// round-trip: serialize is v2 and drops legion
+const out = serialize(st);
+assert.equal(out.v, 2);
+assert.equal("legion" in out, false);
+assert.equal(out.characters[0].copper, 5555);
 
 console.log("all checks passed");

@@ -17,6 +17,7 @@ import { enhanceChance } from "../enhance.js";
 import { bosses, getBoss, spawnBossMob, TICKET_CHANCE, ITEM_DROP_CHANCE } from "../bosses.js";
 import { getClass, skillDamage } from "../classes.js";
 import { bestiaryBonus } from "../bestiary.js";
+import { legionBonuses } from "../legion.js";
 
 const MAX_SIM_S = 365 * 86400;
 const CLS = getClass("overmind");
@@ -26,7 +27,7 @@ const P = {
   t: 0, copper: 0,
   level: 1, xpAcc: 0, xpToNext: 100,
   attack: 5, attackSpeed: 1000,
-  int: 0,        // account-level flat damage from later zones
+  int: 0,        // per-character flat damage from later zones (also feeds its Legion bonus)
   equipment: [], // {itemId, plus}
   skills: { [CLS.skills[0].id]: 1 },
   kills: {},
@@ -55,15 +56,19 @@ function gainXp(xp) {
 
 function stats() {
   const { atk, spdPct } = aggregate(P.equipment);
+  // Legion: the bot is a 1-char account, so only its own class bonus applies
+  // (skill damage for Overmind). Multi-char rosters compound further.
+  const leg = legionBonuses({ characters: [{ classId: CLS.id, int: P.int }] });
   const bonus = 1 + bestiaryBonus({ kills: P.kills });
   const A = Math.round((P.attack + atk + P.int) * bonus);
-  const interval = P.attackSpeed / (1 + spdPct / 100) / 1000; // s per attack
+  const skillAtk = Math.round(A * (1 + leg.skillDmgPct / 100));
+  const interval = P.attackSpeed / (1 + (spdPct + leg.atkSpeedPct) / 100) / 1000; // s per attack
   let procEV = 0; // skill procs ignore defense, same as the game
   for (const s of CLS.skills) {
     const lvl = P.skills[s.id];
-    if (lvl) procEV += s.procChance * skillDamage(s, lvl, A);
+    if (lvl) procEV += s.procChance * skillDamage(s, lvl, skillAtk);
   }
-  return { atk: A, interval, procEV };
+  return { atk: A, skillAtk, interval, procEV };
 }
 
 function dpsAgainst(mob) {
@@ -84,13 +89,13 @@ function aoeCoverage(radius) {
 // kill per hit); each AoE proc kills up to its coverage; each source kills at
 // most 1 mob per mob it hits. This is the farm-vs-boss lever in the tracker.
 function fieldKillsPerSec(mob) {
-  const { atk, interval } = stats();
+  const { atk, skillAtk, interval } = stats();
   const hp = mob.maxHp;
   let killsPerAtk = Math.min(1, Math.max(0, atk - mob.defense) / hp); // auto, single-target
   for (const s of CLS.skills) {
     const lvl = P.skills[s.id];
     if (!lvl) continue;
-    const dmg = skillDamage(s, lvl, atk);
+    const dmg = skillDamage(s, lvl, skillAtk);
     const cover = s.aoe ? aoeCoverage(s.radius) : 1;
     killsPerAtk += s.procChance * cover * Math.min(1, dmg / hp);
   }
