@@ -94,7 +94,8 @@ export function renderShop(onBuy) {
   });
 }
 
-// handlers: { onEnhance(slotIdx, times), onDiscard(slotIdx) }
+// handlers: { onEnhance(slotIdx, times), onUnequip(slotIdx), onDiscard(slotIdx),
+//             onEquipStash(stashIdx), onDiscardStash(stashIdx) }
 export function renderEquipment(player, handlers) {
   const container = document.querySelector(".equipmentList");
   container.innerHTML = "";
@@ -126,6 +127,11 @@ export function renderEquipment(player, handlers) {
       btn.onclick = () => handlers.onEnhance(i, times);
       div.appendChild(btn);
     });
+
+    const toStash = document.createElement("button");
+    toStash.textContent = "→ Stash";
+    toStash.onclick = () => handlers.onUnequip(i);
+    div.appendChild(toStash);
 
     const discard = document.createElement("button");
     discard.textContent = "Discard";

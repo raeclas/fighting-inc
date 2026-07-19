@@ -313,7 +313,17 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash };
+
+// Swap = unequip to stash, then Equip from stash. No modal needed.
+function unequipToStash(slotIdx) {
+  const eq = player.equipment[slotIdx];
+  if (!eq) return;
+  player.equipment[slotIdx] = null;
+  player.stash.push(eq);
+  logLine(`Sent ${getItem(eq.itemId).name} +${eq.plus} to the stash.`);
+  renderEquipment(player, equipHandlers);
+}
 
 function equipStash(stashIdx) {
   const slot = player.equipment.indexOf(null);
