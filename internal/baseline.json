@@ -96,71 +96,75 @@
     "desc": "farm spot: Slagworks Grunt (20x) (328.75 c/s)"
   },
   {
-    "t": 87674,
+    "t": 87675,
     "desc": "learned Mind Surge (ticket EV)"
   },
   {
-    "t": 87674,
+    "t": 87675,
     "desc": "got Rosetta Stone from Hell Party (E[13] kills)"
   },
   {
-    "t": 102850,
+    "t": 102758,
     "desc": "Rosetta Stone +20 (E[cost] 12.14M)"
   },
   {
-    "t": 102875,
+    "t": 102784,
     "desc": "got Party Hat of Despair from Hell Party (E[13] kills)"
   },
   {
-    "t": 114599,
+    "t": 114435,
     "desc": "Party Hat of Despair +20 (E[cost] 12.14M)"
   },
   {
-    "t": 114741,
+    "t": 114583,
     "desc": "learned Synapse Storm (ticket EV)"
   },
   {
-    "t": 114741,
+    "t": 114583,
     "desc": "got Anton's Left Kneecap from Anton (E[13] kills)"
   },
   {
-    "t": 114741,
+    "t": 114583,
     "desc": "farm spot: Loamgrave Hauler (3558.01 c/s)"
   },
   {
-    "t": 131085,
+    "t": 130031,
     "desc": "Anton's Left Kneecap +20 (E[cost] 60.70M)"
   },
   {
-    "t": 131118,
+    "t": 130066,
     "desc": "got Refined Lumen Caligo from Anton (E[13] kills)"
   },
   {
-    "t": 133500,
+    "t": 131818,
     "desc": "Refined Lumen Caligo +15 (E[cost] 13.48M)"
   },
   {
-    "t": 133715,
+    "t": 132034,
     "desc": "learned Ego Collapse (ticket EV)"
   },
   {
-    "t": 133715,
+    "t": 132034,
     "desc": "got Rosetta Stone 2: Rosettier from Luke (E[13] kills)"
   },
   {
-    "t": 147230,
+    "t": 144503,
     "desc": "Rosetta Stone 2: Rosettier +20 (E[cost] 303.50M)"
   },
   {
-    "t": 147630,
+    "t": 259703,
+    "desc": "Harlem Hell Party first killable (ttk 678s)"
+  },
+  {
+    "t": 268182,
     "desc": "got Harlem Globetrophy from Harlem Hell Party (E[13] kills)"
   },
   {
-    "t": 160266,
+    "t": 268182,
     "desc": "Harlem Globetrophy +20 (E[cost] 1.21B)"
   },
   {
-    "t": 160266,
-    "desc": "END: level 39, 0 copper banked"
+    "t": 268182,
+    "desc": "END: level 44, 10.96B copper banked"
   }
 ]

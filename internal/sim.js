@@ -14,7 +14,7 @@ import fs from "node:fs";
 import { zones, VARIANTS, spawnMob, BAG_CHANCE, FIELD_COLS, FIELD_ROWS } from "../zones.js";
 import { getItem, statValue, aggregate } from "../items.js";
 import { enhanceChance } from "../enhance.js";
-import { bosses, getBoss, spawnBossMob, TICKET_CHANCE, ITEM_DROP_CHANCE } from "../bosses.js";
+import { bosses, getBoss, spawnBossMob, TICKET_CHANCE } from "../bosses.js";
 import { getClass, skillDamage } from "../classes.js";
 import { bestiaryBonus } from "../bestiary.js";
 import { legionBonuses } from "../legion.js";
@@ -147,7 +147,9 @@ function bossInfo(bossId) {
   const mob = spawnBossMob(boss);
   const ttk = timeToKill(mob);
   if (ttk > 3600) return null; // not practically killable
-  return { boss, mob, ttk, netPerKill: mob.copper - boss.summonCost };
+  const d = boss.drops;
+  const bounty = d?.bounty ? d.bounty * 1e9 ** (d.bountyTier ?? 0) : 0;
+  return { boss, mob, ttk, netPerKill: mob.copper + bounty - boss.summonCost };
 }
 
 ///// time advance: farm best zone until copper >= target /////
@@ -226,7 +228,9 @@ function bossItem(bossId, itemId) {
   if (waited) mark(`${info.boss.name} first killable (ttk ${info.ttk.toFixed(0)}s)`);
   if (!farmUntil(info.boss.summonCost)) return false; // summon capital
 
-  const killsNeeded = 1 / ITEM_DROP_CHANCE; // expected kills per item
+  // expected kills for a SPECIFIC pool item: pool_size / roll_chance
+  const d = info.boss.drops;
+  const killsNeeded = (d?.pool?.length ?? 1) / (d?.itemChance ?? 0.08);
   P.t += killsNeeded * info.ttk;
   P.copper += killsNeeded * info.netPerKill;
   P.kills[bossId] = (P.kills[bossId] || 0) + killsNeeded;
@@ -275,7 +279,7 @@ function fmtT(s) {
   return `${(s / 86400).toFixed(1)}d`;
 }
 function fmtC(n) {
-  const units = ["", "k", "M", "B", "T", "Qa"];
+  const units = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx"];
   if (n < 1e4) return Math.round(n).toString();
   const tier = Math.min(units.length - 1, Math.floor(Math.log10(n) / 3));
   return (n / 10 ** (tier * 3)).toFixed(2) + units[tier];
