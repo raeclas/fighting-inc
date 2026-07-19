@@ -46,8 +46,13 @@ function drawActor(key, cx, cy, now, { scale = 1, flip = false, bright = false }
 
   if (sheet && sheet.img) {
     const { size, frames, fps } = sheet.meta;
+    // Grid sheet, read left-to-right then top-to-bottom. cols derived from the
+    // image width, so a single-row strip (cols == frames) works too.
+    const cols = Math.max(1, Math.floor(sheet.img.width / size));
     const frame = Math.floor((now / 1000) * fps) % frames;
-    ctx.drawImage(sheet.img, frame * size, 0, size, size, -draw / 2, -draw, draw, draw);
+    const sx = (frame % cols) * size;
+    const sy = Math.floor(frame / cols) * size;
+    ctx.drawImage(sheet.img, sx, sy, size, size, -draw / 2, -draw, draw, draw);
   } else {
     const emoji = sheet?.meta.fallback ?? "❓";
     ctx.font = `${draw}px serif`;

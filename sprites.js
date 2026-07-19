@@ -13,8 +13,8 @@ export const SHEETS = {
   // heroes (keyed by class id)
   striker:         { src: "assets/striker.png",         size: 64, frames: 4, fps: 6,  fallback: "🥋" },
   striker_attack:  { src: "assets/striker_attack.png",  size: 64, frames: 4, fps: 12, fallback: null },
-  overmind:        { src: "assets/overmind.png",        size: 64, frames: 4, fps: 6,  fallback: "🧠" },
-  overmind_attack: { src: "assets/overmind_attack.png", size: 64, frames: 4, fps: 12, fallback: null },
+  overmind:        { src: "assets/overmind.png",        size: 64, frames: 6, fps: 6,  fallback: "🧠" },
+  overmind_attack: { src: "assets/overmind_attack.png", size: 64, frames: 6, fps: 12, fallback: null },
   hero:            { src: "assets/hero.png",            size: 64, frames: 4, fps: 6,  fallback: "🧑" }, // no class yet
 
   // zone mobs (keyed by zone id)

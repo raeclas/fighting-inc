@@ -6,8 +6,11 @@ at a time in any order.
 
 ## Format
 
-- One PNG per animation, frames in a **horizontal strip**, left to right.
-- Every frame is a **64×64** square → image is `64*frames` wide, 64 tall.
+- One PNG per animation, frames in a **grid**, read left-to-right then
+  top-to-bottom (a single row is just a 1-row grid — both work).
+- Every frame is a **64×64** square. Columns are derived from image width
+  automatically, so 128×192 = a 2×3 grid = up to 6 frames.
+- Set `frames` in `sprites.js` to how many cells actually animate.
 - Static image is fine: 1 frame, 64×64. Start there, animate later.
 - Transparent background. Characters should face **right** (mobs get
   mirrored automatically).
