@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, MAX_PLUS } from "../enhance.js";
 import { statValue, aggregate, getItem } from "../items.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
-import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT } from "../legion.js";
+import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES } from "../legion.js";
 import { load, serialize } from "../saveSystem.js";
+import { classes } from "../classes.js";
 
 // field: 16 mobs on a 4×4 grid, AoE radius → coverage
 const field = spawnField(getZone("kiln"), 0);
@@ -76,6 +77,23 @@ assert.equal(unlockedSlots({ characters: [{ int: 0 }] }), 1);
 assert.equal(unlockedSlots({ characters: [{ int: 100e3 }] }), 2);
 assert.equal(unlockedSlots({ characters: [{ int: 60e3 }, { int: 40e3 }] }), 2); // account total
 assert.equal(unlockedSlots({ characters: [{ int: 1e6 }] }), 3);
+
+// class schema: 7 skills + a stat passive each, globally unique ids,
+// sane numbers, and a Legion bonus row per class
+const allSkillIds = new Set();
+for (const cls of classes) {
+  assert.equal(cls.skills.length, 7, `${cls.id} skill count`);
+  assert.ok(cls.passive?.name, `${cls.id} passive`);
+  assert.ok(CLASS_BONUSES[cls.id], `${cls.id} legion row`);
+  for (const s of cls.skills) {
+    assert.ok(!allSkillIds.has(s.id), `duplicate skill id ${s.id}`);
+    allSkillIds.add(s.id);
+    assert.ok(s.mult > 0, s.id);
+    if (cls.archetype === "active") assert.ok(s.key && s.cooldownMs > 0, s.id);
+    else assert.ok(s.procChance > 0 && s.procChance <= 1, s.id);
+    if (s.aoe) assert.ok(s.radius > 0, s.id);
+  }
+}
 
 // save migration: v1 single-player save -> v2 roster
 globalThis.localStorage = {
