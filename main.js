@@ -15,6 +15,7 @@ import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
 import { RETIRE_MIN_LEVEL, legionBonus } from "./legion.js";
+import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
 import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE } from "./bosses.js";
 
@@ -67,7 +68,10 @@ function castSkill(skill) {
   if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) return;
 
   gameState.cooldowns[skill.id] = gameState.total_time + skill.cooldownMs;
-  mob.hp -= skillDamage(skill, level, effectiveStats().atk);
+  const dmg = skillDamage(skill, level, effectiveStats().atk);
+  mob.hp -= dmg;
+  pushBattleEvent({ type: "skill", dmg });
+  if (mob.hp <= 0) killMob(mob);
 }
 
 window.addEventListener("keydown", e => {
@@ -315,6 +319,7 @@ function tick() {
 
 // Mob died: rewards, drops, respawn. Shared by live and (indirectly) batch.
 function killMob(mob) {
+  pushBattleEvent({ type: "kill", copper: mob.copper });
   gameState.copper += mob.copper;
   player.gainXP(mob.xp);
   const killKey = mob.isBoss ? mob.bossId : mob.zoneId;
@@ -358,14 +363,18 @@ function simulateLive(dt) {
     const mob = gameState.currentMob;
     if (!mob) break;
 
-    mob.hp -= Math.max(0, atk - mob.defense);
+    const dealt = Math.max(0, atk - mob.defense);
+    mob.hp -= dealt;
+    pushBattleEvent({ type: "hit", dmg: dealt });
 
     // passive class: each known skill rolls its proc chance per attack
     if (cls && cls.archetype === "passive") {
       for (const skill of cls.skills) {
         const level = player.skills[skill.id];
         if (level && Math.random() < skill.procChance) {
-          mob.hp -= skillDamage(skill, level, atk);
+          const procDmg = skillDamage(skill, level, atk);
+          mob.hp -= procDmg;
+          pushBattleEvent({ type: "skill", dmg: procDmg });
           gameState.procCounts[skill.id] = (gameState.procCounts[skill.id] || 0) + 1;
         }
       }
@@ -426,6 +435,7 @@ function simulateBatch(dt) {
 ///// RENDER /////
 function render() {
   updateUI(gameState, player);
+  renderBattle(gameState, player);
   renderSkillBar(gameState, player, effectiveStats().atk);
   renderBestiary(gameState);
   renderLegion(gameState, player, retireCharacter);
@@ -446,6 +456,7 @@ document.getElementById("resetGame").onclick = () => {
 };
 
 ///// START /////
+initBattle(document.getElementById("battleCanvas"));
 if (!player.classId) renderClassSelect(pickClass);
 renderZoneList(gameState, selectZone);
 renderBossList(gameState, {

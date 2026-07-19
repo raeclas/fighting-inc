@@ -36,6 +36,14 @@ body {
     background: rgba(0, 200, 255, 0.5);
 }
 
+#battleCanvas {
+    display: block;
+    width: 100%;
+    margin: 6px 0;
+    border-radius: 4px;
+    image-rendering: pixelated;
+}
+
 #mobInfoHeader, #playerInfoHeader {
     font-weight: bold;
     font-size: larger;
