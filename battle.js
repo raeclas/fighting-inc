@@ -102,7 +102,7 @@ export function renderBattle(state, player) {
     const t = 1 - (attackUntil - now) / 250;
     heroX += Math.sin(t * Math.PI) * 55;
   }
-  drawActor(player.classId ?? "hero", heroX, HERO.y, now);
+  drawActor(player.classId ?? "hero", heroX, HERO.y, now, { scale: 2 });
 
   // mob (flash + shake when hit)
   if (mob) {
