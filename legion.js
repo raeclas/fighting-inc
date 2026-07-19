@@ -20,6 +20,19 @@ export function charBonus(char) {
   return b.per * Math.log10(char.int / MASTERY_INT + 1);
 }
 
+// Character slots unlock at account-total INT milestones (×10 each step).
+// [0] = the starting slot. No purchase path — INT is the only gate.
+export const SLOT_MILESTONES = [0, 100e3, 1e6, 10e6, 100e6, 1e9, 10e9, 100e9, 1e12, 10e12];
+
+export function accountInt(state) {
+  return state.characters.reduce((sum, c) => sum + c.int, 0);
+}
+
+export function unlockedSlots(state) {
+  const total = accountInt(state);
+  return SLOT_MILESTONES.filter(m => total >= m).length;
+}
+
 // Summed account-wide multipliers from the whole roster (active char included).
 export function legionBonuses(state) {
   const out = { atkSpeedPct: 0, skillDmgPct: 0 };

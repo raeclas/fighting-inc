@@ -14,7 +14,7 @@ import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
-import { legionBonuses } from "./legion.js";
+import { legionBonuses, unlockedSlots } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
 import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE } from "./bosses.js";
@@ -383,6 +383,9 @@ function tick() {
   if (dt === 0) return;
 
   gameState.total_time += dt;
+
+  // INT milestones open character slots; never close them (saves may exceed)
+  gameState.slots = Math.max(gameState.slots, unlockedSlots(gameState));
 
   if (dt > BATCH_THRESHOLD_MS) simulateBatch(dt);
   else simulateLive(dt);

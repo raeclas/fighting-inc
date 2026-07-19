@@ -8,7 +8,7 @@ import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
-import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT } from "./legion.js";
+import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
 
 // 1234567 -> "1.23M"
 export function fmt(n) {
@@ -408,6 +408,10 @@ export function renderLegion(state, handlers) {
     html += `<div><button data-newchar>New character (${state.characters.length}/${state.slots} slots used)</button></div>`;
   } else {
     html += `<div>All ${state.slots} character slot${state.slots > 1 ? "s" : ""} in use.</div>`;
+  }
+  const next = SLOT_MILESTONES[state.slots];
+  if (next !== undefined) {
+    html += `<div>Next slot at ${fmt(next)} account INT (have ${fmt(accountInt(state))}).</div>`;
   }
 
   const container = document.querySelector(".legionPanel");
