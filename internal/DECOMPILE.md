@@ -70,6 +70,33 @@ Also visible: dozens of summon bosses (Anton 160M/def80, Luke 600M/def120,
 Abyss Walker, Sirocco, Ozma, Tiamat, Astaroth, Ezra…) — the full boss roster
 for future content, most clamped at 1e9 HP with defense 500–1000.
 
+## Boss difficulty (w3u + war3map.j) — brutality decoded
+
+The "5-minute boss kill" feel decomposes into three verified mechanisms:
+
+1. **WC3 armor math**: damage reduction = 0.06·armor/(1+0.06·armor). Boss def
+   750 → 97.8% reduction → **effective HP = raw × 46**; def 1000 → ×61. The
+   1e9-clamped bosses are really 46–61B effective HP. (Our port bakes this
+   into the `hp` numbers — flat-subtract defense can't express % armor.)
+2. **Regen** (w3u `uhpr`, as fraction of max HP/s): Prey, -Hyun- Find War,
+   -Transcendence- Frey, Baekhwa Mandarin = **1e9/s = 100%/s, a full heal per
+   second** — the literal "can you even damage it" DPS gate. Ezra-raid 45%/s,
+   Fiend War 30%/s, Taibers 25%/s, Harlem 8%/s, Siroccos/Astaroth-Terror 7%/s,
+   Anton 1%/s, rest 0. Ported as `regenPct` in bosses.js.
+3. `SetWidgetLife(boss, life × Nk)` at spawn is a **dev test hook** (`--Che`
+   chat command; Nk defaults 1.0) — no hidden HP multiplier. The full `--Command`
+   test suite exists in-script (`--G intelligence`, `--Money`, `--Special`, …).
+
+**Drop economy (`Epx(p, loc, bountyTier, bounty, _, _, itemChance%, poolItem,
+companionTicket, rareChance%, rareItem)`):** bounties are literal tier currency
+(tier 0/1/2 = copper/silver/gold, 1e9 steps): Anton 250k copper, Taibers 470M
+copper, Prey 80 SILVER, -Hyun- Find War 312 silver (+0.15% Talisman), Baekhwa
+11.7k silver (+1.5% Myth pool), Ezra-abyss 117k silver (+1.08% -Transcendence-
+Talisman), **Hisma 150 GOLD**. Item pools per boss (Salvation set, Heaven's
+Legacy, Black Heaven, -Hyun-/-Transcendence-, ★Abyss★, Luna/Myth) each roll
+one of ~5 set pieces; skill-enhancement tickets ride along as companions.
+Boss spawn tags (`creephealon` etc.) are order-string routing, not mechanics.
+
 ## Item effects (war3map.w3t) — our boss items are under-ported
 
 3517 item entries / 436 unique bases (rest are +N enhancement tiers). Our port

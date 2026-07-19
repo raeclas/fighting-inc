@@ -12,6 +12,11 @@ shifts get a fresh `baseline.json` in the same commit.
 - ✅ INT system (per-character since the Legion rebuild; zones drip `intPerKill`).
 - ✅ Legion roster rebuild: account + characters[], per-class INT-scaled board
   bonuses, slot unlocks at account-INT milestones (see LEGION-DESIGN.md).
+- ✅ Full decompiled boss roster (29 incl. Hisma/Skasa dragons + 5 specials),
+  real regen walls (`regenPct`, 100%/s DPS gates), Epx drop tables with
+  tier-currency bounties + rare talismans.
+- ✅ Boss item effects: INT on items + signature mechanics (atk%, INT-procs,
+  crit, skill%, item-INT%, cooldown%, talisman skill levels).
 
 ## Next — the load-bearing gap
 
@@ -24,18 +29,7 @@ anti-Temple-forever fix the sim flagged (F2/F3). Gate values scaled to OUR
 curve, not the map's (our levels top ~45, not 2750).
 **Touches:** [zones.js](../zones.js), [ui.js](../ui.js) renderZoneList, [main.js](../main.js) selectZone guard.
 
-### 2. Boss item effects rebuild  ← decompiled, waiting
-**Map:** every real equipment grants **Attack + INT** (INT ≈ 10% of atk) plus a
-signature effect — see the "Item effects (war3map.w3t)" table in
-[DECOMPILE.md](DECOMPILE.md): atk% ("processed internally", Rosetta's line),
-INT-proc weapons (N% chance of N×INT damage), crit chance/multiplier, skill
-damage %, item-INT %, def-shred aura, talisman +skill levels.
-**Us:** our boss drops are flat atk sticks. Give each ported boss item an `int`
-stat plus ONE distinct effect from the taxonomy (Rosetta = hidden atk%, Lumen
-line stays atkspd, kneecap = crit, etc.). Touches the damage formula,
-[items.js](../items.js), sim + baseline — own session, balance-sensitive.
-
-### 3. Party/lobby multiplier analogue (IV × YJ)
+### 2. Party/lobby multiplier analogue (IV × YJ)
 **Map:** enhancement chance, bag chance, coin double-drop all ×`IV[player]`
 (elixirs) ×`YJ[party-size]`. "Play with 5+ players" is literally this.
 **Us:** single-player, so no party. Fold into the existing gathering buffs +
@@ -46,22 +40,14 @@ in [gathering.js](../gathering.js)/[enhance.js](../enhance.js).
 
 ## Later — content breadth (needs the systems above)
 
-### 4. Talismans (endgame skill boosters)
-**Map:** drop at +0 from high zones/bosses; merge 2×(+n)→+(n+1) up to +6
-(64× +0 for a +6); boost specific skills past level 7.
-**Us:** extend the skill system past `MAX_SKILL_LEVEL`; a merge UI. Pure
-endgame sink — schedule after INT/gates make endgame reachable.
+### 3. Talisman merging (endgame skill boosters)
+**Map:** talismans drop at +0; merge 2×(+n)→+(n+1) up to +6 (64× +0 for a +6);
+boost specific skills past level 7.
+**Us:** basic talismans (flat `skillLevelBonus` items from rare boss rolls)
+shipped with the drop tables — the MERGE system (+0…+6 ladder, merge UI,
+per-key targeting) is what remains. Pure endgame sink.
 
-### 5. Special bosses (INT-gated summons)
-<!-- note: still relevant post-Legion; reqInt reads the ACTIVE char's int -->
-
-**Map:** Bernardo (100k INT), Trans. Bernardo (500k), Seria (1.5M) — rare
-class-weapon and Avatar drops, respawn timers 18–30 min.
-**Us:** extend [bosses.js](../bosses.js) with `reqInt` and cooldown timers. The
-full roster (Anton, Luke, Sirocco, Ozma, Tiamat, Astaroth, Ezra…) with real
-def values is already decompiled and waiting.
-
-### 6. Job-change scroll (0.1%)
+### 4. Job-change scroll (0.1%)
 **Superseded by the Legion roster:** a new character IS the job change (per
 LEGION-DESIGN.md). Revisit only if a "re-class in place, keep INT" item still
 feels needed once multi-char play settles.
