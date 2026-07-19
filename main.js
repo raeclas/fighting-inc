@@ -84,8 +84,9 @@ function pickClass(classId) {
 function effectiveStats() {
   const { atk, spdPct } = aggregate(player.equipment);
   const bonus = 1 + bestiaryBonus(gameState) + legionBonus(gameState.legion.retired);
+  // INT is flat 1:1 damage (decompiled formula), added before the % multipliers.
   return {
-    atk: Math.round((player.attack + atk) * bonus),
+    atk: Math.round((player.attack + atk + gameState.int) * bonus),
     interval: player.attackSpeed / (1 + spdPct / 100),
   };
 }
@@ -421,7 +422,8 @@ function resolveKill(mob) {
     return;
   }
 
-  // regular field mob: rare bag roll, refill the slot — or a field boss joins the ranks
+  // regular field mob: INT, rare bag roll, refill the slot — or a field boss joins the ranks
+  if (mob.intPerKill) gameState.int += mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
   if (Math.random() < BAG_CHANCE) {
     gameState.copper += mob.bag;
@@ -532,6 +534,7 @@ function simulateBatch(dt) {
 
   const copper = Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag));
   gameState.copper += copper;
+  gameState.int += kills * mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
   player.gainXP(kills * mob.xp);
 

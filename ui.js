@@ -24,7 +24,8 @@ export function updateUI(state, player) {
 
   document.getElementById("playerHealth").textContent = player.health;
   document.getElementById("playerCopper").textContent = fmt(state.copper);
-  document.getElementById("playerDamage").textContent = fmt(player.attack + atk);
+  document.getElementById("playerInt").textContent = fmt(state.int);
+  document.getElementById("playerDamage").textContent = fmt(player.attack + atk + state.int);
   document.getElementById("playerAttackSpeed").textContent = interval;
   document.getElementById("playerLevel").textContent = player.level;
   document.getElementById("playerXP").textContent = `${fmt(player.xp)}/${fmt(player.xpToNext)}`;

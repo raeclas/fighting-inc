@@ -1,154 +1,154 @@
 [
   {
     "t": 0,
-    "desc": "farm spot: Kiln-Ash Drudge (0.02 c/s)"
+    "desc": "farm spot: Kiln-Ash Drudge (0.08 c/s)"
   },
   {
-    "t": 62,
+    "t": 13,
     "desc": "bought Rafaros Staff"
   },
   {
-    "t": 10659,
+    "t": 13,
+    "desc": "farm spot: Kiln-Ash Drudge (5x) (0.10 c/s)"
+  },
+  {
+    "t": 6134,
     "desc": "Rafaros Staff +10 (E[cost] 819)"
   },
   {
-    "t": 10659,
-    "desc": "farm spot: Kiln-Ash Drudge (5x) (2.34 c/s)"
-  },
-  {
-    "t": 10873,
+    "t": 6341,
     "desc": "bought Defined Darkness"
   },
   {
-    "t": 11752,
+    "t": 7200,
     "desc": "Defined Darkness +10 (E[cost] 2574)"
   },
   {
-    "t": 11752,
-    "desc": "farm spot: Kiln-Ash Drudge (20x) (7.28 c/s)"
+    "t": 7200,
+    "desc": "farm spot: Kiln-Ash Drudge (20x) (7.36 c/s)"
   },
   {
-    "t": 12439,
+    "t": 7880,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 67118,
+    "t": 62137,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 67265,
+    "t": 62284,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 82675,
+    "t": 77670,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 82761,
+    "t": 77756,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 91952,
+    "t": 86938,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 91952,
-    "desc": "farm spot: Slagworks Grunt (5x) (77.51 c/s)"
+    "t": 86938,
+    "desc": "farm spot: Slagworks Grunt (5x) (77.57 c/s)"
   },
   {
-    "t": 92081,
+    "t": 87067,
     "desc": "bought Lumen Caligo"
   },
   {
-    "t": 102396,
+    "t": 97373,
     "desc": "Lumen Caligo +15 (E[cost] 1.05M)"
   },
   {
-    "t": 102424,
+    "t": 97401,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 105497,
+    "t": 100472,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 105519,
+    "t": 100494,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 107958,
+    "t": 102931,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 107958,
-    "desc": "farm spot: Slagworks Grunt (20x) (274.80 c/s)"
+    "t": 102931,
+    "desc": "farm spot: Slagworks Grunt (20x) (274.93 c/s)"
   },
   {
-    "t": 108047,
+    "t": 103021,
     "desc": "learned Mind Surge (ticket EV)"
   },
   {
-    "t": 108047,
+    "t": 103021,
     "desc": "got Rosetta Stone from Hell Party (E[13] kills)"
   },
   {
-    "t": 127602,
+    "t": 122562,
     "desc": "Rosetta Stone +20 (E[cost] 12.14M)"
   },
   {
-    "t": 127632,
+    "t": 122592,
     "desc": "got Party Hat of Despair from Hell Party (E[13] kills)"
   },
   {
-    "t": 141907,
+    "t": 136861,
     "desc": "Party Hat of Despair +20 (E[cost] 12.14M)"
   },
   {
-    "t": 142084,
+    "t": 137038,
     "desc": "learned Synapse Storm (ticket EV)"
   },
   {
-    "t": 142084,
+    "t": 137038,
     "desc": "got Anton's Left Kneecap from Anton (E[13] kills)"
   },
   {
-    "t": 142084,
-    "desc": "farm spot: Loamgrave Hauler (2547.79 c/s)"
+    "t": 137038,
+    "desc": "farm spot: Loamgrave Hauler (2548.68 c/s)"
   },
   {
-    "t": 165063,
+    "t": 159759,
     "desc": "Anton's Left Kneecap +20 (E[cost] 60.70M)"
   },
   {
-    "t": 165112,
+    "t": 159808,
     "desc": "got Refined Lumen Caligo from Anton (E[13] kills)"
   },
   {
-    "t": 168518,
+    "t": 163168,
     "desc": "Refined Lumen Caligo +15 (E[cost] 13.48M)"
   },
   {
-    "t": 168850,
+    "t": 163495,
     "desc": "learned Ego Collapse (ticket EV)"
   },
   {
-    "t": 168850,
+    "t": 163495,
     "desc": "got Rosetta Stone 2: Rosettier from Luke (E[13] kills)"
   },
   {
-    "t": 191662,
+    "t": 185430,
     "desc": "Rosetta Stone 2: Rosettier +20 (E[cost] 303.50M)"
   },
   {
-    "t": 192460,
+    "t": 186202,
     "desc": "got Harlem Globetrophy from Harlem Hell Party (E[13] kills)"
   },
   {
-    "t": 217584,
+    "t": 210025,
     "desc": "Harlem Globetrophy +20 (E[cost] 1.21B)"
   },
   {
-    "t": 217584,
+    "t": 210025,
     "desc": "END: level 39, 0 copper banked"
   }
 ]

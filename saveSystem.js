@@ -8,6 +8,7 @@ export function serialize(state, player) {
     lastSeen: Date.now(),   // offline-progress hook (Phase 6)
     total_time: state.total_time,
     copper: state.copper,
+    int: state.int,
     kills: state.kills,
     fieldKills: state.fieldKills,
     currentZoneId: state.currentZoneId,
@@ -54,6 +55,7 @@ export function load(state, player) {
 
   state.total_time = s.total_time ?? 0;
   state.copper = s.copper ?? 0;
+  state.int = s.int ?? 0;
   state.kills = {};
   for (const [id, n] of Object.entries(s.kills ?? {})) {
     state.kills[ZONE_RENAMES[id] ?? id] = n;

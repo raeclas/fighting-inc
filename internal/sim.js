@@ -25,7 +25,8 @@ const CLS = getClass("overmind");
 const P = {
   t: 0, copper: 0,
   level: 1, xpAcc: 0, xpToNext: 100,
-  attack: 1, attackSpeed: 1000,
+  attack: 5, attackSpeed: 1000,
+  int: 0,        // account-level flat damage from later zones
   equipment: [], // {itemId, plus}
   skills: { [CLS.skills[0].id]: 1 },
   kills: {},
@@ -55,7 +56,7 @@ function gainXp(xp) {
 function stats() {
   const { atk, spdPct } = aggregate(P.equipment);
   const bonus = 1 + bestiaryBonus({ kills: P.kills });
-  const A = Math.round((P.attack + atk) * bonus);
+  const A = Math.round((P.attack + atk + P.int) * bonus);
   const interval = P.attackSpeed / (1 + spdPct / 100) / 1000; // s per attack
   let procEV = 0; // skill procs ignore defense, same as the game
   for (const s of CLS.skills) {
@@ -119,6 +120,7 @@ function bestZoneRate() {
         zone: z, variant: v, name: mob.name,
         copperPerSec: kps * (mob.copper + BAG_CHANCE * mob.bag),
         xpPerSec: kps * mob.xp,
+        intPerSec: kps * mob.intPerKill,
         killsPerSec: kps,
       };
       if (!best || r.copperPerSec > best.copperPerSec) best = r;
@@ -151,6 +153,7 @@ function farmUntil(targetCopper) {
     P.t += dt;
     if (P.t > MAX_SIM_S) { mark("STUCK: exceeded 1 simulated year"); return false; }
     P.copper += r.copperPerSec * dt;
+    P.int += r.intPerSec * dt;
     P.kills[r.zone.id] = (P.kills[r.zone.id] || 0) + r.killsPerSec * dt;
     gainXp(r.xpPerSec * dt);
   }
