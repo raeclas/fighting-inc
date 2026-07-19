@@ -1,0 +1,97 @@
+body {
+    color: light-dark(#333b3c, #efefec);
+    background-color: light-dark(#efedea, #223a2c);
+    font-family: system-ui, sans-serif;
+    margin: 8px;
+}
+
+.columns {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-top: 36px;
+}
+
+.col {
+    flex: 1;
+    min-width: 0;
+}
+
+.panel {
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 12px;
+}
+
+.panel h3 {
+    margin: 0 0 6px 0;
+}
+
+.playerInfoWrapper {
+    background: rgba(200, 54, 54, 0.5);
+}
+
+.mobInfoWrapper {
+    background: rgba(0, 200, 255, 0.5);
+}
+
+#mobInfoHeader, #playerInfoHeader {
+    font-weight: bold;
+    font-size: larger;
+}
+
+#resetGame {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.zoneEntry, .shopEntry, .equipSlot, .bossEntry {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(128, 128, 128, 0.4);
+}
+
+.zoneEntry button, .equipSlot button {
+    margin-left: 4px;
+}
+
+#feed {
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 0.85em;
+}
+
+#feed .success { color: light-dark(#1a7f1a, #7fe07f); }
+#feed .fail    { color: light-dark(#b02020, #ff8080); }
+
+#classSelect {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.classSelectBox {
+    background: light-dark(#efedea, #223a2c);
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 500px;
+}
+
+.classEntry {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(128, 128, 128, 0.4);
+}
+
+.bestiaryEntry { margin-bottom: 2px; }
+.bestiaryEntry.locked { opacity: 0.5; }
+
+.skillEntry { margin-bottom: 4px; }
+.skillEntry.locked { opacity: 0.5; }
+.skillEntry.onCooldown { opacity: 0.7; }

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Enhancement Slave Idle</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <button id="resetGame">Reset Game</button>
+
+  <div class="columns">
+    <div class="col">
+      <div class="playerInfoWrapper panel">
+        <span id="playerInfoHeader">Player Information</span>
+        <div class="playerInfo">
+          <div>Health = <span id="playerHealth"></span></div>
+          <div>Copper = <span id="playerCopper"></span></div>
+          <div>Damage = <span id="playerDamage"></span></div>
+          <div>Attack Speed = <span id="playerAttackSpeed"></span> ms</div>
+          <div>Level = <span id="playerLevel"></span></div>
+          <div>XP = <span id="playerXP"></span></div>
+        </div>
+      </div>
+
+      <div class="mobInfoWrapper panel">
+        <span id="mobInfoHeader">Current Hunt</span>
+        <div class="mobInfo">
+          <strong id="mobName"></strong>
+          <div>Health = <span id="mobHealth"></span></div>
+          <div>Defense = <span id="mobDefense"></span></div>
+          <div>Regen = <span id="mobRegen"></span></div>
+          <div>Copper = <span id="mobCopper"></span></div>
+          <div>Kills = <span id="mobKills"></span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Skills</h3>
+        <div class="skillBar"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Macro Workshop</h3>
+        <div class="macroPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Hunting Grounds</h3>
+        <div class="zoneList"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="panel">
+        <h3>Shop</h3>
+        <div class="shopList"></div>
+      </div>
+      <div class="panel">
+        <h3>Boss Zone</h3>
+        <div class="bossList"></div>
+      </div>
+      <div class="panel">
+        <h3>Odd Jobs</h3>
+        <div class="gatheringPanel"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="panel">
+        <h3>Equipment</h3>
+        <div class="equipmentList"></div>
+      </div>
+      <div class="panel">
+        <h3>Enhance Feed</h3>
+        <div id="feed"></div>
+      </div>
+      <div class="panel">
+        <h3>Bestiary</h3>
+        <div class="bestiaryList"></div>
+      </div>
+      <div class="panel">
+        <h3>Legion</h3>
+        <div class="legionPanel"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="classSelect">
+    <div class="classSelectBox">
+      <h2>Choose your class</h2>
+      <p>No repick. No refunds. Choose the rest of your life.</p>
+      <div class="classList"></div>
+    </div>
+  </div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
