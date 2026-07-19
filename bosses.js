@@ -32,6 +32,38 @@ export const bosses = [
     skillIndex: null, // no ticket; pure loot boss
     itemIds: ["globetrophy"],
   },
+  // decompiled roster, ×10 HP ladder continued (source HPs clamp at 1e9;
+  // difficulty there is scripted — ours keeps the honest ladder)
+  {
+    id: "sirocco", name: "Sirocco",
+    hp: 500_000_000, defense: 30_000, summonCost: 20_000_000, xp: 6_000_000,
+    skillIndex: 4, // T-slot ticket
+    itemIds: ["siroccoheart"],
+  },
+  {
+    id: "ozma", name: "Ozma",
+    hp: 5_000_000_000, defense: 120_000, summonCost: 200_000_000, xp: 50_000_000,
+    skillIndex: 5, // F-slot ticket
+    itemIds: ["ozmabrand"],
+  },
+  {
+    id: "tiamat", name: "Tiamat",
+    hp: 50_000_000_000, defense: 500_000, summonCost: 2_000_000_000, xp: 400_000_000,
+    skillIndex: 6, // D-slot ticket
+    itemIds: ["tiamatcurse"],
+  },
+  {
+    id: "astaroth", name: "Astaroth",
+    hp: 500_000_000_000, defense: 2_000_000, summonCost: 20_000_000_000, xp: 3_000_000_000,
+    skillIndex: 5,
+    itemIds: ["astarothgrim", "timewatch"],
+  },
+  {
+    id: "ezra", name: "Prophet Ezra",
+    hp: 5_000_000_000_000, defense: 8_000_000, summonCost: 200_000_000_000, xp: 25_000_000_000,
+    skillIndex: null, // pure loot boss
+    itemIds: ["ezraprophecy"],
+  },
 ];
 
 export const getBoss = id => bosses.find(b => b.id === id);

@@ -42,6 +42,14 @@ export const SHEETS = {
   anton:     { src: "assets/anton.png",     size: 64, frames: 4, fps: 4, fallback: "👹" },
   luke:      { src: "assets/luke.png",      size: 64, frames: 4, fps: 4, fallback: "🤖" },
   harlem:    { src: "assets/harlem.png",    size: 64, frames: 4, fps: 4, fallback: "💀" },
+  sirocco:   { src: "assets/sirocco.png",   size: 64, frames: 4, fps: 4, fallback: "🌪️" },
+  ozma:      { src: "assets/ozma.png",      size: 64, frames: 4, fps: 4, fallback: "🐐" },
+  tiamat:    { src: "assets/tiamat.png",    size: 64, frames: 4, fps: 4, fallback: "🐉" },
+  astaroth:  { src: "assets/astaroth.png",  size: 64, frames: 4, fps: 4, fallback: "📕" },
+  ezra:      { src: "assets/ezra.png",      size: 64, frames: 4, fps: 4, fallback: "🔮" },
+  bernardo:  { src: "assets/bernardo.png",  size: 64, frames: 4, fps: 4, fallback: "🛡️" },
+  bernardo2: { src: "assets/bernardo2.png", size: 64, frames: 4, fps: 4, fallback: "⚜️" },
+  seria:     { src: "assets/seria.png",     size: 64, frames: 4, fps: 4, fallback: "🌸" },
 };
 
 const cache = {}; // key -> { img: Image|null, ready: bool, failed: bool }
