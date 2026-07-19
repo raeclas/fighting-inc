@@ -5,17 +5,33 @@ body {
     margin: 8px;
 }
 
-.columns {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    margin-top: 36px;
+.game {
+    max-width: 720px;
+    margin: 40px auto 0;
 }
 
-.col {
-    flex: 1;
-    min-width: 0;
+/* tab navigation */
+.tabBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
 }
+.tabBar button {
+    padding: 8px 14px;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    border-radius: 6px;
+    background: light-dark(#fff, #2c4a3a);
+    color: inherit;
+    cursor: pointer;
+}
+.tabBar button.active {
+    font-weight: bold;
+    background: light-dark(#d8e8d8, #3a6a4a);
+    border-color: rgba(128, 128, 128, 0.9);
+}
+.tabPanel { display: none; }
+.tabPanel.active { display: block; }
 
 .panel {
     border: 1px solid rgba(128, 128, 128, 0.5);
@@ -123,8 +139,8 @@ button.skillCast:disabled { cursor: default; }
 @media (max-width: 760px) {
     body { margin: 6px; -webkit-text-size-adjust: 100%; }
 
-    .columns { flex-direction: column; margin-top: 44px; }
-    .col { width: 100%; flex: none; }
+    .game { margin-top: 44px; max-width: 100%; }
+    .tabBar button { flex: 1 1 auto; min-width: 0; }
 
     /* comfortable touch targets */
     button {

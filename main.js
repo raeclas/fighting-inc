@@ -9,7 +9,7 @@ import { player } from "./player.js";
 import { getItem, aggregate } from "./items.js";
 import { tryEnhance, MAX_PLUS } from "./enhance.js";
 import { getClass, skillDamage, MAX_SKILL_LEVEL } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary } from "./ui.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
@@ -498,6 +498,7 @@ document.getElementById("resetGame").onclick = () => {
 ///// START /////
 initBattle(document.getElementById("battleCanvas"));
 if (!player.classId) renderClassSelect(pickClass);
+initTabs();
 renderZoneList(gameState, selectZone);
 renderBossList(gameState, {
   onSummon: summonBoss,

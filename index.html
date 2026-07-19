@@ -9,82 +9,77 @@
 <body>
   <button id="resetGame">Reset Game</button>
 
-  <div class="columns">
-    <div class="col">
-      <div class="playerInfoWrapper panel">
-        <span id="playerInfoHeader">Player Information</span>
-        <div class="playerInfo">
-          <div>Health = <span id="playerHealth"></span></div>
-          <div>Copper = <span id="playerCopper"></span></div>
-          <div>Damage = <span id="playerDamage"></span></div>
-          <div>Attack Speed = <span id="playerAttackSpeed"></span> ms</div>
-          <div>Level = <span id="playerLevel"></span></div>
-          <div>XP = <span id="playerXP"></span></div>
-        </div>
-      </div>
-
-      <div class="mobInfoWrapper panel">
-        <span id="mobInfoHeader">Current Hunt</span>
-        <canvas id="battleCanvas"></canvas>
-        <div class="mobInfo">
-          <strong id="mobName"></strong>
-          <div>Health = <span id="mobHealth"></span></div>
-          <div>Defense = <span id="mobDefense"></span></div>
-          <div>Regen = <span id="mobRegen"></span></div>
-          <div>Copper = <span id="mobCopper"></span></div>
-          <div>Kills = <span id="mobKills"></span></div>
-        </div>
-        <button id="huntFieldBoss">⚔ Hunt Field Boss (10× HP · 20× XP · guaranteed bag)</button>
-        <span id="fieldKills"></span>
-      </div>
-
-      <div class="panel">
-        <h3>Skills</h3>
-        <div class="skillBar"></div>
-      </div>
-
-      <div class="panel">
-        <h3>Macro Workshop</h3>
-        <div class="macroPanel"></div>
-      </div>
-
-      <div class="panel">
-        <h3>Hunting Grounds</h3>
-        <div class="zoneList"></div>
+  <div class="game">
+    <!-- persistent combat header -->
+    <div class="playerInfoWrapper panel">
+      <span id="playerInfoHeader">Player Information</span>
+      <div class="playerInfo">
+        <div>Health = <span id="playerHealth"></span></div>
+        <div>Copper = <span id="playerCopper"></span></div>
+        <div>Damage = <span id="playerDamage"></span></div>
+        <div>Attack Speed = <span id="playerAttackSpeed"></span> ms</div>
+        <div>Level = <span id="playerLevel"></span></div>
+        <div>XP = <span id="playerXP"></span></div>
       </div>
     </div>
 
-    <div class="col">
-      <div class="panel">
-        <h3>Shop</h3>
-        <div class="shopList"></div>
+    <div class="mobInfoWrapper panel">
+      <span id="mobInfoHeader">Current Hunt</span>
+      <canvas id="battleCanvas"></canvas>
+      <div class="mobInfo">
+        <strong id="mobName"></strong>
+        <div>Health = <span id="mobHealth"></span></div>
+        <div>Defense = <span id="mobDefense"></span></div>
+        <div>Regen = <span id="mobRegen"></span></div>
+        <div>Copper = <span id="mobCopper"></span></div>
+        <div>Kills = <span id="mobKills"></span></div>
       </div>
-      <div class="panel">
-        <h3>Boss Zone</h3>
-        <div class="bossList"></div>
-      </div>
-      <div class="panel">
-        <h3>Odd Jobs</h3>
-        <div class="gatheringPanel"></div>
-      </div>
+      <button id="huntFieldBoss">⚔ Hunt Field Boss (10× HP · 20× XP · guaranteed bag)</button>
+      <span id="fieldKills"></span>
     </div>
 
-    <div class="col">
-      <div class="panel">
-        <h3>Equipment</h3>
-        <div class="equipmentList"></div>
+    <div class="panel">
+      <h3>Skills</h3>
+      <div class="skillBar"></div>
+    </div>
+
+    <!-- tabbed area -->
+    <nav class="tabBar">
+      <button data-tab="hunt" class="active">Hunt</button>
+      <button data-tab="shop">Shop</button>
+      <button data-tab="bosses">Bosses</button>
+      <button data-tab="gear">Gear</button>
+      <button data-tab="jobs">Jobs</button>
+      <button data-tab="macro">Macro</button>
+      <button data-tab="bestiary">Bestiary</button>
+      <button data-tab="legion">Legion</button>
+    </nav>
+
+    <div class="tabPanels">
+      <div class="tabPanel active" data-panel="hunt">
+        <div class="panel"><h3>Hunting Grounds</h3><div class="zoneList"></div></div>
       </div>
-      <div class="panel">
-        <h3>Enhance Feed</h3>
-        <div id="feed"></div>
+      <div class="tabPanel" data-panel="shop">
+        <div class="panel"><h3>Shop</h3><div class="shopList"></div></div>
       </div>
-      <div class="panel">
-        <h3>Bestiary</h3>
-        <div class="bestiaryList"></div>
+      <div class="tabPanel" data-panel="bosses">
+        <div class="panel"><h3>Boss Zone</h3><div class="bossList"></div></div>
       </div>
-      <div class="panel">
-        <h3>Legion</h3>
-        <div class="legionPanel"></div>
+      <div class="tabPanel" data-panel="gear">
+        <div class="panel"><h3>Equipment</h3><div class="equipmentList"></div></div>
+        <div class="panel"><h3>Enhance Feed</h3><div id="feed"></div></div>
+      </div>
+      <div class="tabPanel" data-panel="jobs">
+        <div class="panel"><h3>Odd Jobs</h3><div class="gatheringPanel"></div></div>
+      </div>
+      <div class="tabPanel" data-panel="macro">
+        <div class="panel"><h3>Macro Workshop</h3><div class="macroPanel"></div></div>
+      </div>
+      <div class="tabPanel" data-panel="bestiary">
+        <div class="panel"><h3>Bestiary</h3><div class="bestiaryList"></div></div>
+      </div>
+      <div class="tabPanel" data-panel="legion">
+        <div class="panel"><h3>Legion</h3><div class="legionPanel"></div></div>
       </div>
     </div>
   </div>

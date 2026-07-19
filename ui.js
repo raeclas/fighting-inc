@@ -369,6 +369,19 @@ export function renderLegion(state, player, onRetire) {
   container.appendChild(btn);
 }
 
+// One panel visible at a time; tab bar toggles the .active class.
+export function initTabs() {
+  const bar = document.querySelector(".tabBar");
+  bar.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-tab]");
+    if (!btn) return;
+    const tab = btn.dataset.tab;
+    bar.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".tabPanel").forEach(p =>
+      p.classList.toggle("active", p.dataset.panel === tab));
+  });
+}
+
 export function logLine(text, cls = "") {
   const feed = document.getElementById("feed");
   const line = document.createElement("div");
