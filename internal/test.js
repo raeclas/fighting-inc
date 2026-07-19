@@ -152,6 +152,21 @@ assert.equal(st.kills.kiln, 8);               // zone rename still applies
 assert.equal(st.currentZoneId, "kiln");
 assert.equal(st.active, 0);
 assert.equal(st.slots, 1);
+// unknown item ids (save from another version) are quarantined, not fatal
+localStorage.setItem("esrpg_save", JSON.stringify({
+  v: 2, characters: [{
+    classId: "striker", level: 1,
+    equipment: [{ itemId: "rafaros", plus: 3 }, { itemId: "from_the_future", plus: 9 }, null, null, null, null],
+    stash: [{ itemId: "also_unknown", plus: 0 }, { itemId: "kneecap", plus: 2 }],
+  }], active: 0, slots: 1,
+}));
+const st2 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: {} };
+load(st2);
+assert.equal(st2.characters[0].equipment[0].itemId, "rafaros"); // known survives
+assert.equal(st2.characters[0].equipment[1], null);             // unknown -> empty slot
+assert.deepEqual(st2.characters[0].stash.map(e => e.itemId), ["kneecap"]);
+assert.doesNotThrow(() => aggregate(st2.characters[0].equipment));
+
 // round-trip: serialize is v2 and drops legion
 const out = serialize(st);
 assert.equal(out.v, 2);
