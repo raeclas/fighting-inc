@@ -180,6 +180,27 @@ button.skillCast {
 }
 button.skillCast:disabled { cursor: default; }
 
+/* ---- top chip bar (WC3 timer boxes) ---- */
+.chipBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.chipBar:empty { display: none; }
+.chip {
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    background: rgba(12, 15, 26, 0.9);
+    color: var(--text);
+    font-size: 0.78em;
+    padding: 3px 8px;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+.chip .chipTime { color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
+
 /* ---- battlefield tooltip (WC3 hover box) ---- */
 .battleTooltip {
     display: none;

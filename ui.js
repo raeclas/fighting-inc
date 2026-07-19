@@ -78,11 +78,31 @@ function updateHud(state, player) {
   }
 }
 
+// ---- top chips: milestones + timers (special-boss countdowns join in later) ----
+let lastChipKey = "";
+function renderChips(state, player) {
+  const chips = [];
+  const next = SLOT_MILESTONES[state.slots];
+  if (next !== undefined) {
+    chips.push({ label: "Next Legion slot", time: `${fmt(accountInt(state))} / ${fmt(next)} INT` });
+  }
+  if (state.currentZoneId) {
+    chips.push({ label: "Field boss roams these grounds", time: "2% / kill" });
+  }
+  const key = chips.map(c => c.label + c.time).join("|");
+  if (key === lastChipKey) return;
+  lastChipKey = key;
+  document.getElementById("chipBar").innerHTML = chips
+    .map(c => `<span class="chip">${c.label} <span class="chipTime">${c.time}</span></span>`)
+    .join("");
+}
+
 export function updateUI(state, player) {
   const { atk, spdPct } = aggregate(player.equipment);
   const interval = Math.round(player.attackSpeed / (1 + (spdPct + legionBonuses(state).atkSpeedPct) / 100));
 
   updateHud(state, player);
+  renderChips(state, player);
   document.getElementById("playerInt").textContent = fmt(player.int);
   document.getElementById("playerDamage").textContent = fmt(player.attack + atk + player.int);
   document.getElementById("playerAttackSpeed").textContent = interval;
