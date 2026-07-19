@@ -4,38 +4,57 @@ import { gameState } from "./state.js";
 import { save, load, wipe } from "./saveSystem.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
-import { getZone, spawnMob, spawnFieldBoss, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
-import { player } from "./player.js";
+import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
+import { newCharacter, gainXP, resetHealth } from "./player.js";
 import { getItem, aggregate } from "./items.js";
 import { tryEnhance, MAX_PLUS } from "./enhance.js";
 import { getClass, skillDamage, MAX_SKILL_LEVEL } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary } from "./ui.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
-import { RETIRE_MIN_LEVEL, legionBonus } from "./legion.js";
+import { legionBonuses, unlockedSlots } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
 import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE } from "./bosses.js";
 
 ///// LOAD SAVE /////
-const savedGame = load(gameState, player);
+const savedGame = load(gameState);
+if (gameState.characters.length === 0) gameState.characters.push(newCharacter());
+// The active character. Rebound when the roster switches (Legion step 4);
+// same object identity as gameState.characters[gameState.active].
+let player = gameState.characters[gameState.active];
+
+// The front (first living) mob — the auto-attack target and the "primary" mob
+// for UI/boss logic. A boss is just a field of one.
+function frontMob() {
+  return gameState.field.find(m => m.hp > 0) || null;
+}
+
+function replaceInField(oldMob, newMob) {
+  const i = gameState.field.indexOf(oldMob);
+  if (i === -1) return;
+  newMob.gx = oldMob.gx;
+  newMob.gy = oldMob.gy;
+  gameState.field[i] = newMob;
+}
 
 function selectZone(zoneId, variantIndex) {
   const zone = getZone(zoneId);
   if (!zone) return;
   gameState.currentZoneId = zoneId;
   gameState.currentVariant = variantIndex;
-  gameState.currentMob = spawnMob(zone, variantIndex);
+  gameState.field = spawnField(zone, variantIndex);
 }
 
-// Hunt the field boss for the currently selected zone/variant.
+// Hunt the field boss for the currently selected zone/variant (solo).
 function huntFieldBoss() {
   if (!gameState.currentZoneId) return logLine("Select a hunting ground first.", "fail");
   const zone = getZone(gameState.currentZoneId);
-  gameState.currentMob = spawnFieldBoss(zone, gameState.currentVariant);
-  logLine(`A ${gameState.currentMob.name} lumbers into view.`);
+  const fb = spawnFieldBoss(zone, gameState.currentVariant);
+  gameState.field = [fb];
+  logLine(`A ${fb.name} lumbers into view.`);
 }
 
 // resume farming where the save left off
@@ -54,32 +73,56 @@ function pickClass(classId) {
   const cls = getClass(classId);
   player.classId = classId;
   player.skills = { [cls.skills[0].id]: 1 };
+  // Free starter staff — something to enhance from turn one (the +0→+3 band is
+  // guaranteed, so kill-time drops fast) and teaches the core loop.
+  if (player.equipment.every(e => e === null)) {
+    player.equipment[0] = { itemId: "rafaros", plus: 0 };
+  }
   hideClassSelect();
-  logLine(`You are now a ${cls.name}. There is no repick. Good luck.`, "success");
+  logLine(`You are now a ${cls.name}. Here's a Rafaros Staff — enhance it. Good luck.`, "success");
+  renderEquipment(player, equipHandlers);
   refreshMacro();
-  save(gameState, player);
+  save(gameState);
 }
 
 function effectiveStats() {
   const { atk, spdPct } = aggregate(player.equipment);
-  const bonus = 1 + bestiaryBonus(gameState) + legionBonus(gameState.legion.retired);
+  const leg = legionBonuses(gameState);
+  const passive = getClass(player.classId)?.passive;
+  const bonus = 1 + bestiaryBonus(gameState) + (passive?.atkPct ?? 0) / 100 + leg.dmgPct / 100;
+  // INT is flat 1:1 damage (decompiled formula), added before the % multipliers.
+  const atkTotal = Math.round((player.attack + atk + player.int) * bonus);
   return {
-    atk: Math.round((player.attack + atk) * bonus),
-    interval: player.attackSpeed / (1 + spdPct / 100),
+    atk: atkTotal,
+    // skillDamage is linear in atk, so the Legion skill% folds in here
+    skillAtk: Math.round(atkTotal * (1 + leg.skillDmgPct / 100)),
+    interval: player.attackSpeed / (1 + (spdPct + leg.atkSpeedPct + (passive?.atkSpdPct ?? 0)) / 100),
   };
+}
+
+// Apply a skill's damage. AoE hits every living mob within its grid-radius of
+// the target; single-target hits just the target. Targets are snapshotted so a
+// slot that respawns mid-cast isn't hit twice.
+function applySkillDamage(skill, dmg, target) {
+  const hits = skill.aoe
+    ? gameState.field.filter(m => m.hp > 0 && gridDist(m, target) <= skill.radius)
+    : [target];
+  for (const m of hits) {
+    m.hp -= dmg;
+    if (m.hp <= 0) resolveKill(m);
+  }
 }
 
 function castSkill(skill) {
   const level = player.skills[skill.id];
-  const mob = gameState.currentMob;
-  if (!level || !mob) return;
+  const target = frontMob();
+  if (!level || !target) return;
   if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) return;
 
   gameState.cooldowns[skill.id] = gameState.total_time + skill.cooldownMs;
-  const dmg = skillDamage(skill, level, effectiveStats().atk);
-  mob.hp -= dmg;
+  const dmg = skillDamage(skill, level, effectiveStats().skillAtk);
+  applySkillDamage(skill, dmg, target);
   pushBattleEvent({ type: "skill", dmg });
-  if (mob.hp <= 0) killMob(mob);
 }
 
 window.addEventListener("keydown", e => {
@@ -92,25 +135,36 @@ window.addEventListener("keydown", e => {
 ///// BOSSES /////
 function summonBoss(bossId) {
   const boss = getBoss(bossId);
-  if (gameState.copper < boss.summonCost) return logLine(`Need ${fmt(boss.summonCost)}c to summon ${boss.name}.`, "fail");
-  gameState.copper -= boss.summonCost;
-  gameState.currentMob = spawnBossMob(boss);
+  if (boss.reqInt) {
+    if (player.int < boss.reqInt) return logLine(`${boss.name} ignores you. Requires ${fmt(boss.reqInt)} INT.`, "fail");
+    if ((gameState.bossCooldowns[boss.id] || 0) > gameState.total_time)
+      return logLine(`${boss.name} has not respawned yet.`, "fail");
+  }
+  if (player.copper < boss.summonCost) return logLine(`Need ${fmt(boss.summonCost)}c to summon ${boss.name}.`, "fail");
+  player.copper -= boss.summonCost;
+  gameState.field = [spawnBossMob(boss)];
   logLine(`Summoned ${boss.name}.`);
+}
+
+// Give the player an item: into a free equipment slot, else the stash (never lost).
+function acquireItem(itemId, sourceLabel) {
+  const def = getItem(itemId);
+  const slot = player.equipment.indexOf(null);
+  if (slot !== -1) {
+    player.equipment[slot] = { itemId, plus: 0 };
+    logLine(`${sourceLabel} ${def.name}!`, "success");
+  } else {
+    player.stash.push({ itemId, plus: 0 });
+    logLine(`${sourceLabel} ${def.name} — slots full, sent to stash.`, "success");
+  }
+  renderEquipment(player, equipHandlers);
 }
 
 function rollBossDrops(boss) {
   // items
   for (const itemId of boss.itemIds) {
     if (Math.random() >= ITEM_DROP_CHANCE) continue;
-    const def = getItem(itemId);
-    const slot = player.equipment.indexOf(null);
-    if (slot === -1) {
-      logLine(`${def.name} dropped, but your bags are full. It disintegrates.`, "fail");
-    } else {
-      player.equipment[slot] = { itemId, plus: 0 };
-      logLine(`${boss.name} dropped ${def.name}!`, "success");
-      renderEquipment(player, equipHandlers);
-    }
+    acquireItem(itemId, `${boss.name} dropped`);
   }
 
   // skill ticket
@@ -135,8 +189,8 @@ function rollBossDrops(boss) {
 ///// MACRO WORKSHOP /////
 const macroHandlers = {
   onUnlock() {
-    if (gameState.copper < UNLOCK_COST) return logLine("Can't afford the macro workshop yet.", "fail");
-    gameState.copper -= UNLOCK_COST;
+    if (player.copper < UNLOCK_COST) return logLine("Can't afford the macro workshop yet.", "fail");
+    player.copper -= UNLOCK_COST;
     gameState.macro.unlocked = true;
     logLine("Macro Workshop unlocked. Definitely not bannable.", "success");
     refreshMacro();
@@ -144,15 +198,15 @@ const macroHandlers = {
   onToggle() { gameState.macro.enabled = !gameState.macro.enabled; refreshMacro(); },
   onUpgradeInterval() {
     const cost = intervalUpgradeCost(gameState.macro.intervalLevel);
-    if (gameState.copper < cost) return logLine("Fingers not affordable.", "fail");
-    gameState.copper -= cost;
+    if (player.copper < cost) return logLine("Fingers not affordable.", "fail");
+    player.copper -= cost;
     gameState.macro.intervalLevel++;
     refreshMacro();
   },
   onBuySlot() {
     const cost = slotCost(gameState.macro.slots.length + 1);
-    if (gameState.copper < cost) return logLine("Can't afford another macro step.", "fail");
-    gameState.copper -= cost;
+    if (player.copper < cost) return logLine("Can't afford another macro step.", "fail");
+    player.copper -= cost;
     gameState.macro.slots.push(null);
     refreshMacro();
   },
@@ -182,36 +236,38 @@ function runMacro() {
   }
 }
 
-///// LEGION /////
-function retireCharacter() {
-  if (player.level < RETIRE_MIN_LEVEL) return;
-  const cls = getClass(player.classId);
-  if (!confirm(`Retire your Lv${player.level} ${cls.name} into the Legion? ` +
-    `Class, level, skills and equipment are gone forever. ` +
-    `Copper, bestiary, gathering and macros stay.`)) return;
-
-  gameState.legion.retired.push({ classId: player.classId, level: player.level });
-  logLine(`${cls.name} retired at Lv${player.level}. The Legion grows.`, "success");
-
-  // fresh character; account-wide systems untouched
-  Object.assign(player, {
-    health: 100, maxHealth: 100,
-    attack: 1, attackSpeed: 1000, lastAttack: 0,
-    level: 1, xp: 0, xpToNext: 100,
-    equipment: [null, null, null, null, null, null],
-    classId: null, skills: {},
-  });
+///// ROSTER /////
+// Switch which character is played. Transient combat state resets; the zone
+// clears too (the incoming character may not survive the outgoing one's farm).
+function switchCharacter(i) {
+  if (i === gameState.active || !gameState.characters[i]) return;
+  gameState.active = i;
+  player = gameState.characters[i];
+  player.lastAttack = 0;
   gameState.cooldowns = {};
   gameState.procCounts = {};
-  gameState.currentMob = null;
+  gameState.field = [];
   gameState.currentZoneId = null;
   gameState.macro.enabled = false;
-
   renderEquipment(player, equipHandlers);
   refreshMacro();
-  renderClassSelect(pickClass);
-  save(gameState, player);
+  renderZoneList(gameState, selectZone);
+  if (player.classId) {
+    logLine(`Now playing ${getClass(player.classId).name} Lv${player.level}. Pick a hunting ground.`, "success");
+  } else {
+    renderClassSelect(pickClass);
+  }
+  save(gameState);
 }
+
+function createCharacter() {
+  if (gameState.characters.length >= gameState.slots) return;
+  gameState.characters.push(newCharacter());
+  logLine("A new slave reports for enhancement duty.", "success");
+  switchCharacter(gameState.characters.length - 1);
+}
+
+const rosterHandlers = { onPlay: switchCharacter, onNew: createCharacter };
 
 ///// GATHERING /////
 const gatheringHandlers = {
@@ -263,14 +319,44 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onDiscard: discard };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash };
+
+// Swap = unequip to stash, then Equip from stash. No modal needed.
+function unequipToStash(slotIdx) {
+  const eq = player.equipment[slotIdx];
+  if (!eq) return;
+  player.equipment[slotIdx] = null;
+  player.stash.push(eq);
+  logLine(`Sent ${getItem(eq.itemId).name} +${eq.plus} to the stash.`);
+  renderEquipment(player, equipHandlers);
+}
+
+function equipStash(stashIdx) {
+  const slot = player.equipment.indexOf(null);
+  if (slot === -1) return logLine("No free slot — discard something first.", "fail");
+  const eq = player.stash.splice(stashIdx, 1)[0];
+  if (!eq) return;
+  player.equipment[slot] = eq;
+  logLine(`Equipped ${getItem(eq.itemId).name} +${eq.plus} from stash.`);
+  renderEquipment(player, equipHandlers);
+}
+
+function discardStash(stashIdx) {
+  const eq = player.stash[stashIdx];
+  if (!eq) return;
+  const def = getItem(eq.itemId);
+  if (!confirm(`Discard ${def.name} +${eq.plus} from stash? No refund.`)) return;
+  player.stash.splice(stashIdx, 1);
+  logLine(`Discarded ${def.name} +${eq.plus} from stash.`);
+  renderEquipment(player, equipHandlers);
+}
 
 function buy(itemId) {
   const def = getItem(itemId);
   const slot = player.equipment.indexOf(null);
   if (slot === -1) return logLine("No free item slots.", "fail");
-  if (gameState.copper < def.cost) return logLine(`Not enough copper for ${def.name}.`, "fail");
-  gameState.copper -= def.cost;
+  if (player.copper < def.cost) return logLine(`Not enough copper for ${def.name}.`, "fail");
+  player.copper -= def.cost;
   player.equipment[slot] = { itemId, plus: 0 };
   logLine(`Bought ${def.name} for ${fmt(def.cost)}c.`, "success");
   renderEquipment(player, equipHandlers);
@@ -282,7 +368,7 @@ function enhance(slotIdx, times) {
   const def = getItem(eq.itemId);
 
   for (let i = 0; i < times; i++) {
-    const { result, chance } = tryEnhance(gameState, eq, def, Math.random, gameState.gathering.buffs);
+    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs);
     if (result === "max") { logLine(`${def.name} is already +${MAX_PLUS}.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
     const pct = (chance * 100).toFixed(2);
@@ -314,73 +400,85 @@ function tick() {
 
   gameState.total_time += dt;
 
+  // INT milestones open character slots; never close them (saves may exceed)
+  gameState.slots = Math.max(gameState.slots, unlockedSlots(gameState));
+
   if (dt > BATCH_THRESHOLD_MS) simulateBatch(dt);
   else simulateLive(dt);
 
   gatherTick(); // while-loop inside digests any gap, live or offline
 
   if (gameState.total_time - gameState.last_save >= 5000) {
-    save(gameState, player);
+    save(gameState);
     gameState.last_save = gameState.total_time;
   }
 }
 
-// Mob died: rewards, drops, respawn. Shared by live and (indirectly) batch.
-function killMob(mob) {
+// A single mob died: rewards, drops, and refill its slot (or transition the
+// whole field for a boss). Regular field mobs respawn in place so the grid
+// stays full to farm.
+// All copper income routes through here so the Legion copper-find % applies.
+function earnCopper(n) {
+  const boosted = Math.round(n * (1 + legionBonuses(gameState).copperPct / 100));
+  player.copper += boosted;
+  return boosted;
+}
+
+function resolveKill(mob) {
   if (mob.copper > 0) {
-    pushBattleEvent({ type: "kill", copper: mob.copper });
-    gameState.copper += mob.copper;
+    pushBattleEvent({ type: "kill", copper: earnCopper(mob.copper) });
   }
-  player.gainXP(mob.xp);
+  gainXP(player, mob.xp);
 
   if (mob.isBoss) {
     gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
     const boss = getBoss(mob.bossId);
-    logLine(`${boss.name} defeated! Refund ${fmt(mob.copper)}c.`, "success");
+    logLine(`${boss.name} defeated! ${boss.respawnMs ? "Bounty" : "Refund"} ${fmt(mob.copper)}c.`, "success");
     rollBossDrops(boss);
-    if (gameState.autoResummon && gameState.copper >= boss.summonCost) {
-      gameState.copper -= boss.summonCost;
-      gameState.currentMob = spawnBossMob(boss);
+    if (boss.respawnMs) gameState.bossCooldowns[boss.id] = gameState.total_time + boss.respawnMs;
+    if (gameState.autoResummon && !boss.respawnMs && player.copper >= boss.summonCost) {
+      player.copper -= boss.summonCost;
+      gameState.field = [spawnBossMob(boss)];
     } else if (gameState.currentZoneId) {
       selectZone(gameState.currentZoneId, gameState.currentVariant);
     } else {
-      gameState.currentMob = null;
+      gameState.field = [];
     }
     return;
   }
 
   if (mob.isFieldBoss) {
-    // guaranteed bag (map: 100% drop), separate kill counter, back to farming
-    gameState.copper += mob.bag;
-    pushBattleEvent({ type: "bag", copper: mob.bag });
+    const bag = earnCopper(mob.bag); // guaranteed bag (map: 100% drop)
+    pushBattleEvent({ type: "bag", copper: bag });
     gameState.fieldKills[mob.zoneId] = (gameState.fieldKills[mob.zoneId] || 0) + 1;
-    logLine(`${mob.name} felled! Bag: +${fmt(mob.bag)}c.`, "success");
-    selectZone(mob.zoneId, mob.variant); // return to the regular mob
+    logLine(`${mob.name} felled! Bag: +${fmt(bag)}c.`, "success");
+    if (gameState.field.length === 1) selectZone(mob.zoneId, mob.variant); // solo hunt → back to field
+    else replaceInField(mob, spawnMob(getZone(mob.zoneId), mob.variant));   // elite in the ranks → regular
     return;
   }
 
-  // regular mob: rare bag roll, then respawn — or a field boss wanders in
+  // regular field mob: INT, rare bag roll, refill the slot — or a field boss joins the ranks
+  if (mob.intPerKill) player.int += mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
   if (Math.random() < BAG_CHANCE) {
-    gameState.copper += mob.bag;
-    pushBattleEvent({ type: "bag", copper: mob.bag });
+    pushBattleEvent({ type: "bag", copper: earnCopper(mob.bag) });
   }
   const zone = getZone(mob.zoneId);
   if (Math.random() < FIELD_BOSS_SPAWN_CHANCE) {
-    gameState.currentMob = spawnFieldBoss(zone, mob.variant);
-    logLine(`A ${gameState.currentMob.name} wanders in!`);
+    replaceInField(mob, spawnFieldBoss(zone, mob.variant));
+    logLine(`A field boss wanders into the ranks!`);
   } else {
-    gameState.currentMob = spawnMob(zone, mob.variant);
+    replaceInField(mob, spawnMob(zone, mob.variant));
   }
 }
 
 // Small dt: attack-by-attack with real RNG procs, macro, cooldowns.
 function simulateLive(dt) {
-  if (!gameState.currentMob) return;
+  if (!frontMob()) return;
 
   runMacro();
 
-  const { atk, interval } = effectiveStats();
+  const { atk, skillAtk, interval } = effectiveStats();
   const cls = getClass(player.classId);
 
   // don't let a stale lastAttack (old save) turn into an attack storm
@@ -392,71 +490,86 @@ function simulateLive(dt) {
   let guard = 0;
   while (gameState.total_time - player.lastAttack >= interval && guard++ < 1000) {
     player.lastAttack += interval;
-    const mob = gameState.currentMob;
-    if (!mob) break;
+    const target = frontMob();
+    if (!target) break;
 
-    const dealt = Math.max(0, atk - mob.defense);
-    mob.hp -= dealt;
+    // auto-attack: single target (the front mob)
+    const dealt = Math.max(0, atk - target.defense);
+    target.hp -= dealt;
     pushBattleEvent({ type: "hit", dmg: dealt });
+    if (target.hp <= 0) resolveKill(target);
 
-    // passive class: each known skill rolls its proc chance per attack
+    // passive class: each known skill rolls its proc chance per attack; AoE
+    // skills sweep the field around the front mob (the farm-vs-boss lever).
     if (cls && cls.archetype === "passive") {
+      const center = frontMob() || target;
       for (const skill of cls.skills) {
         const level = player.skills[skill.id];
         if (level && Math.random() < skill.procChance) {
-          const procDmg = skillDamage(skill, level, atk);
-          mob.hp -= procDmg;
+          const procDmg = skillDamage(skill, level, skillAtk);
+          applySkillDamage(skill, procDmg, center);
           pushBattleEvent({ type: "skill", dmg: procDmg });
           gameState.procCounts[skill.id] = (gameState.procCounts[skill.id] || 0) + 1;
         }
       }
     }
-
-    if (mob.hp <= 0) killMob(mob);
   }
 
-  const mob = gameState.currentMob;
-  if (mob) mob.hp = Math.min(mob.maxHp, mob.hp + (mob.regen / 1000) * dt);
-
-  if (player.health <= 0) {
-    player.reset();
-    gameState.currentMob = null;
+  // mob regen (rare; zones are 0)
+  for (const m of gameState.field) {
+    if (m.hp > 0 && m.regen) m.hp = Math.min(m.maxHp, m.hp + (m.regen / 1000) * dt);
   }
+
+  if (player.health <= 0) resetHealth(player);
 }
 
-// Big dt (offline, throttled background tab): closed-form expected value.
-// ponytail: auto-attack + passive-proc EV only — no macro skills, no boss
-// farming offline (an active boss reverts to the selected zone first).
-function simulateBatch(dt) {
-  if (gameState.currentMob?.isBoss) {
-    if (gameState.currentZoneId) selectZone(gameState.currentZoneId, gameState.currentVariant);
-    else gameState.currentMob = null;
+// How many of the 4×4 field a radius covers (from the field centre) — used to
+// value AoE throughput offline.
+function aoeCoverage(radius) {
+  let n = 0;
+  for (let gy = 0; gy < FIELD_ROWS; gy++) {
+    for (let gx = 0; gx < FIELD_COLS; gx++) {
+      if (Math.hypot(gx - 1.5, gy - 1.5) <= radius) n++;
+    }
   }
-  const mob = gameState.currentMob;
-  player.lastAttack = gameState.total_time;
-  if (!mob) return;
+  return Math.max(1, n);
+}
 
-  const { atk, interval } = effectiveStats();
+// Big dt (offline, throttled background tab): closed-form expected value over
+// the whole field, so AoE farmers earn their field-clear advantage offline too.
+// ponytail: auto-attack + passive-proc EV only — no macro skills, no boss farming
+// offline (an active boss reverts to the selected zone field first).
+function simulateBatch(dt) {
+  if (frontMob()?.isBoss) {
+    if (gameState.currentZoneId) selectZone(gameState.currentZoneId, gameState.currentVariant);
+    else gameState.field = [];
+  }
+  const mob = frontMob();
+  player.lastAttack = gameState.total_time;
+  if (!mob || mob.isBoss || mob.isFieldBoss) return; // only estimate regular zone farming
+
+  const { atk, skillAtk, interval } = effectiveStats();
   const cls = getClass(player.classId);
 
-  let perAttack = Math.max(0, atk - mob.defense);
+  // total damage the field soaks per attack: auto hits 1, each AoE proc hits its coverage
+  let fieldDmgPerAttack = Math.max(0, atk - mob.defense);
   if (cls && cls.archetype === "passive") {
     for (const skill of cls.skills) {
       const level = player.skills[skill.id];
-      if (level) perAttack += skill.procChance * skillDamage(skill, level, atk);
+      if (!level) continue;
+      const per = skill.procChance * skillDamage(skill, level, skillAtk);
+      fieldDmgPerAttack += per * (skill.aoe ? aoeCoverage(skill.radius) : 1);
     }
   }
 
-  const netDps = perAttack / (interval / 1000) - mob.regen;
-  if (netDps <= 0) return;
-
-  const kills = Math.floor(dt / (mob.maxHp / netDps * 1000));
+  const fieldDmgPerSec = fieldDmgPerAttack / (interval / 1000);
+  const kills = Math.floor((dt / 1000) * fieldDmgPerSec / mob.maxHp);
   if (kills <= 0) return;
 
-  const copper = Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag));
-  gameState.copper += copper;
+  const copper = earnCopper(Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag)));
+  player.int += kills * mob.intPerKill;
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
-  player.gainXP(kills * mob.xp);
+  gainXP(player, kills * mob.xp);
 
   if (dt >= 60_000) {
     const hours = (dt / 3600000).toFixed(1);
@@ -465,18 +578,24 @@ function simulateBatch(dt) {
 }
 
 ///// RENDER /////
+const bossHandlers = {
+  onSummon: summonBoss,
+  onToggleAuto: () => { gameState.autoResummon = !gameState.autoResummon; },
+};
+
 function render() {
   updateUI(gameState, player);
   renderBattle(gameState, player);
-  renderSkillBar(gameState, player, effectiveStats().atk, castSkill);
+  renderSkillBar(gameState, player, effectiveStats().skillAtk, castSkill);
   renderBestiary(gameState);
-  renderLegion(gameState, player, retireCharacter);
+  renderLegion(gameState, rosterHandlers);
+  renderBossList(gameState, player, bossHandlers);
 }
 
 ///// SAVE ON EXIT /////
 let resetting = false;
 window.addEventListener("beforeunload", () => {
-  if (!resetting) save(gameState, player);
+  if (!resetting) save(gameState);
 });
 
 document.getElementById("huntFieldBoss").onclick = huntFieldBoss;
@@ -492,11 +611,8 @@ document.getElementById("resetGame").onclick = () => {
 ///// START /////
 initBattle(document.getElementById("battleCanvas"));
 if (!player.classId) renderClassSelect(pickClass);
+initTabs();
 renderZoneList(gameState, selectZone);
-renderBossList(gameState, {
-  onSummon: summonBoss,
-  onToggleAuto: () => { gameState.autoResummon = !gameState.autoResummon; },
-});
 renderShop(buy);
 renderEquipment(player, equipHandlers);
 refreshMacro();

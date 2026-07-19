@@ -1,53 +1,109 @@
+/* WC3 "Enhancement Slave" chrome: near-black navy panels, gold borders,
+   parchment text, dark green field. Faithful skin, web-native skeleton. */
+:root {
+    --bg: #101613;            /* dark field green-black */
+    --panel: #0c0f1a;         /* WC3 navy panel */
+    --panel-2: #131a2b;       /* raised panel */
+    --gold: #c8a84b;          /* bright gold accents */
+    --gold-dim: #8a7440;      /* border gold */
+    --text: #e8dcc0;          /* parchment */
+    --text-dim: #a49878;
+    --hp-green: #2fd42f;
+    --purple-plate: linear-gradient(90deg, #4a1a6e, #7a2fa8, #4a1a6e);
+    --success: #7fe07f;
+    --fail: #ff8080;
+}
+
 body {
-    color: light-dark(#333b3c, #efefec);
-    background-color: light-dark(#efedea, #223a2c);
+    color: var(--text);
+    background-color: var(--bg);
+    background-image: radial-gradient(ellipse at 50% 0%, #16211a 0%, var(--bg) 70%);
     font-family: system-ui, sans-serif;
     margin: 8px;
 }
 
-.columns {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    margin-top: 36px;
+.game {
+    max-width: 720px;
+    margin: 40px auto 0;
 }
 
-.col {
-    flex: 1;
-    min-width: 0;
+/* tab navigation — WC3 menu buttons */
+.tabBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
 }
+.tabBar button {
+    padding: 8px 14px;
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    background: linear-gradient(180deg, #1a2338, var(--panel));
+    color: var(--gold);
+    font-weight: bold;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.tabBar button:hover { border-color: var(--gold); }
+.tabBar button.active {
+    background: linear-gradient(180deg, #2b3854, #1a2338);
+    border-color: var(--gold);
+    color: #fff2cc;
+    box-shadow: inset 0 0 6px rgba(200, 168, 75, 0.35);
+}
+.tabPanel { display: none; }
+.tabPanel.active { display: block; }
 
 .panel {
-    border: 1px solid rgba(128, 128, 128, 0.5);
-    border-radius: 6px;
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
     padding: 8px;
     margin-bottom: 12px;
+    background: var(--panel);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .panel h3 {
     margin: 0 0 6px 0;
+    color: var(--gold);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid rgba(138, 116, 64, 0.4);
+    padding-bottom: 3px;
 }
 
-.playerInfoWrapper {
-    background: rgba(200, 54, 54, 0.5);
-}
-
-.mobInfoWrapper {
-    background: rgba(0, 200, 255, 0.5);
-}
+.playerInfoWrapper { background: var(--panel-2); }
+.mobInfoWrapper { background: var(--panel-2); }
 
 #battleCanvas {
     display: block;
     width: 100%;
     margin: 6px 0;
-    border-radius: 4px;
+    border-radius: 3px;
+    border: 1px solid var(--gold-dim);
     image-rendering: pixelated;
+    background: #17301c;
 }
 
 #mobInfoHeader, #playerInfoHeader {
     font-weight: bold;
     font-size: larger;
+    color: var(--gold);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
 }
+
+button {
+    background: linear-gradient(180deg, #1a2338, var(--panel));
+    color: var(--text);
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--gold); color: #fff2cc; }
+button:disabled { opacity: 0.45; cursor: default; }
 
 #resetGame {
     position: absolute;
@@ -58,7 +114,7 @@ body {
 .zoneEntry, .shopEntry, .equipSlot, .bossEntry {
     margin-bottom: 8px;
     padding-bottom: 6px;
-    border-bottom: 1px dashed rgba(128, 128, 128, 0.4);
+    border-bottom: 1px dashed rgba(138, 116, 64, 0.35);
 }
 
 .zoneEntry button, .equipSlot button {
@@ -71,30 +127,35 @@ body {
     font-size: 0.85em;
 }
 
-#feed .success { color: light-dark(#1a7f1a, #7fe07f); }
-#feed .fail    { color: light-dark(#b02020, #ff8080); }
+#feed .success { color: var(--success); }
+#feed .fail    { color: var(--fail); }
 
 #classSelect {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.75);
     align-items: center;
     justify-content: center;
     z-index: 10;
 }
 
 .classSelectBox {
-    background: light-dark(#efedea, #223a2c);
-    border-radius: 8px;
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    border-radius: 4px;
     padding: 20px;
     max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
 }
+.classSelectBox h2 { color: var(--gold); font-variant: small-caps; margin-top: 0; }
 
 .classEntry {
     margin-bottom: 12px;
     padding-bottom: 8px;
-    border-bottom: 1px dashed rgba(128, 128, 128, 0.4);
+    border-bottom: 1px dashed rgba(138, 116, 64, 0.35);
 }
 
 .bestiaryEntry { margin-bottom: 2px; }
@@ -111,20 +172,188 @@ button.skillCast {
     text-align: left;
     padding: 8px;
     margin-bottom: 4px;
-    border: 1px solid rgba(128, 128, 128, 0.5);
-    border-radius: 4px;
-    background: light-dark(#fff, #2c4a3a);
-    color: inherit;
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    background: linear-gradient(180deg, #1a2338, var(--panel));
+    color: var(--text);
     cursor: pointer;
 }
 button.skillCast:disabled { cursor: default; }
+
+/* ---- top chip bar (WC3 timer boxes) ---- */
+.chipBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.chipBar:empty { display: none; }
+.chip {
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    background: rgba(12, 15, 26, 0.9);
+    color: var(--text);
+    font-size: 0.78em;
+    padding: 3px 8px;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+.chip .chipTime { color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
+
+/* ---- battlefield tooltip (WC3 hover box) ---- */
+.battleTooltip {
+    display: none;
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    background: rgba(8, 10, 18, 0.95);
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 0.8em;
+    color: var(--text);
+    max-width: 180px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+.battleTooltip strong { color: var(--gold); }
+
+/* ---- battlefield info line ---- */
+.mobInfo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    align-items: baseline;
+    font-size: 0.9em;
+    color: var(--text-dim);
+}
+.mobInfo strong { color: var(--text); font-size: 1.05rem; flex-basis: 100%; }
+
+/* ---- WC3-style HUD bar ---- */
+.hudBar {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    background: linear-gradient(180deg, #10162a, var(--panel));
+}
+.hudPortrait {
+    width: 64px;
+    height: 64px;
+    flex: none;
+    border: 2px solid var(--gold-dim);
+    border-radius: 3px;
+    background-color: #0a0d16;
+    font-size: 40px;
+    line-height: 62px;
+    text-align: center;
+    align-self: center;
+    overflow: hidden;
+}
+.hudCenter {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+}
+.namePlate {
+    background: var(--purple-plate);
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    text-align: center;
+    color: #ffeaff;
+    font-weight: bold;
+    font-size: 0.9em;
+    padding: 1px 6px;
+    text-shadow: 0 1px 2px #000;
+}
+.hpBarOuter {
+    position: relative;
+    height: 14px;
+    background: #000;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.hpBarInner {
+    height: 100%;
+    background: linear-gradient(180deg, #5fe75f, var(--hp-green) 60%, #1d8f1d);
+}
+.hpText {
+    position: absolute;
+    inset: 0;
+    text-align: center;
+    font-size: 10px;
+    line-height: 14px;
+    color: #fff;
+    text-shadow: 0 1px 2px #000;
+}
+.hudStats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    font-size: 0.85em;
+    color: var(--text-dim);
+}
+.hudStats b { color: var(--text); }
+.hudCurrency { display: flex; gap: 12px; font-size: 0.85em; }
+.curGold { color: #ffd700; }
+.curSilver { color: #c8cdd8; }
+.curCopper { color: #d98c4a; }
+.hudInv {
+    display: grid;
+    grid-template-columns: repeat(3, 32px);
+    grid-auto-rows: 32px;
+    gap: 3px;
+    align-content: center;
+    flex: none;
+}
+.invCell {
+    position: relative;
+    border: 1px solid var(--gold-dim);
+    background: #0a0d16;
+    border-radius: 2px;
+    text-align: center;
+    line-height: 30px;
+    font-weight: bold;
+    color: var(--gold);
+    cursor: pointer;
+    font-size: 0.9em;
+    min-height: 0;
+    padding: 0;
+}
+.invCell:not(.filled) { opacity: 0.4; }
+.invCell span {
+    position: absolute;
+    right: 2px;
+    bottom: 0;
+    font-size: 9px;
+    line-height: 9px;
+    color: #9fe79f;
+    text-shadow: 0 1px 1px #000;
+}
+
+/* desktop: HUD docks to the bottom like the source game */
+@media (min-width: 761px) {
+    .hudBar {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(720px, calc(100% - 16px));
+        z-index: 5;
+        margin-bottom: 0;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.6);
+    }
+    .game { padding-bottom: 120px; }
+}
 
 /* ---- Mobile: stack columns, bigger tap targets ---- */
 @media (max-width: 760px) {
     body { margin: 6px; -webkit-text-size-adjust: 100%; }
 
-    .columns { flex-direction: column; margin-top: 44px; }
-    .col { width: 100%; flex: none; }
+    .game { margin-top: 44px; max-width: 100%; }
+    .tabBar button { flex: 1 1 auto; min-width: 0; }
 
     /* comfortable touch targets */
     button {
@@ -138,4 +367,11 @@ button.skillCast:disabled { cursor: default; }
 
     #feed { max-height: 200px; }
     #battleCanvas { max-width: 100%; }
+
+    /* compact HUD in normal flow (no fixed bars vs mobile browser chrome) */
+    .hudPortrait { width: 48px; height: 48px; font-size: 30px; line-height: 46px; }
+    .hudInv { grid-template-columns: repeat(3, 28px); grid-auto-rows: 28px; }
+    .invCell { line-height: 26px; font-size: 0.8em; }
+    .invCell span { min-height: 0; }
+    .hudStats { font-size: 0.8em; }
 }

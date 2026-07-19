@@ -16,6 +16,13 @@ export const SHEETS = {
   overmind:        { src: "assets/overmind.png",        size: 64, frames: 6, fps: 6,  fallback: "🧠" },
   overmind_attack: { src: "assets/overmind_attack.png", size: 64, frames: 6, fps: 12, fallback: null },
   hero:            { src: "assets/hero.png",            size: 64, frames: 4, fps: 6,  fallback: "🧑" }, // no class yet
+  omniblade:       { src: "assets/omniblade.png",       size: 64, frames: 4, fps: 6,  fallback: "⚔️" },
+  bloodevil:       { src: "assets/bloodevil.png",       size: 64, frames: 4, fps: 6,  fallback: "🩸" },
+  indra:           { src: "assets/indra.png",           size: 64, frames: 4, fps: 6,  fallback: "🌊" },
+  vagabond:        { src: "assets/vagabond.png",        size: 64, frames: 4, fps: 6,  fallback: "🗡️" },
+  desperado:       { src: "assets/desperado.png",       size: 64, frames: 4, fps: 6,  fallback: "🤠" },
+  stormtrooper:    { src: "assets/stormtrooper.png",    size: 64, frames: 4, fps: 6,  fallback: "🔫" },
+  nenempress:      { src: "assets/nenempress.png",      size: 64, frames: 4, fps: 6,  fallback: "👑" },
 
   // zone mobs (keyed by zone id)
   kiln:    { src: "assets/kiln.png",    size: 64, frames: 4, fps: 4, fallback: "😩" },
@@ -35,6 +42,14 @@ export const SHEETS = {
   anton:     { src: "assets/anton.png",     size: 64, frames: 4, fps: 4, fallback: "👹" },
   luke:      { src: "assets/luke.png",      size: 64, frames: 4, fps: 4, fallback: "🤖" },
   harlem:    { src: "assets/harlem.png",    size: 64, frames: 4, fps: 4, fallback: "💀" },
+  sirocco:   { src: "assets/sirocco.png",   size: 64, frames: 4, fps: 4, fallback: "🌪️" },
+  ozma:      { src: "assets/ozma.png",      size: 64, frames: 4, fps: 4, fallback: "🐐" },
+  tiamat:    { src: "assets/tiamat.png",    size: 64, frames: 4, fps: 4, fallback: "🐉" },
+  astaroth:  { src: "assets/astaroth.png",  size: 64, frames: 4, fps: 4, fallback: "📕" },
+  ezra:      { src: "assets/ezra.png",      size: 64, frames: 4, fps: 4, fallback: "🔮" },
+  bernardo:  { src: "assets/bernardo.png",  size: 64, frames: 4, fps: 4, fallback: "🛡️" },
+  bernardo2: { src: "assets/bernardo2.png", size: 64, frames: 4, fps: 4, fallback: "⚜️" },
+  seria:     { src: "assets/seria.png",     size: 64, frames: 4, fps: 4, fallback: "🌸" },
 };
 
 const cache = {}; // key -> { img: Image|null, ready: bool, failed: bool }

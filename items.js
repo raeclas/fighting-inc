@@ -15,6 +15,15 @@ export const items = [
   { id: "refinedlumen", name: "Refined Lumen Caligo",       enhCost: 50_000,    stat: "atkspd", base: 60,     per20: 300 },
   { id: "rosetta2",     name: "Rosetta Stone 2: Rosettier", enhCost: 250_000,   stat: "atk",    base: 3_000,  per20: 50_000 },
   { id: "globetrophy",  name: "Harlem Globetrophy",         enhCost: 1_000_000, stat: "atk",    base: 12_000, per20: 200_000 },
+
+  // decompiled-roster boss drops (flat stats for now; signature effects =
+  // roadmap "boss item effects rebuild")
+  { id: "siroccoheart", name: "Sirocco's Stormheart",         enhCost: 5_000_000,     stat: "atk",    base: 48_000,     per20: 800_000 },
+  { id: "ozmabrand",    name: "Revenge: Ozma's Brand",        enhCost: 25_000_000,    stat: "atk",    base: 190_000,    per20: 3_200_000 },
+  { id: "tiamatcurse",  name: "Despair: Tiamat's Curse",      enhCost: 125_000_000,   stat: "atk",    base: 760_000,    per20: 12_800_000 },
+  { id: "astarothgrim", name: "Astaroth's Grimoire",          enhCost: 600_000_000,   stat: "atk",    base: 3_000_000,  per20: 51_000_000 },
+  { id: "timewatch",    name: "Time Traveler's Silver Watch", enhCost: 500_000_000,   stat: "atkspd", base: 90,         per20: 420 },
+  { id: "ezraprophecy", name: "Ezra's Prophecy",              enhCost: 3_000_000_000, stat: "atk",    base: 12_000_000, per20: 205_000_000 },
 ];
 
 export const getItem = id => items.find(i => i.id === id);

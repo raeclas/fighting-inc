@@ -11,12 +11,13 @@
 // (passive procs counted as EV damage). Not modeled: macros, gathering
 // buffs, Legion retirement, active-class play.
 import fs from "node:fs";
-import { zones, VARIANTS, spawnMob, BAG_CHANCE } from "../zones.js";
+import { zones, VARIANTS, spawnMob, BAG_CHANCE, FIELD_COLS, FIELD_ROWS } from "../zones.js";
 import { getItem, statValue, aggregate } from "../items.js";
 import { enhanceChance } from "../enhance.js";
 import { bosses, getBoss, spawnBossMob, TICKET_CHANCE, ITEM_DROP_CHANCE } from "../bosses.js";
 import { getClass, skillDamage } from "../classes.js";
 import { bestiaryBonus } from "../bestiary.js";
+import { legionBonuses } from "../legion.js";
 
 const MAX_SIM_S = 365 * 86400;
 const CLS = getClass("overmind");
@@ -25,7 +26,8 @@ const CLS = getClass("overmind");
 const P = {
   t: 0, copper: 0,
   level: 1, xpAcc: 0, xpToNext: 100,
-  attack: 1, attackSpeed: 1000,
+  attack: 5, attackSpeed: 1000,
+  int: 0,        // per-character flat damage from later zones (also feeds its Legion bonus)
   equipment: [], // {itemId, plus}
   skills: { [CLS.skills[0].id]: 1 },
   kills: {},
@@ -54,20 +56,51 @@ function gainXp(xp) {
 
 function stats() {
   const { atk, spdPct } = aggregate(P.equipment);
-  const bonus = 1 + bestiaryBonus({ kills: P.kills });
-  const A = Math.round((P.attack + atk) * bonus);
-  const interval = P.attackSpeed / (1 + spdPct / 100) / 1000; // s per attack
+  // Legion: the bot is a 1-char account, so only its own class bonus applies
+  // (skill damage for Overmind). Multi-char rosters compound further.
+  const leg = legionBonuses({ characters: [{ classId: CLS.id, int: P.int }] });
+  const bonus = 1 + bestiaryBonus({ kills: P.kills }) + (CLS.passive?.atkPct ?? 0) / 100 + leg.dmgPct / 100;
+  const A = Math.round((P.attack + atk + P.int) * bonus);
+  const skillAtk = Math.round(A * (1 + leg.skillDmgPct / 100));
+  const interval = P.attackSpeed /
+    (1 + (spdPct + leg.atkSpeedPct + (CLS.passive?.atkSpdPct ?? 0)) / 100) / 1000; // s per attack
   let procEV = 0; // skill procs ignore defense, same as the game
   for (const s of CLS.skills) {
     const lvl = P.skills[s.id];
-    if (lvl) procEV += s.procChance * skillDamage(s, lvl, A);
+    if (lvl) procEV += s.procChance * skillDamage(s, lvl, skillAtk);
   }
-  return { atk: A, interval, procEV };
+  return { atk: A, skillAtk, interval, procEV };
 }
 
 function dpsAgainst(mob) {
   const { atk, interval, procEV } = stats();
   return (Math.max(0, atk - mob.defense) + procEV) / interval - mob.regen;
+}
+
+// mobs of the 4×4 field within `radius` of the centre — AoE coverage.
+function aoeCoverage(radius) {
+  let n = 0;
+  for (let gy = 0; gy < FIELD_ROWS; gy++)
+    for (let gx = 0; gx < FIELD_COLS; gx++)
+      if (Math.hypot(gx - 1.5, gy - 1.5) <= radius) n++;
+  return Math.max(1, n);
+}
+
+// Kills/sec against a field of these mobs. Auto-attack is single-target (≤1
+// kill per hit); each AoE proc kills up to its coverage; each source kills at
+// most 1 mob per mob it hits. This is the farm-vs-boss lever in the tracker.
+function fieldKillsPerSec(mob) {
+  const { atk, skillAtk, interval } = stats();
+  const hp = mob.maxHp;
+  let killsPerAtk = Math.min(1, Math.max(0, atk - mob.defense) / hp); // auto, single-target
+  for (const s of CLS.skills) {
+    const lvl = P.skills[s.id];
+    if (!lvl) continue;
+    const dmg = skillDamage(s, lvl, skillAtk);
+    const cover = s.aoe ? aoeCoverage(s.radius) : 1;
+    killsPerAtk += s.procChance * cover * Math.min(1, dmg / hp);
+  }
+  return killsPerAtk / interval;
 }
 
 // Time to kill, floored at one attack interval: you can't attack faster than
@@ -87,13 +120,14 @@ function bestZoneRate() {
   for (const z of zones) {
     for (let v = 0; v < VARIANTS.length; v++) {
       const mob = spawnMob(z, v);
-      const ttk = timeToKill(mob);
-      if (!isFinite(ttk)) continue;
+      const kps = fieldKillsPerSec(mob);
+      if (kps <= 0) continue;
       const r = {
         zone: z, variant: v, name: mob.name,
-        copperPerSec: (mob.copper + BAG_CHANCE * mob.bag) / ttk,
-        xpPerSec: mob.xp / ttk,
-        killsPerSec: 1 / ttk,
+        copperPerSec: kps * (mob.copper + BAG_CHANCE * mob.bag),
+        xpPerSec: kps * mob.xp,
+        intPerSec: kps * mob.intPerKill,
+        killsPerSec: kps,
       };
       if (!best || r.copperPerSec > best.copperPerSec) best = r;
     }
@@ -125,6 +159,7 @@ function farmUntil(targetCopper) {
     P.t += dt;
     if (P.t > MAX_SIM_S) { mark("STUCK: exceeded 1 simulated year"); return false; }
     P.copper += r.copperPerSec * dt;
+    P.int += r.intPerSec * dt;
     P.kills[r.zone.id] = (P.kills[r.zone.id] || 0) + r.killsPerSec * dt;
     gainXp(r.xpPerSec * dt);
   }
