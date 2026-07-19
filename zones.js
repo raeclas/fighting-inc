@@ -5,46 +5,31 @@ export const VARIANTS = [1, 5, 20];
 
 // Wiki hunting grounds give per-kill copper only (WC3 mobs are fodder);
 // hp/def/regen/xp are our difficulty curve derived from the coin value.
-const mk = (id, mobName, copper) => ({
+// hpMult tapers DOWN the ladder so copper-per-hp IMPROVES as you climb
+// (0.10 → 0.25): every zone unlock is a real income jump per point of DPS.
+const mk = (id, mobName, copper, hpMult, overrides = {}) => ({
   id, mobName, copper,
-  hp: copper * 10,
+  hp: copper * hpMult,
   defense: Math.round(copper * 0.5),
-  regen: copper / 10,
+  regen: copper * hpMult / 100,
   xp: copper * 8,
+  ...overrides,
 });
 
-// Ascending by copper. Intro zones are ours; the rest are the source game's
-// hunting grounds ("Labour" camps) with per-kill copper from the wiki.
+// The source game's hunting grounds ("Labour" camps), ascending;
+// per-kill copper straight from the wiki.
 export const zones = [
-  {
-    id: "slime",
-    mobName: "Stupid Slime",
-    hp: 10, defense: 0, regen: 0,
-    copper: 1, xp: 10,
-  },
-  mk("temple", "Fallen Temple Labourer", 2),
-  {
-    id: "slime2",
-    mobName: "Less Stupid Slime",
-    hp: 25, defense: 1, regen: 0.5,
-    copper: 3, xp: 25,
-  },
-  {
-    id: "goblin",
-    mobName: "Unpaid Goblin Intern",
-    hp: 80, defense: 3, regen: 2,
-    copper: 10, xp: 80,
-  },
-  mk("magtonium",     "Magtonium Miner",    52),
-  mk("otherverse",    "Otherverse Drone",   1_799),
-  mk("terranium",     "Terranium Golem",    179_999),
-  mk("harlemdungeon", "Harlem Delinquent",  1_199_999),
-  mk("lukelab",       "Luke's Apprentice",  119_999_992),
-  mk("fiendwar",      "Lesser Fiend",       35e9),
-  mk("stormy",        "Storm Wisp",         1_079e9),
-  mk("aiolite",       "Aiolite Sentinel",   16_199e9),
-  mk("despairore",    "Despair Ore Sprite", 1_619_999e9),
-  mk("goldenberyl",   "Beryl Guardian",     119_999_992e9),
+  mk("temple",        "Fallen Temple Labourer",   2,          10, { defense: 0 }), // starter: must be killable at atk 1
+  mk("magtonium",     "Magtonium Miner",          52,         9),
+  mk("otherverse",    "Otherverse Drone",         1_799,      8),
+  mk("terranium",     "Terranium Golem",          179_999,    7),
+  mk("harlemdungeon", "Harlem Delinquent",        1_199_999,  6),
+  mk("lukelab",       "Luke's Apprentice",        119_999_992, 5.5),
+  mk("fiendwar",      "Lesser Fiend",             35e9,       5),
+  mk("stormy",        "Storm Wisp",               1_079e9,    4.8),
+  mk("aiolite",       "Aiolite Sentinel",         16_199e9,   4.5),
+  mk("despairore",    "Despair Ore Sprite",       1_619_999e9, 4.2),
+  mk("goldenberyl",   "Beryl Guardian",           119_999_992e9, 4),
 ];
 
 export function getZone(zoneId) {

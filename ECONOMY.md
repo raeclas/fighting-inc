@@ -44,12 +44,14 @@ before the first satisfying milestone. Fix: money bags — rare drop
 variance dopamine and roughly doubles early income without touching the
 curve elsewhere.
 
-**F2 — All 11 wiki zones are strictly dominated. The bot never leaves
-Unpaid Goblin Intern.** Copper-per-hp: goblin 0.125 vs 0.10 flat for every
-wiki zone (hp = copper×10), and wiki zones add defense on top. Higher zone =
-same income at best, usually worse. Fix: taper the hp multiplier so
-copper/hp *improves* up the ladder (≈0.10 intro → ≈0.25 endgame); each zone
-unlock then IS an income jump, which is the entire point of unlocking zones.
+**F2 — RESOLVED. All wiki zones were strictly dominated by the placeholder
+goblin.** The three placeholder intro mobs (slime/slime2/goblin) had better
+copper-per-hp than every wiki zone, so the bot never left the goblin.
+Fix applied: placeholders removed (they were always temporary) and the hp
+multiplier now tapers down the ladder (×10 → ×4), so copper/hp improves
+from 0.10 to 0.25 as you climb — each unlock is a real income jump. The
+sim now switches Temple → Magtonium → Otherverse on schedule; Terranium+
+still waits on future gear tiers (see F3).
 
 **F3 — Full clear in 10.3 optimal hours.** Fine for a demo; too short for
 release. The gear ladder (not the zone ladder) is the ceiling — see the

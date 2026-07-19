@@ -18,9 +18,6 @@ export const SHEETS = {
   hero:            { src: "assets/hero.png",            size: 64, frames: 4, fps: 6,  fallback: "🧑" }, // no class yet
 
   // zone mobs (keyed by zone id)
-  slime:         { src: "assets/slime.png",         size: 64, frames: 4, fps: 4, fallback: "🟢" },
-  slime2:        { src: "assets/slime2.png",        size: 64, frames: 4, fps: 4, fallback: "🦠" },
-  goblin:        { src: "assets/goblin.png",        size: 64, frames: 4, fps: 4, fallback: "🧌" },
   temple:        { src: "assets/temple.png",        size: 64, frames: 4, fps: 4, fallback: "😩" },
   magtonium:     { src: "assets/magtonium.png",     size: 64, frames: 4, fps: 4, fallback: "🌋" },
   otherverse:    { src: "assets/otherverse.png",    size: 64, frames: 4, fps: 4, fallback: "👾" },
