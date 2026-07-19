@@ -55,26 +55,32 @@ function gainXp(xp) {
 }
 
 function stats() {
-  const { atk, spdPct } = aggregate(P.equipment);
+  const g = aggregate(P.equipment);
   // Legion: the bot is a 1-char account, so only its own class bonus applies
   // (skill damage for Overmind). Multi-char rosters compound further.
   const leg = legionBonuses({ characters: [{ classId: CLS.id, int: P.int }] });
-  const bonus = 1 + bestiaryBonus({ kills: P.kills }) + (CLS.passive?.atkPct ?? 0) / 100 + leg.dmgPct / 100;
-  const A = Math.round((P.attack + atk + P.int) * bonus);
-  const skillAtk = Math.round(A * (1 + leg.skillDmgPct / 100));
+  const bonus = 1 + bestiaryBonus({ kills: P.kills }) + (CLS.passive?.atkPct ?? 0) / 100
+    + leg.dmgPct / 100 + g.atkPct / 100;
+  const totalInt = P.int + g.int;
+  const A = Math.round((P.attack + g.atk + totalInt) * bonus);
+  const skillAtk = Math.round(A * (1 + (leg.skillDmgPct + g.skillDmgPct) / 100));
   const interval = P.attackSpeed /
-    (1 + (spdPct + leg.atkSpeedPct + (CLS.passive?.atkSpdPct ?? 0)) / 100) / 1000; // s per attack
+    (1 + (g.spdPct + leg.atkSpeedPct + (CLS.passive?.atkSpdPct ?? 0)) / 100) / 1000; // s per attack
+  // crit multiplies autos (EV); item INT procs add flat single-target EV
+  const critEV = 1 + (g.crit ? g.crit.chance * (g.crit.mult - 1) : 0);
+  let intProcEV = 0;
+  for (const p of g.intProcs) intProcEV += p.chance * p.mult * totalInt;
   let procEV = 0; // skill procs ignore defense, same as the game
   for (const s of CLS.skills) {
     const lvl = P.skills[s.id];
-    if (lvl) procEV += s.procChance * skillDamage(s, lvl, skillAtk);
+    if (lvl) procEV += s.procChance * skillDamage(s, lvl + g.skillLevelBonus, skillAtk);
   }
-  return { atk: A, skillAtk, interval, procEV };
+  return { atk: A, skillAtk, interval, procEV, critEV, intProcEV, totalInt, slb: g.skillLevelBonus };
 }
 
 function dpsAgainst(mob) {
-  const { atk, interval, procEV } = stats();
-  return (Math.max(0, atk - mob.defense) + procEV) / interval - mob.regen;
+  const { atk, interval, procEV, critEV, intProcEV } = stats();
+  return (Math.max(0, atk - mob.defense) * critEV + intProcEV + procEV) / interval - mob.regen;
 }
 
 // mobs of the 4×4 field within `radius` of the centre — AoE coverage.
@@ -90,13 +96,14 @@ function aoeCoverage(radius) {
 // kill per hit); each AoE proc kills up to its coverage; each source kills at
 // most 1 mob per mob it hits. This is the farm-vs-boss lever in the tracker.
 function fieldKillsPerSec(mob) {
-  const { atk, skillAtk, interval } = stats();
+  const { atk, skillAtk, interval, critEV, intProcEV, slb } = stats();
   const hp = mob.maxHp;
-  let killsPerAtk = Math.min(1, Math.max(0, atk - mob.defense) / hp); // auto, single-target
+  let killsPerAtk = Math.min(1, Math.max(0, atk - mob.defense) * critEV / hp); // auto, single-target
+  killsPerAtk += Math.min(1, intProcEV / hp); // item INT procs, single-target EV
   for (const s of CLS.skills) {
     const lvl = P.skills[s.id];
     if (!lvl) continue;
-    const dmg = skillDamage(s, lvl, skillAtk);
+    const dmg = skillDamage(s, lvl + slb, skillAtk);
     const cover = s.aoe ? aoeCoverage(s.radius) : 1;
     killsPerAtk += s.procChance * cover * Math.min(1, dmg / hp);
   }
