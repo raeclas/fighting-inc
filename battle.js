@@ -227,7 +227,7 @@ export function renderBattle(state, player) {
 
 function fmtNum(n) {
   if (n < 1e4) return Math.round(n).toString();
-  const units = ["", "k", "M", "B", "T"];
+  const units = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx"];
   const tier = Math.min(units.length - 1, Math.floor(Math.log10(n) / 3));
   return (n / 10 ** (tier * 3)).toFixed(1) + units[tier];
 }

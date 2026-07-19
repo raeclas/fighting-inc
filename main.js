@@ -17,7 +17,7 @@ import { renderGathering, renderLegion } from "./ui.js";
 import { legionBonuses, unlockedSlots } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
-import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS, ITEM_DROP_CHANCE } from "./bosses.js";
+import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS } from "./bosses.js";
 
 ///// LOAD SAVE /////
 const savedGame = load(gameState);
@@ -174,10 +174,20 @@ function acquireItem(itemId, sourceLabel) {
 }
 
 function rollBossDrops(boss) {
-  // items
-  for (const itemId of boss.itemIds) {
-    if (Math.random() >= ITEM_DROP_CHANCE) continue;
-    acquireItem(itemId, `${boss.name} dropped`);
+  const d = boss.drops;
+  if (d) {
+    // bounty: tier-N amount = bounty × 1e9^tier copper (silver/gold tiers)
+    if (d.bounty) {
+      const paid = earnCopper(d.bounty * 1e9 ** (d.bountyTier ?? 0));
+      pushBattleEvent({ type: "bag", copper: paid });
+      logLine(`Bounty: +${fmt(paid)}c.`, "success");
+    }
+    if (d.pool?.length && Math.random() < d.itemChance) {
+      acquireItem(d.pool[Math.floor(Math.random() * d.pool.length)], `${boss.name} dropped`);
+    }
+    if (d.rare && Math.random() < d.rare.chance) {
+      acquireItem(d.rare.itemId, `${boss.name} dropped a RARE find:`);
+    }
   }
 
   // skill ticket

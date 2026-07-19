@@ -50,6 +50,23 @@ export const SHEETS = {
   bernardo:  { src: "assets/bernardo.png",  size: 64, frames: 4, fps: 4, fallback: "🛡️" },
   bernardo2: { src: "assets/bernardo2.png", size: 64, frames: 4, fps: 4, fallback: "⚜️" },
   seria:     { src: "assets/seria.png",     size: 64, frames: 4, fps: 4, fallback: "🌸" },
+  abysswalker:    { src: "assets/abysswalker.png",    size: 64, frames: 4, fps: 4, fallback: "🕳️" },
+  taibers:        { src: "assets/taibers.png",        size: 64, frames: 4, fps: 4, fallback: "🦂" },
+  fiendwar:       { src: "assets/fiendwar.png",       size: 64, frames: 4, fps: 4, fallback: "⚔️" },
+  berias:         { src: "assets/berias.png",         size: 64, frames: 4, fps: 4, fallback: "🌑" },
+  prey:           { src: "assets/prey.png",           size: 64, frames: 4, fps: 4, fallback: "🦌" },
+  hyunfindwar:    { src: "assets/hyunfindwar.png",    size: 64, frames: 4, fps: 4, fallback: "🔥" },
+  queendestroyer: { src: "assets/queendestroyer.png", size: 64, frames: 4, fps: 4, fallback: "👸" },
+  astaroth2:      { src: "assets/astaroth2.png",      size: 64, frames: 4, fps: 4, fallback: "📖" },
+  spirazzi:       { src: "assets/spirazzi.png",       size: 64, frames: 4, fps: 4, fallback: "🐍" },
+  luton:          { src: "assets/luton.png",          size: 64, frames: 4, fps: 4, fallback: "🐘" },
+  transfrey:      { src: "assets/transfrey.png",      size: 64, frames: 4, fps: 4, fallback: "🌠" },
+  baekhwa:        { src: "assets/baekhwa.png",        size: 64, frames: 4, fps: 4, fallback: "🍊" },
+  ezraabyss:      { src: "assets/ezraabyss.png",      size: 64, frames: 4, fps: 4, fallback: "🌀" },
+  hisma:          { src: "assets/hisma.png",          size: 64, frames: 4, fps: 4, fallback: "🐲" },
+  skasa:          { src: "assets/skasa.png",          size: 64, frames: 4, fps: 4, fallback: "❄️" },
+  librarykeeper:  { src: "assets/librarykeeper.png",  size: 64, frames: 4, fps: 4, fallback: "📚" },
+  trialgiver:     { src: "assets/trialgiver.png",     size: 64, frames: 4, fps: 4, fallback: "⚖️" },
 };
 
 const cache = {}; // key -> { img: Image|null, ready: bool, failed: bool }
