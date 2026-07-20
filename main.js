@@ -135,13 +135,15 @@ function effectiveStats() {
   const pureMult = potionActive(player, "int", gameState.total_time) ? INT_POTION_MULT : 1;
   const totalInt = Math.round(player.int * pureMult) + g.int;
   const atkTotal = Math.round((player.attack + g.atk + totalInt) * bonus * (1 + g.addDmgPct / 100));
-  // WC3 caps the total attack-speed bonus at +400% (AGI alone gets there by lv9)
-  const spdPct = Math.min(400, agiSpeedPct(player) + g.spdPct + leg.atkSpeedPct + statSk.atkSpdPct + buffSpdPct);
+  // AGI saturates WC3's +400% cap from level 1 (source). ponytail: letting
+  // item/legion/buff speed stack PAST the cap is OUR adaptation — in the map
+  // those stats are decorative (cap already full); here they stay meaningful.
+  const spdPct = agiSpeedPct(player) + g.spdPct + leg.atkSpeedPct + statSk.atkSpdPct + buffSpdPct;
   return {
     atk: atkTotal,
     // source skill formula: level × (base + INT × mult) × this
     skillDmgMult: 1 + (leg.skillDmgPct + g.skillDmgPct + buffSkillDmgPct) / 100,
-    interval: player.attackSpeed / (1 + spdPct / 100),
+    interval: (cls?.baseCooldownMs ?? player.attackSpeed) / (1 + spdPct / 100),
     // enemy armor stripped from autos: item auras + Boxing Gloves + timed debuffs
     armorStrip: g.defReduce + statSk.armorReduce + timedArmor,
     totalInt,

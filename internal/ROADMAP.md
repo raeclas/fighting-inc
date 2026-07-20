@@ -67,6 +67,10 @@ Abyssal Intangible Sirocco boss (★Fusion★ pool `tR`, already extracted).
 Rakshasa last (prompt-timing minigame).
 
 ### Mechanical residue (small, opportunistic)
+Attack speed = HYBRID adaptation (2026-07-20): source saturates the WC3 +400%
+cap at level 1 (base AGI 1 × AgiAttackSpeedBonus 500, per-class baseCooldownMs
+from w3u), so all spd% stats are decorative in the map — we let item/legion/
+buff speed stack past the cap to keep them meaningful.
 Khai buff duration assumed 15s (map silent); One Inch Punch on-attacked /
 knuckle pulls / 13 discrete meteors (no substrate); clones are damage riders,
 not attackers; buffs absent from offline batch EV; locked-out zone farms

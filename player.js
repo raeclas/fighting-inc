@@ -64,10 +64,11 @@ function levelUp(char) {
   char.int += 1; // uinp — symbolic next to kill-INT, but it's the source's
 }
 
-// AGI 0.1/level × AgiAttackSpeedBonus(500) → +50% attack speed per level,
-// hitting WC3's +400% cap at level 9.
+// Source (war3mapmisc.txt): AgiAttackSpeedBonus=500 PER AGI POINT with base
+// AGI 1 — the WC3 +400% cap is saturated from level 1. AGI growth (0.1/level,
+// 500 at cap) is cosmetic in the map; every hero swings at baseCooldown÷5.
 export function agiSpeedPct(char) {
-  return Math.min(400, 50 * (char.level - 1));
+  return 400;
 }
 
 export function resetHealth(char) {

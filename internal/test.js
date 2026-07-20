@@ -152,9 +152,12 @@ gainXP(ch, 150);
 assert.equal(ch.level, 2);
 assert.equal(ch.int, 1);
 assert.equal(ch.xpToNext, 300);
-assert.equal(agiSpeedPct({ level: 1 }), 0);
-assert.equal(agiSpeedPct({ level: 5 }), 200);
-assert.equal(agiSpeedPct({ level: 100 }), 400); // capped
+// source: base AGI 1 × AgiAttackSpeedBonus 500 saturates the +400% cap at level 1
+assert.equal(agiSpeedPct({ level: 1 }), 400);
+assert.equal(agiSpeedPct({ level: 5000 }), 400);
+for (const cls of classes) {
+  assert.ok(cls.baseCooldownMs >= 500 && cls.baseCooldownMs <= 580, `${cls.id} baseCooldownMs`);
+}
 
 // armor auras stack; Lumen Basilium carries defReduce tiers
 const lum = aggregate([{ itemId: "luke_def", plus: 20 }, { itemId: "luke_def", plus: 0 }]);

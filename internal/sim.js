@@ -66,9 +66,9 @@ function stats() {
   const A = Math.round((P.attack + g.atk + totalInt) * bonus * (1 + g.addDmgPct / 100));
   const skillDmgMult = 1 + (leg.skillDmgPct + g.skillDmgPct) / 100;
   // AGI from levels caps the attack-speed bonus at +400% (WC3 cap)
-  const agiSpd = Math.min(400, 50 * (P.level - 1));
-  const spdPct = Math.min(400, agiSpd + g.spdPct + leg.atkSpeedPct + statSk.atkSpdPct);
-  const interval = P.attackSpeed / (1 + spdPct / 100) / 1000; // s per attack
+  // AGI saturates the WC3 cap from level 1 (source); spd stats stack past it (our adaptation)
+  const spdPct = 400 + g.spdPct + leg.atkSpeedPct + statSk.atkSpdPct;
+  const interval = (CLS.baseCooldownMs ?? P.attackSpeed) / (1 + spdPct / 100) / 1000; // s per attack
   // crit multiplies autos (EV); item INT procs add flat single-target EV
   const critEV = 1 + (g.crit ? g.crit.chance * (g.crit.mult - 1) : 0);
   let intProcEV = 0;

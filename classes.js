@@ -29,6 +29,7 @@
 export const classes = [
   {
     id: "striker",
+    baseCooldownMs: 500, // w3u attack cooldown
     name: "Striker",
     archetype: "active",
     desc: "Melee armor-cracker. No Q nuke — her Q IS the boxing gloves. Wrists optional.",
@@ -51,6 +52,7 @@ export const classes = [
   },
   {
     id: "overmind",
+    baseCooldownMs: 580, // w3u attack cooldown
     name: "Overmind",
     archetype: "active",
     desc: "Ranged caster, large flashy AoE. Sesto resets every other cooldown.",
@@ -71,6 +73,9 @@ export const classes = [
   },
   {
     id: "omniblade",
+    // w3u: job unit "Sword" 0.50s (sibling "Hellventor" 0.52 read as Blood Evil;
+    // idx13 "Evil spirits and demons" = Rakshasa, deferred)
+    baseCooldownMs: 500,
     name: "Omniblade",
     archetype: "passive",
     desc: "Sword procs, all single-target, all huge. The boss executioner — fields bore it.",
@@ -93,6 +98,7 @@ export const classes = [
   },
   {
     id: "bloodevil",
+    baseCooldownMs: 520, // w3u attack cooldown ("Hellventor")
     name: "Blood Evil",
     archetype: "passive",
     desc: "Everything explodes around you. The widest field-clearer in the game — bosses shrug.",
@@ -113,6 +119,7 @@ export const classes = [
   },
   {
     id: "indra",
+    baseCooldownMs: 550, // w3u attack cooldown
     name: "Indra",
     archetype: "passive",
     desc: "Waves on waves — steady mid-size AoE procs. The comfortable middle path.",
@@ -134,6 +141,7 @@ export const classes = [
   },
   {
     id: "vagabond",
+    baseCooldownMs: 520, // w3u attack cooldown ("Jin: Vagabond")
     name: "Neo: Vagabond",
     archetype: "passive",
     desc: "A duelist's blade with the occasional explosion. Single-target lean, wide finishers.",
@@ -154,6 +162,7 @@ export const classes = [
   },
   {
     id: "desperado",
+    baseCooldownMs: 550, // w3u attack cooldown
     name: "Desperado",
     archetype: "active",
     desc: "Ranged revolver executions. The revolver itself procs while you cast.",
@@ -176,6 +185,7 @@ export const classes = [
   },
   {
     id: "stormtrooper",
+    baseCooldownMs: 580, // w3u attack cooldown
     name: "Storm Trooper",
     archetype: "active",
     desc: "Flamethrowers, lasers, quantum bombs. Her autos ARE artillery (17% AoE).",
@@ -199,6 +209,7 @@ export const classes = [
   },
   {
     id: "nenempress",
+    baseCooldownMs: 550, // w3u attack cooldown ("A hundred flowers in a row")
     name: "Nen Empress",
     archetype: "active",
     desc: "Nen blasts and phantom clones (they're in your heart). Balanced caster.",
