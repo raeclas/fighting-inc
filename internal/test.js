@@ -2,7 +2,7 @@
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryMult } from "../items.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryMult, absorbDupes } from "../items.js";
 import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js";
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
@@ -607,6 +607,19 @@ assert.equal(poolFor("abyssirocco").length, 5);
   assert.deepEqual(ids, ["bossfirst", "fieldboss", "gather10", "int100k", "int1m", "kills1k", "lvl100", "mastery1", "merged", "plus10", "plus15", "plus20", "roster2", "silver"]);
   assert.equal(achievementBonus(rich), ids.length * ACHIEVEMENT_BONUS);
   assert.equal(evalAchievements(rich).length, 0); // already earned — no repeats
+}
+
+// absorbDupes: best copy per item survives, rest become mastery at 1+plus
+{
+  const stash = [
+    { itemId: "luke_dmg", plus: 3 }, { itemId: "luke_dmg", plus: 20 }, { itemId: "luke_dmg", plus: 0 },
+    { itemId: "rafaros", plus: 5 },
+  ];
+  const mastery = { luke_dmg: 2 };
+  assert.equal(absorbDupes(stash, mastery), 2);
+  assert.deepEqual(stash.map(e => `${e.itemId}+${e.plus}`).sort(), ["luke_dmg+20", "rafaros+5"]);
+  assert.equal(mastery.luke_dmg, 2 + (1 + 3) + (1 + 0)); // existing + two absorbed
+  assert.equal(absorbDupes(stash, mastery), 0); // idempotent
 }
 
 // INT-era speedups: boss INT bounties on the 5 specials, legion tutoring

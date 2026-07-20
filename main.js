@@ -7,7 +7,7 @@ import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
-import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
+import { getItem, aggregate, absorbDupes, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
@@ -579,7 +579,7 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
 
 // Open jars: each is a gacha roll (map ORx) — openChance × IV, consumed either way.
 function openJar(jarId, times) {
@@ -689,6 +689,18 @@ function discardStash(stashIdx) {
   if (!confirm(`Discard ${def.name} +${eq.plus} from stash? No refund.`)) return;
   player.stash.splice(stashIdx, 1);
   logLine(`Discarded ${def.name} +${eq.plus} from stash.`);
+  renderEquipment(player, equipHandlers);
+}
+
+// Batch-absorb every duplicate in the stash (pre-mastery saves arrive with
+// flooded stashes); keeps the best copy of each item.
+function absorbStashDupes() {
+  const n = new Set(player.stash.map(e => e.itemId)).size;
+  const dupes = player.stash.length - n;
+  if (!dupes) return;
+  if (!confirm(`Absorb ${dupes} duplicate item${dupes > 1 ? "s" : ""} into mastery? The best copy of each item stays.`)) return;
+  absorbDupes(player.stash, player.mastery);
+  logLine(`Absorbed ${dupes} stash duplicate${dupes > 1 ? "s" : ""} into mastery.`, "success");
   renderEquipment(player, equipHandlers);
 }
 
