@@ -1,7 +1,7 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS, zoneLocked, intDrip, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT, FIELD_BOSS_BAG_MULT, FIELD_BOSS_HP_MULT } from "./zones.js";
-import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryMult, MASTERY_MILESTONES, MASTERY_BONUS, bagDupeCount, aggregate } from "./items.js";
+import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryMult, masteryStars, MASTERY_MILESTONES, MASTERY_BONUS, MASTERY_STAR_BONUS, bagDupeCount, aggregate } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills, classStatBonuses } from "./classes.js";
 import { JARS, potionActive, ivMult, PROB_POTION_IV, ELIXIR_IV, INT_POTION_MULT } from "./consumables.js";
@@ -389,9 +389,16 @@ export function renderEquipment(player, handlers) {
     if (dupes) {
       const btn = document.createElement("button");
       btn.textContent = `Dupes → Mastery (${dupes})`;
-      btn.title = "Keeps the best copy of each item; the rest go to Item Mastery below (1 + plus each)";
+      btn.title = "Keeps the best copy of each item; the rest go to Item Mastery (1 + plus each)";
       btn.onclick = () => handlers.onAbsorbDupes();
       header.appendChild(btn);
+    }
+    if (stash.length > 1) {
+      const all = document.createElement("button");
+      all.textContent = `Absorb ALL (${stash.length})`;
+      all.title = "Dump the whole stash into Item Mastery, non-duplicates included";
+      all.onclick = () => handlers.onAbsorbAll();
+      header.appendChild(all);
     }
     container.appendChild(header);
 
@@ -408,8 +415,8 @@ export function renderEquipment(player, handlers) {
       div.appendChild(equip);
 
       const absorb = document.createElement("button");
-      absorb.textContent = "→ Mastery";
-      absorb.title = `Move into Item Mastery for +${1 + eq.plus} (milestones grant +2% atk & INT on this item)`;
+      absorb.textContent = `→ Mastery (+${1 + eq.plus})`;
+      absorb.title = "Move into Item Mastery — milestone stars pay a global damage bonus (see Mastery tab)";
       absorb.onclick = () => handlers.onAbsorbStash(i);
       div.appendChild(absorb);
 
@@ -476,32 +483,6 @@ export function renderEquipment(player, handlers) {
 
       container.appendChild(div);
     });
-  }
-
-  // Item Mastery: the dedicated home of absorbed items. Every absorbed copy
-  // is accounted for here — nothing is "lost", it becomes a permanent bonus.
-  const mastered = Object.entries(player.mastery || {})
-    .filter(([, n]) => n > 0)
-    .sort((a, b) => b[1] - a[1]);
-  if (mastered.length) {
-    const header = document.createElement("div");
-    header.innerHTML = `<strong>Item Mastery (${mastered.length})</strong> — absorbed items live here as permanent bonuses`;
-    header.style.marginTop = "8px";
-    container.appendChild(header);
-
-    for (const [itemId, count] of mastered) {
-      const def = getItem(itemId);
-      if (!def) continue;
-      const stars = MASTERY_MILESTONES.map(m => (count >= m ? "★" : "☆")).join("");
-      const bonusPct = Math.round((masteryMult(count) - 1) * 100);
-      const nextM = MASTERY_MILESTONES.find(m => count < m);
-      const div = document.createElement("div");
-      div.className = "equipSlot";
-      div.innerHTML = `<span>${stars} <strong>${def.name}</strong> — ${fmt(count)} absorbed · `
-        + (bonusPct ? `+${bonusPct}% atk & INT` : "no bonus yet")
-        + (nextM ? ` · next ★ at ${fmt(nextM)}` : " · MAX") + `</span>`;
-      container.appendChild(div);
-    }
   }
 
   // Consumables: zone jars (gacha opens) + potions. Jar counts are floats
@@ -884,18 +865,42 @@ export function renderBestiary(state) {
   const key = Object.values(state.kills).join(",") + "|" + Object.values(state.fieldKills).join(",");
   if (key === lastBestiaryKey) return;
   lastBestiaryKey = key;
-  const container = document.querySelector(".bestiaryList");
   const bonus = bestiaryBonus(state);
-  let html = `<div>Collection bonus: <strong>+${(bonus * 100).toFixed(1)}% damage</strong></div>`;
-
-  for (const e of bestiaryEntries(state)) {
+  const entry = e => {
     const known = e.kills > 0;
     const stars = MILESTONES.map(m => (e.kills >= m ? "★" : "☆")).join("");
-    html += `<div class="bestiaryEntry${known ? "" : " locked"}">
-      ${stars} ${known ? e.name : "???"}${e.boss ? " [BOSS]" : ""} — ${fmt(e.kills)} kills
+    return `<div class="bestiaryEntry${known ? "" : " locked"}">
+      ${stars} ${known ? e.name : "???"} — ${fmt(e.kills)} kills
     </div>`;
+  };
+  const all = bestiaryEntries(state);
+  const head = `<div>Collection bonus: <strong>+${(bonus * 100).toFixed(1)}% damage</strong> — ${MILESTONES.join("/")} kills per entry = +${BONUS_PER_MILESTONE * 100}% each</div>`;
+  document.querySelector(".bossMasteryList").innerHTML = head + all.filter(e => e.boss).map(entry).join("");
+  document.querySelector(".mobMasteryList").innerHTML = all.filter(e => !e.boss).map(entry).join("");
+}
+
+// Item Mastery collection (Mastery tab): the ACTIVE character's absorbed
+// items. Stars pay a global damage bonus (account-wide, all characters).
+let lastMasteryKey = "";
+export function renderMasteryItems(state, player) {
+  const totalStars = state.characters.reduce((s, c) => s + masteryStars(c.mastery), 0);
+  const mastered = Object.entries(player.mastery || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+  const key = `${totalStars}|${mastered.map(([id, n]) => `${id}:${n}`).join(",")}`;
+  if (key === lastMasteryKey) return;
+  lastMasteryKey = key;
+
+  let html = `<div>Account stars: <strong>★${totalStars} = +${(totalStars * MASTERY_STAR_BONUS * 100).toFixed(1)}% damage</strong>`
+    + ` — every milestone (${MASTERY_MILESTONES.join("/")}) on any item earns a star</div>`
+    + `<div class="econ">Absorb items from the Gear tab (stash & special bag). Each also gives this item +${MASTERY_BONUS * 100}% atk & INT per star while worn.</div>`;
+  if (!mastered.length) html += `<div class="bestiaryEntry locked">Nothing absorbed yet.</div>`;
+  for (const [itemId, count] of mastered) {
+    const def = getItem(itemId);
+    if (!def) continue;
+    const stars = MASTERY_MILESTONES.map(m => (count >= m ? "★" : "☆")).join("");
+    const nextM = MASTERY_MILESTONES.find(m => count < m);
+    html += `<div class="bestiaryEntry">${stars} ${def.name} — ${fmt(count)} absorbed${nextM ? ` · next ★ at ${fmt(nextM)}` : " · MAX"}</div>`;
   }
-  container.innerHTML = html;
+  document.querySelector(".masteryList").innerHTML = html;
 }
 
 let lastAchKey = "";
@@ -995,8 +1000,10 @@ export function renderStatsPanel(state, player, eff) {
   html += row("Attack per swing:", fmt(eff.atk), "(base 5 + item ATK + total INT) × damage bonus × additional damage");
   html += row("Total INT:", fmt(eff.totalInt),
     `pure ${fmt(Math.round(player.int))}${potionActive(player, "int", now) ? ` ×${INT_POTION_MULT} (potion)` : ""} + items ${fmt(g.int)}${g.itemIntPct ? ` (incl +${g.itemIntPct}% item INT)` : ""}`);
+  const stars = state.characters.reduce((s, c) => s + masteryStars(c.mastery), 0);
   html += row("Damage bonus:",
     `bestiary +${pc(bestiaryBonus(state))} · achievements +${pc(achievementBonus(state))} · trophies +${pc(fk.dmg)}`
+    + ` · mastery ★${stars} +${pc(stars * MASTERY_STAR_BONUS)}`
     + ` · class passive +${statSk.atkPct.toFixed(1)}% · legion +${leg.dmgPct.toFixed(1)}% · items +${g.dmgIncPct}%`,
     "temporary buffs fold into the totals above");
   if (g.addDmgPct) html += row("Additional damage:", `+${g.addDmgPct}%`, "best single item only");
@@ -1082,7 +1089,7 @@ export function renderCodex() {
     ]))
     + sec("Items, Stash & Mastery", li([
       `6 equipment slots; overflow goes to the Stash (one spare per item — further copies become Mastery)`,
-      `Item Mastery: absorbed copies are worth 1 + plus each; milestones ${MASTERY_MILESTONES.join("/")} grant +${MASTERY_BONUS * 100}% atk & INT each on that item (max +${MASTERY_MILESTONES.length * MASTERY_BONUS * 100}%)`,
+      `Item Mastery: absorbed copies are worth 1 + plus each; milestones ${MASTERY_MILESTONES.join("/")} earn STARS — each star anywhere is +${MASTERY_STAR_BONUS * 100}% global damage (all characters count), plus +${MASTERY_BONUS * 100}% atk & INT on that item while worn`,
       `Special Bag items are always active and never eat the 6 slots; one copy per special — duplicates become Mastery`,
       `Best-only stats: Additional Damage, crit, and attack speed count only the best item; Increased Damage and Skill Damage stack`,
       `Auras (Lumen) give only their DEF strip from the bag`,
@@ -1136,7 +1143,7 @@ export function initTabs() {
 // Force cached renderers (chips/bosses/legion) to rebuild — e.g. after the
 // number-format toggle changes how every number prints.
 export function bustRenderCaches() {
-  lastChipKey = lastBossKey = lastLegionKey = lastBestiaryKey = skillBarKey = "";
+  lastChipKey = lastBossKey = lastLegionKey = lastBestiaryKey = lastMasteryKey = skillBarKey = "";
 }
 
 // Feed filter chips: the buttons just swap a class on #feed; CSS hides the rest.

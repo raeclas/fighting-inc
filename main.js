@@ -7,11 +7,11 @@ import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
-import { getItem, aggregate, absorbDupes, bagDupeCount, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
+import { getItem, aggregate, absorbDupes, bagDupeCount, masteryStars, MASTERY_STAR_BONUS, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderAchievements, renderStatsPanel, renderCodex, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderMasteryItems, renderAchievements, renderStatsPanel, renderCodex, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { evalAchievements, achievementBonus, ACHIEVEMENT_BONUS } from "./achievements.js";
 import { renderMacro } from "./ui.js";
@@ -148,6 +148,7 @@ function effectiveStats() {
   // on top — matches the source tooltips' two separate multiplier families.
   const bonus = 1 + bestiaryBonus(gameState) + firstKillBonuses(gameState.kills).dmg
     + achievementBonus(gameState)
+    + MASTERY_STAR_BONUS * gameState.characters.reduce((s, c) => s + masteryStars(c.mastery), 0)
     + statSk.atkPct / 100 + leg.dmgPct / 100 + g.dmgIncPct / 100 + buffAtkPct / 100;
   // INT (character + item) is flat 1:1 damage, added before the % multipliers.
   // INT potion multiplies PURE (character) INT only — item INT untouched (map).
@@ -587,7 +588,7 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbAll: absorbStashAll, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
 
 // Open jars: each is a gacha roll (map ORx) — openChance × IV, consumed either way.
 function openJar(jarId, times) {
@@ -709,6 +710,19 @@ function absorbStashDupes() {
   if (!confirm(`Absorb ${dupes} duplicate item${dupes > 1 ? "s" : ""} into mastery? The best copy of each item stays.`)) return;
   absorbDupes(player.stash, player.mastery);
   logLine(`Absorbed ${dupes} stash duplicate${dupes > 1 ? "s" : ""} into mastery.`, "success");
+  renderEquipment(player, equipHandlers);
+}
+
+// Dump the ENTIRE stash into mastery (uniques included) — the power-user
+// path once global stars make every absorb worth something.
+function absorbStashAll() {
+  const n = player.stash.length;
+  if (!n) return;
+  const worth = player.stash.reduce((s, e) => s + 1 + e.plus, 0);
+  if (!confirm(`Absorb ALL ${n} stash item${n > 1 ? "s" : ""} into mastery (+${worth} total)? Includes non-duplicates — they'd have to be re-farmed.`)) return;
+  for (const eq of player.stash) player.mastery[eq.itemId] = (player.mastery[eq.itemId] || 0) + 1 + eq.plus;
+  player.stash = [];
+  logLine(`Absorbed ${n} stash item${n > 1 ? "s" : ""} into mastery (+${worth}).`, "success");
   renderEquipment(player, equipHandlers);
 }
 
@@ -1171,6 +1185,7 @@ function render() {
   renderSkillBar(gameState, player, eff, castSkill);
   renderZoneList(player, selectZone); // key-cached; re-renders when a gate flips
   renderBestiary(gameState);
+  renderMasteryItems(gameState, player);
   renderAchievements(gameState);
   renderLegion(gameState, rosterHandlers);
   renderBossList(gameState, player, eff, bossHandlers);

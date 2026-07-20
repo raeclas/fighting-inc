@@ -102,11 +102,21 @@ export const intValue = (def, plus) => tierOf(def, plus).int ?? 0;
 // item mastery: absorbed-duplicate milestones -> flat atk/int bonus on that
 // item. Percent stats untouched (best-only/stacking rules stay intact).
 export const MASTERY_MILESTONES = [1, 10, 100, 1000];
-export const MASTERY_BONUS = 0.02; // +2% atk & int per milestone, max +8%
-export function masteryMult(count) {
+export const MASTERY_BONUS = 0.02; // +2% atk & int per milestone ON that item (garnish)
+export const MASTERY_STAR_BONUS = 0.005; // +0.5% GLOBAL damage per star — the real payoff
+export function masteryStarsOf(count) {
   let n = 0;
   for (const m of MASTERY_MILESTONES) if (count >= m) n++;
-  return 1 + n * MASTERY_BONUS;
+  return n;
+}
+export function masteryMult(count) {
+  return 1 + masteryStarsOf(count) * MASTERY_BONUS;
+}
+// total stars across one character's mastery map
+export function masteryStars(mastery) {
+  let n = 0;
+  for (const id in mastery ?? {}) n += masteryStarsOf(mastery[id]);
+  return n;
 }
 
 // Special-bag duplicates beyond the first copy per item (talisman family
