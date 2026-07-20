@@ -7,7 +7,7 @@ import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
 import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
-import { bosses, spawnBossMob } from "../bosses.js";
+import { bosses, spawnBossMob, FIRST_KILL_BONUS, firstKillBonuses } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
 import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES } from "../legion.js";
 import { load, serialize, validSave, importSave } from "../saveSystem.js";
@@ -555,6 +555,18 @@ assert.equal(poolFor("abyssirocco").length, 5);
   // special bosses carry the elixir drop field
   for (const id of ["bernardo", "bernardo2", "seria", "librarykeeper", "trialgiver"])
     assert.equal(bosses.find(b => b.id === id).drops.elixir, 0.02);
+}
+
+// first-kill trophies: every table id is a real boss, every boss has a trophy
+{
+  const ids = new Set(bosses.map(b => b.id));
+  for (const id in FIRST_KILL_BONUS) assert.ok(ids.has(id), `unknown boss ${id}`);
+  for (const b of bosses) assert.ok(FIRST_KILL_BONUS[b.id], `no trophy for ${b.id}`);
+  assert.deepEqual(firstKillBonuses({}), { dmg: 0, enh: 0, drop: 0 });
+  const some = firstKillBonuses({ hellparty: 5, anton: 1, bernardo: 1, kiln: 99 });
+  assert.equal(some.dmg, 0.005);
+  assert.equal(some.drop, 0.01);
+  assert.equal(some.enh, 0.02);
 }
 
 // save durability: validSave gate, corrupt primary preserved + backup restored
