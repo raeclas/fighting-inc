@@ -6,6 +6,7 @@ import { defaultGathering } from "./gathering.js";
 export const gameState = {
   macro: defaultMacro(),
   gathering: defaultGathering(),
+  settings: { fullNumbers: false }, // display prefs (saved)
   total_time: 0,
   last_save: 0,
 
@@ -26,5 +27,6 @@ export const gameState = {
   bossCooldowns: {},    // special bossId -> total_time when it respawns (saved)
 
   cooldowns: {},        // skillId -> total_time when ready again (transient)
+  buffs: {},            // skillId (or "skillId:armor") -> { until } (transient)
   procCounts: {},       // skillId -> lifetime proc count this session (transient)
 };

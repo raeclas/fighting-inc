@@ -1,8 +1,8 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
-import { zones, VARIANTS } from "./zones.js";
-import { items, getItem, statValue, intValue, aggregate } from "./items.js";
-import { enhanceChance, MAX_PLUS } from "./enhance.js";
+import { zones, VARIANTS, zoneLocked } from "./zones.js";
+import { items, getItem, tierOf, maxPlus, aggregate } from "./items.js";
+import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage } from "./classes.js";
 import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
@@ -10,17 +10,26 @@ import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgrade
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
 import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
 import { getSheet, SHEETS } from "./sprites.js";
+import { gameState } from "./state.js";
 
-// 1234567 -> "1.23M"
+// 1234567 -> "1.23M" (or "1,234,567" with the full-numbers setting, up to 1e15)
 export function fmt(n) {
   if (n < 1e4) return Math.floor(n).toString();
-  const units = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx"];
+  if (gameState.settings.fullNumbers && n < 1e15) return Math.floor(n).toLocaleString("en-US");
+  const units = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
   const tier = Math.min(units.length - 1, Math.floor(Math.log10(n) / 3));
   return (n / 10 ** (tier * 3)).toFixed(2) + units[tier];
 }
 
 // ---- HUD (portrait / plate / HP / currency / inventory) ----
 let hudPortraitKey = "", hudInvKey = "";
+
+// portrait backdrop tint per class
+const PORTRAIT_COLORS = {
+  striker: "#a8502f", overmind: "#6a3fa0", omniblade: "#8a8f9f",
+  bloodevil: "#8f1f1f", indra: "#1f5f8f", vagabond: "#4f6f3f",
+  desperado: "#8f6f2f", stormtrooper: "#2f6f6f", nenempress: "#8f2f6f",
+};
 
 function updateHud(state, player) {
   const cls = getClass(player.classId);
@@ -37,25 +46,34 @@ function updateHud(state, player) {
   document.getElementById("curSilver").textContent = fmt(Math.floor(c / 1e9) % 1e9);
   document.getElementById("curCopper").textContent = fmt(c % 1e9);
 
-  // portrait: class sprite frame 0 when loaded, else emoji fallback
+  // portrait: sprite frame 0 face-crop on a class-colored backdrop, else emoji
   const sheet = player.classId ? getSheet(player.classId) : null;
   const pKey = `${player.classId}|${!!sheet?.img}`;
   if (pKey !== hudPortraitKey) {
     hudPortraitKey = pKey;
     const box = document.getElementById("hudPortrait");
     if (sheet?.img) {
-      const scale = 56 / sheet.meta.size;
       box.textContent = "";
-      box.style.backgroundImage = `url(${sheet.meta.src})`;
-      box.style.backgroundSize = `${sheet.img.width * scale}px ${sheet.img.height * scale}px`;
-      box.style.backgroundPosition = "0 0";
+      const cv = document.createElement("canvas");
+      cv.width = 64;
+      cv.height = 64;
+      const c = cv.getContext("2d");
+      c.imageSmoothingEnabled = false;
+      const grad = c.createRadialGradient(32, 24, 6, 32, 32, 44);
+      grad.addColorStop(0, PORTRAIT_COLORS[player.classId] ?? "#2b3854");
+      grad.addColorStop(1, "#0a0d16");
+      c.fillStyle = grad;
+      c.fillRect(0, 0, 64, 64);
+      // 2× zoom on the top-center quarter of frame 0 — the face
+      const s = sheet.meta.size;
+      c.drawImage(sheet.img, s / 4, 0, s / 2, s / 2, 0, 0, 64, 64);
+      box.appendChild(cv);
     } else {
-      box.style.backgroundImage = "";
       box.textContent = sheet?.meta.fallback ?? SHEETS.hero.fallback;
     }
   }
 
-  // 6-slot inventory mini-grid; click jumps to the Gear tab
+  // 6-slot inventory mini-grid; click jumps to the Gear tab, hover/tap = item card
   const invKey = player.equipment.map(e => e ? `${e.itemId}+${e.plus}` : ".").join("|");
   if (invKey !== hudInvKey) {
     hudInvKey = invKey;
@@ -67,15 +85,49 @@ function updateHud(state, player) {
       if (eq) {
         const def = getItem(eq.itemId);
         cell.textContent = def.name[0];
-        cell.title = `${def.name} +${eq.plus}`;
         const plus = document.createElement("span");
         plus.textContent = `+${eq.plus}`;
         cell.appendChild(plus);
+        attachItemTip(cell, eq);
       }
       cell.onclick = () => document.querySelector('.tabBar [data-tab="gear"]')?.click();
       inv.appendChild(cell);
     }
   }
+}
+
+// ---- item tooltip (WC3 hover card, shared singleton) ----
+let itemTip = null;
+function showItemTip(html, x, y) {
+  if (!itemTip) {
+    itemTip = document.createElement("div");
+    itemTip.className = "battleTooltip itemTip";
+    document.body.appendChild(itemTip);
+  }
+  itemTip.innerHTML = html;
+  itemTip.style.display = "block";
+  itemTip.style.left = `${Math.min(x + 12, window.innerWidth - 230)}px`;
+  itemTip.style.top = `${Math.max(4, y - itemTip.offsetHeight - 10)}px`;
+}
+function hideItemTip() {
+  if (itemTip) itemTip.style.display = "none";
+}
+function itemTipHtml(eq) {
+  const def = getItem(eq.itemId);
+  const next = eq.plus >= maxPlus(def)
+    ? "MAX enhancement"
+    : `next +: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
+  return `<strong>${def.name} +${eq.plus}</strong><br>` +
+    itemLabel(def, eq.plus).split(" · ").join("<br>") + `<br><em>${next}</em>`;
+}
+function attachItemTip(el, eq) {
+  el.addEventListener("mouseenter", ev => showItemTip(itemTipHtml(eq), ev.clientX, ev.clientY));
+  el.addEventListener("mouseleave", hideItemTip);
+  el.addEventListener("touchstart", ev => {
+    const t = ev.touches[0];
+    showItemTip(itemTipHtml(eq), t.clientX, t.clientY);
+    setTimeout(hideItemTip, 1800);
+  }, { passive: true });
 }
 
 // ---- top chips: milestones + timers (special-boss countdowns join in later) ----
@@ -103,17 +155,12 @@ function renderChips(state, player) {
     .join("");
 }
 
-export function updateUI(state, player) {
-  const g = aggregate(player.equipment);
-  const clsPassive = getClass(player.classId)?.passive;
-  const interval = Math.round(player.attackSpeed /
-    (1 + (g.spdPct + legionBonuses(state).atkSpeedPct + (clsPassive?.atkSpdPct ?? 0)) / 100));
-
+export function updateUI(state, player, eff) {
   updateHud(state, player);
   renderChips(state, player);
-  document.getElementById("playerInt").textContent = fmt(player.int + g.int);
-  document.getElementById("playerDamage").textContent = fmt(player.attack + g.atk + player.int + g.int);
-  document.getElementById("playerAttackSpeed").textContent = interval;
+  document.getElementById("playerInt").textContent = fmt(eff.totalInt);
+  document.getElementById("playerDamage").textContent = fmt(eff.atk);
+  document.getElementById("playerAttackSpeed").textContent = Math.round(eff.interval);
   document.getElementById("playerXP").textContent = `${fmt(player.xp)}/${fmt(player.xpToNext)}`;
 
   const field = state.field || [];
@@ -138,24 +185,37 @@ export function updateUI(state, player) {
     state.currentZoneId ? ` Field bosses felled here: ${fmt(fk)}` : "";
 }
 
-export function renderZoneList(state, onSelect) {
+// Called every frame; rebuilds only when a gate opens/closes (level/INT bands).
+let lastZoneKey = "";
+export function renderZoneList(player, onSelect, force = false) {
+  const key = zones.map(z => zoneLocked(z, player) ?? "").join("|");
+  if (!force && key === lastZoneKey) return;
+  lastZoneKey = key;
+
   const container = document.querySelector(".zoneList");
   container.innerHTML = "";
 
   zones.forEach(zone => {
     const div = document.createElement("div");
-    div.className = "zoneEntry";
+    const locked = zoneLocked(zone, player);
+    div.className = "zoneEntry" + (locked ? " locked" : "");
 
     const label = document.createElement("strong");
-    label.textContent = zone.mobName;
+    label.textContent = zone.name;
     div.appendChild(label);
 
-    VARIANTS.forEach((mult, i) => {
-      const btn = document.createElement("button");
-      btn.textContent = `${mult}x`;
-      btn.onclick = () => onSelect(zone.id, i);
-      div.appendChild(btn);
-    });
+    if (locked) {
+      const em = document.createElement("em");
+      em.textContent = ` — ${locked}`;
+      div.appendChild(em);
+    } else {
+      VARIANTS.forEach((mult, i) => {
+        const btn = document.createElement("button");
+        btn.textContent = `${mult} laps`;
+        btn.onclick = () => onSelect(zone.id, i);
+        div.appendChild(btn);
+      });
+    }
 
     container.appendChild(div);
   });
@@ -168,9 +228,8 @@ export function renderShop(onBuy) {
   items.filter(d => d.shop).forEach(def => {
     const div = document.createElement("div");
     div.className = "shopEntry";
-    const statLabel = def.stat === "atk" ? `ATK +${def.base}` : `ATK SPD +${def.base}%`;
     div.innerHTML = `<strong>${def.name}</strong> — ${fmt(def.cost)}c<br>
-      ${statLabel} (at +20: ${def.stat === "atk" ? "ATK +" + def.per20 : "ATK SPD +" + def.per20 + "%"})<br>
+      ${itemLabel(def, 0)} (at +20: ${itemLabel(def, 20)})<br>
       Enhance cost: ${fmt(def.enhCost)}c/try`;
     const btn = document.createElement("button");
     btn.textContent = "Buy";
@@ -180,23 +239,22 @@ export function renderShop(onBuy) {
   });
 }
 
-// full stat line for an item at a plus level (primary + INT + signature effect)
+// full stat line for an item at a plus level (all values from its tier table)
 function itemLabel(def, plus) {
-  const v = statValue(def, plus);
-  let s = def.stat === "atk" ? `ATK +${fmt(v)}` : `ATK SPD +${v}%`;
-  const iv = intValue(def, plus);
-  if (iv) s += ` · INT +${fmt(iv)}`;
-  const e = def.effect;
-  if (e) {
-    if (e.atkPct) s += ` · +${e.atkPct}% dmg`;
-    if (e.skillDmgPct) s += ` · +${e.skillDmgPct}% skill dmg`;
-    if (e.itemIntPct) s += ` · +${e.itemIntPct}% item INT`;
-    if (e.cooldownPct) s += ` · −${e.cooldownPct}% cooldowns`;
-    if (e.skillLevelBonus) s += ` · +${e.skillLevelBonus} to all skills`;
-    if (e.intProc) s += ` · ${Math.round(e.intProc.chance * 100)}% proc ${e.intProc.mult}×INT`;
-    if (e.crit) s += ` · ${Math.round(e.crit.chance * 100)}% crit ×${e.crit.mult}`;
-  }
-  return s;
+  const t = tierOf(def, plus);
+  const parts = [];
+  if (t.atk) parts.push(`ATK +${fmt(t.atk)}`);
+  if (t.int) parts.push(`INT +${fmt(t.int)}`);
+  if (t.dmgInc) parts.push(`+${fmt(t.dmgInc)}% dmg`);
+  if (t.addDmg) parts.push(`+${fmt(t.addDmg)}% add dmg (best only)`);
+  if (t.skillDmg) parts.push(`+${fmt(t.skillDmg)}% skill dmg`);
+  if (t.intPct) parts.push(`+${t.intPct}% item INT`);
+  if (t.spdPct) parts.push(`ATK SPD +${t.spdPct}%`);
+  if (t.procMult) parts.push(`${t.procChance}% proc ${fmt(t.procMult)}×INT`);
+  if (t.critMult) parts.push(`${t.critChance}% crit ×${fmt(t.critMult)}`);
+  if (t.skillLevels) parts.push(`+${t.skillLevels} to all skills`);
+  if (t.defReduce) parts.push(`nearby enemies DEF −${t.defReduce}`);
+  return parts.join(" · ") || "(no stats)";
 }
 
 // handlers: { onEnhance(slotIdx, times), onUnequip(slotIdx), onDiscard(slotIdx),
@@ -216,7 +274,7 @@ export function renderEquipment(player, handlers) {
     }
 
     const def = getItem(eq.itemId);
-    const next = eq.plus >= MAX_PLUS
+    const next = eq.plus >= maxPlus(def)
       ? "MAX"
       : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
 
@@ -353,51 +411,55 @@ export function hideClassSelect() {
 }
 
 // Called every frame: cooldowns tick down visibly.
-// eff: effectiveStats() bundle (skillAtk + skillLevelBonus used here).
-// onCast(skill): tap-to-cast for active classes (touch, no keyboard needed).
+// eff: effectiveStats() bundle (totalInt/skillDmgMult/skillLevelBonus).
+// onCast(skill): tap-to-cast for cast skills (touch, no keyboard needed).
 export function renderSkillBar(state, player, eff, onCast) {
-  const atk = eff.skillAtk;
   const slb = eff.skillLevelBonus ?? 0;
   const container = document.querySelector(".skillBar");
   const cls = getClass(player.classId);
   if (!cls) { container.textContent = ""; return; }
 
   container.innerHTML = "";
-  if (cls.passive) {
-    const div = document.createElement("div");
-    div.className = "skillEntry";
-    div.innerHTML = `<strong>${cls.passive.name}</strong> (passive) — ${cls.passive.desc}`;
-    container.appendChild(div);
-  }
   cls.skills.forEach(skill => {
     const level = player.skills[skill.id];
 
     if (!level) {
       const div = document.createElement("div");
       div.className = "skillEntry locked";
-      div.textContent = `${skill.key ? `[${skill.key}] ` : ""}${skill.name} — locked (boss ticket)`;
+      div.textContent = `[${skill.key}] ${skill.name} — locked (boss ticket)`;
       container.appendChild(div);
       return;
     }
 
     const lvLabel = slb > 0 ? `Lv${level}+${slb}` : `Lv${level}`;
-    const dmg = fmt(skillDamage(skill, level + slb, atk));
-    if (cls.archetype === "active") {
+    if (skill.kind === "stat") {
+      const div = document.createElement("div");
+      div.className = "skillEntry";
+      div.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel} (passive) — ${skill.desc}`;
+      container.appendChild(div);
+      return;
+    }
+
+    const dmg = fmt(skillDamage(skill, level + slb, eff.totalInt, eff.skillDmgMult));
+    if (skill.kind === "cast") {
       const readyAt = state.cooldowns[skill.id] || 0;
       const remaining = Math.max(0, readyAt - state.total_time);
       const ready = remaining <= 0;
+      const buffLeft = Math.max(0, (state.buffs[skill.id]?.until ?? 0) - state.total_time);
+      const status = buffLeft > 0 ? `ACTIVE ${(buffLeft / 1000).toFixed(1)}s`
+        : ready ? "READY" : `${(remaining / 1000).toFixed(1)}s`;
       const btn = document.createElement("button");
       btn.className = "skillEntry skillCast" + (ready ? "" : " onCooldown");
-      btn.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel} — ${dmg} dmg — ` +
-        (ready ? "READY" : `${(remaining / 1000).toFixed(1)}s`);
+      btn.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel}` +
+        (skill.buff && !skill.mult ? "" : ` — ${dmg} dmg`) + ` — ${status}`;
       btn.disabled = !ready;
       if (onCast) btn.onclick = () => onCast(skill);
       container.appendChild(btn);
-    } else {
+    } else { // proc
       const div = document.createElement("div");
       div.className = "skillEntry";
       const procs = state.procCounts[skill.id] || 0;
-      div.innerHTML = `<strong>${skill.name}</strong> ${lvLabel} — ${(skill.procChance * 100).toFixed(1)}% per attack — ${dmg} dmg — procs: ${fmt(procs)}`;
+      div.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel} — ${(skill.procChance * 100).toFixed(1)}% per attack — ${dmg} dmg — procs: ${fmt(procs)}`;
       container.appendChild(div);
     }
   });
@@ -450,7 +512,7 @@ export function renderMacro(state, player, handlers) {
     none.value = "";
     none.textContent = "—";
     select.appendChild(none);
-    cls.skills.filter(s => player.skills[s.id]).forEach(s => {
+    cls.skills.filter(s => s.kind === "cast" && player.skills[s.id]).forEach(s => {
       const opt = document.createElement("option");
       opt.value = s.id;
       opt.textContent = `[${s.key}] ${s.name}`;
@@ -580,6 +642,24 @@ export function initTabs() {
     bar.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
     document.querySelectorAll(".tabPanel").forEach(p =>
       p.classList.toggle("active", p.dataset.panel === tab));
+  });
+}
+
+// Force cached renderers (chips/bosses/legion) to rebuild — e.g. after the
+// number-format toggle changes how every number prints.
+export function bustRenderCaches() {
+  lastChipKey = lastBossKey = lastLegionKey = "";
+}
+
+// Feed filter chips: the buttons just swap a class on #feed; CSS hides the rest.
+export function initFeedFilter() {
+  const bar = document.querySelector(".feedFilter");
+  const feed = document.getElementById("feed");
+  bar.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-ff]");
+    if (!btn) return;
+    feed.className = btn.dataset.ff;
+    bar.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
   });
 }
 

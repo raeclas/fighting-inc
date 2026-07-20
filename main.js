@@ -4,12 +4,12 @@ import { gameState } from "./state.js";
 import { save, load, wipe } from "./saveSystem.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
-import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
-import { newCharacter, gainXP, resetHealth } from "./player.js";
+import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
+import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
 import { getItem, aggregate } from "./items.js";
-import { tryEnhance, MAX_PLUS } from "./enhance.js";
-import { getClass, skillDamage, MAX_SKILL_LEVEL } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs } from "./ui.js";
+import { tryEnhance } from "./enhance.js";
+import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL } from "./classes.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
@@ -17,7 +17,8 @@ import { renderGathering, renderLegion } from "./ui.js";
 import { legionBonuses, unlockedSlots } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
-import { getBoss, spawnBossMob, TICKET_CHANCE, TICKET_SUCCESS } from "./bosses.js";
+import { getBoss, spawnBossMob, TICKET_SUCCESS } from "./bosses.js";
+import { poolFor } from "./items.js";
 
 ///// LOAD SAVE /////
 const savedGame = load(gameState);
@@ -43,10 +44,14 @@ function replaceInField(oldMob, newMob) {
 function selectZone(zoneId, variantIndex) {
   const zone = getZone(zoneId);
   if (!zone) return;
+  const locked = zoneLocked(zone, player);
+  if (locked) return logLine(`${zone.name}: ${locked}.`, "fail");
   gameState.currentZoneId = zoneId;
   gameState.currentVariant = variantIndex;
   gameState.field = spawnField(zone, variantIndex);
 }
+// ponytail: a zone you already farm keeps running past its lockout until you
+// switch — kick-on-tick if boosting through it ever matters.
 
 // Hunt the field boss for the currently selected zone/variant (solo).
 function huntFieldBoss() {
@@ -85,20 +90,49 @@ function pickClass(classId) {
   save(gameState);
 }
 
+const buffActive = id => (gameState.buffs[id]?.until ?? 0) > gameState.total_time;
+
+// active Doppelganger clone count (0 when the buff is down)
+function activeClones() {
+  const dop = getClass(player.classId)?.skills.find(s => s.buff?.clones);
+  return dop && buffActive(dop.id) ? dop.buff.clones : 0;
+}
+
 function effectiveStats() {
   const g = aggregate(player.equipment);
   const leg = legionBonuses(gameState);
-  const passive = getClass(player.classId)?.passive;
-  const bonus = 1 + bestiaryBonus(gameState) + (passive?.atkPct ?? 0) / 100
-    + leg.dmgPct / 100 + g.atkPct / 100;
+  const cls = getClass(player.classId);
+  const statSk = classStatBonuses(cls, player.skills, g.skillLevelBonus);
+
+  // buff-driven bonuses (Khai haste, Miracle skill dmg) + timed armor debuffs
+  let buffSpdPct = 0, buffSkillDmgPct = 0, timedArmor = 0;
+  for (const s of cls?.skills ?? []) {
+    const level = player.skills[s.id];
+    if (!level) continue;
+    const L = level + g.skillLevelBonus;
+    if (s.buff && buffActive(s.id)) {
+      buffSpdPct += (s.buff.atkSpdPctPerLevel ?? 0) * L;
+      buffSkillDmgPct += (s.buff.skillDmgPctPerLevel ?? 0) * L;
+    }
+    if (s.armorDebuff && buffActive(`${s.id}:armor`)) timedArmor += s.armorDebuff.perLevel * L;
+  }
+  // dmgInc ("Increase attack power by N%") stacks additively with the other
+  // percent bonuses; addDmg ("Additional damage", best item only) multiplies
+  // on top — matches the source tooltips' two separate multiplier families.
+  const bonus = 1 + bestiaryBonus(gameState) + statSk.atkPct / 100
+    + leg.dmgPct / 100 + g.dmgIncPct / 100;
   // INT (character + item) is flat 1:1 damage, added before the % multipliers.
   const totalInt = player.int + g.int;
-  const atkTotal = Math.round((player.attack + g.atk + totalInt) * bonus);
+  const atkTotal = Math.round((player.attack + g.atk + totalInt) * bonus * (1 + g.addDmgPct / 100));
+  // WC3 caps the total attack-speed bonus at +400% (AGI alone gets there by lv9)
+  const spdPct = Math.min(400, agiSpeedPct(player) + g.spdPct + leg.atkSpeedPct + statSk.atkSpdPct + buffSpdPct);
   return {
     atk: atkTotal,
-    // skillDamage is linear in atk, so skill-damage %s fold in here
-    skillAtk: Math.round(atkTotal * (1 + (leg.skillDmgPct + g.skillDmgPct) / 100)),
-    interval: player.attackSpeed / (1 + (g.spdPct + leg.atkSpeedPct + (passive?.atkSpdPct ?? 0)) / 100),
+    // source skill formula: level × (base + INT × mult) × this
+    skillDmgMult: 1 + (leg.skillDmgPct + g.skillDmgPct + buffSkillDmgPct) / 100,
+    interval: player.attackSpeed / (1 + spdPct / 100),
+    // enemy armor stripped from autos: item auras + Boxing Gloves + timed debuffs
+    armorStrip: g.defReduce + statSk.armorReduce + timedArmor,
     totalInt,
     crit: g.crit,             // {chance, mult} | null — auto-attacks only
     intProcs: g.intProcs,     // [{chance, mult}] — mult × INT bonus per auto
@@ -115,9 +149,9 @@ function effSkillLevel(level, eff) {
 // Apply a skill's damage. AoE hits every living mob within its grid-radius of
 // the target; single-target hits just the target. Targets are snapshotted so a
 // slot that respawns mid-cast isn't hit twice.
-function applySkillDamage(skill, dmg, target) {
+function applySkillDamage(skill, dmg, target, radius = skill.radius) {
   const hits = skill.aoe
-    ? gameState.field.filter(m => m.hp > 0 && gridDist(m, target) <= skill.radius)
+    ? gameState.field.filter(m => m.hp > 0 && gridDist(m, target) <= radius)
     : [target];
   for (const m of hits) {
     m.hp -= dmg;
@@ -128,14 +162,29 @@ function applySkillDamage(skill, dmg, target) {
 function castSkill(skill) {
   const level = player.skills[skill.id];
   const target = frontMob();
-  if (!level || !target) return;
+  if (skill.kind !== "cast" || !level || !target) return;
   if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) return;
 
   const eff = effectiveStats();
   gameState.cooldowns[skill.id] = gameState.total_time + Math.round(skill.cooldownMs * eff.cdMult);
-  const dmg = skillDamage(skill, effSkillLevel(level, eff), eff.skillAtk);
-  applySkillDamage(skill, dmg, target);
-  pushBattleEvent({ type: "skill", dmg });
+  if (skill.resetsCooldowns) { // Sesto Elemental: every other cooldown clears
+    for (const id of Object.keys(gameState.cooldowns)) {
+      if (id !== skill.id) gameState.cooldowns[id] = 0;
+    }
+  }
+  const L = effSkillLevel(level, eff);
+  if (skill.buff) {
+    gameState.buffs[skill.id] = { until: gameState.total_time + buffDuration(skill, L) };
+    logLine(`${skill.name} active.`, "success");
+  }
+  if (skill.armorDebuff) {
+    gameState.buffs[`${skill.id}:armor`] = { until: gameState.total_time + skill.armorDebuff.durationMs };
+  }
+  const dmg = skillDamage(skill, L, eff.totalInt, eff.skillDmgMult);
+  if (dmg > 0) {
+    applySkillDamage(skill, dmg, target, radiusOf(skill, L, buffActive("miracle")));
+    pushBattleEvent({ type: "skill", dmg });
+  }
 }
 
 window.addEventListener("keydown", e => {
@@ -173,25 +222,7 @@ function acquireItem(itemId, sourceLabel) {
   renderEquipment(player, equipHandlers);
 }
 
-function rollBossDrops(boss) {
-  const d = boss.drops;
-  if (d) {
-    // bounty: tier-N amount = bounty × 1e9^tier copper (silver/gold tiers)
-    if (d.bounty) {
-      const paid = earnCopper(d.bounty * 1e9 ** (d.bountyTier ?? 0));
-      pushBattleEvent({ type: "bag", copper: paid });
-      logLine(`Bounty: +${fmt(paid)}c.`, "success");
-    }
-    if (d.pool?.length && Math.random() < d.itemChance) {
-      acquireItem(d.pool[Math.floor(Math.random() * d.pool.length)], `${boss.name} dropped`);
-    }
-    if (d.rare && Math.random() < d.rare.chance) {
-      acquireItem(d.rare.itemId, `${boss.name} dropped a RARE find:`);
-    }
-  }
-
-  // skill ticket
-  if (boss.skillIndex === null || Math.random() >= TICKET_CHANCE) return;
+function useTicket(boss) {
   const cls = getClass(player.classId);
   const skill = cls.skills[boss.skillIndex];
   const level = player.skills[skill.id];
@@ -206,6 +237,27 @@ function rollBossDrops(boss) {
     logLine(`Skill ticket: ${skill.name} Lv${level} → Lv${level + 1} SUCCESS (5%)`, "success");
   } else {
     logLine(`Skill ticket for ${skill.name} FAILED (5%). Of course it did.`, "fail");
+  }
+}
+
+function rollBossDrops(boss) {
+  const d = boss.drops;
+  if (!d) return;
+  // bounty: tier-N amount = bounty × 1e9^tier copper (silver/gold tiers)
+  if (d.bounty) {
+    const paid = earnCopper(d.bounty * 1e9 ** (d.bountyTier ?? 0));
+    pushBattleEvent({ type: "bag", copper: paid });
+    logLine(`Bounty: +${fmt(paid)}c.`, "success");
+  }
+  // item roll — the skill ticket drops ALONGSIDE a successful roll (source Epx)
+  if (Math.random() < d.itemChance) {
+    const pool = poolFor(boss.id);
+    if (pool.length) acquireItem(pool[Math.floor(Math.random() * pool.length)], `${boss.name} dropped`);
+    if (boss.skillIndex !== null) useTicket(boss);
+  }
+  if (d.rare && Math.random() < d.rare.chance) {
+    const rp = d.rare.pool ? poolFor(d.rare.pool) : [d.rare.itemId];
+    acquireItem(rp[Math.floor(Math.random() * rp.length)], `${boss.name} dropped a RARE find:`);
   }
 }
 
@@ -251,7 +303,7 @@ function runMacro() {
   for (let i = 0; i < m.slots.length; i++) {
     const idx = ((m.ptr || 0) + i) % m.slots.length;
     const skill = cls.skills.find(s => s.id === m.slots[idx]);
-    if (!skill || !player.skills[skill.id]) continue;
+    if (!skill || skill.kind !== "cast" || !player.skills[skill.id]) continue;
     if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) continue;
     castSkill(skill);
     m.ptr = (idx + 1) % m.slots.length;
@@ -268,13 +320,14 @@ function switchCharacter(i) {
   player = gameState.characters[i];
   player.lastAttack = 0;
   gameState.cooldowns = {};
+  gameState.buffs = {};
   gameState.procCounts = {};
   gameState.field = [];
   gameState.currentZoneId = null;
   gameState.macro.enabled = false;
   renderEquipment(player, equipHandlers);
   refreshMacro();
-  renderZoneList(gameState, selectZone);
+  renderZoneList(player, selectZone, true);
   if (player.classId) {
     logLine(`Now playing ${getClass(player.classId).name} Lv${player.level}. Pick a hunting ground.`, "success");
   } else {
@@ -392,7 +445,7 @@ function enhance(slotIdx, times) {
 
   for (let i = 0; i < times; i++) {
     const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs);
-    if (result === "max") { logLine(`${def.name} is already +${MAX_PLUS}.`); break; }
+    if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
     const pct = (chance * 100).toFixed(2);
     if (result === "success") {
@@ -415,6 +468,24 @@ function discard(slotIdx) {
 }
 
 ///// TICK /////
+const OFFLINE_MODAL_MIN_MS = 5 * 60 * 1000;
+
+function killSum() {
+  return Object.values(gameState.kills).reduce((a, b) => a + b, 0);
+}
+
+function showOfflineModal(dt, before) {
+  const kills = killSum() - before.kills;
+  const copper = player.copper - before.copper;
+  if (kills <= 0 && copper <= 0) return; // nothing hunted — skip the fanfare
+  const h = Math.floor(dt / 3600000), m = Math.floor(dt / 60000) % 60;
+  document.getElementById("offlineBody").innerHTML =
+    `Away ${h ? `${h}h ` : ""}${m}m — the grind never stopped:<br>` +
+    `<strong>${fmt(kills)}</strong> kills · <strong>+${fmt(copper)}</strong> copper` +
+    (player.level > before.level ? ` · Lv ${before.level} → <strong>${player.level}</strong>` : "");
+  document.getElementById("offlineModal").style.display = "flex";
+}
+
 function tick() {
   const now = Date.now();
   const dt = Math.max(0, Math.min(now - lastLogicTime, OFFLINE_CAP_MS));
@@ -426,10 +497,16 @@ function tick() {
   // INT milestones open character slots; never close them (saves may exceed)
   gameState.slots = Math.max(gameState.slots, unlockedSlots(gameState));
 
+  const before = dt >= OFFLINE_MODAL_MIN_MS
+    ? { copper: player.copper, level: player.level, kills: killSum() }
+    : null;
+
   if (dt > BATCH_THRESHOLD_MS) simulateBatch(dt);
   else simulateLive(dt);
 
   gatherTick(); // while-loop inside digests any gap, live or offline
+
+  if (before) showOfflineModal(dt, before);
 
   if (gameState.total_time - gameState.last_save >= 5000) {
     save(gameState);
@@ -481,7 +558,7 @@ function resolveKill(mob) {
   }
 
   // regular field mob: INT, rare bag roll, refill the slot — or a field boss joins the ranks
-  if (mob.intPerKill) player.int += mob.intPerKill;
+  if (mob.intPerKill) player.int += intDrip(getZone(mob.zoneId), player); // "No INT after X" cap
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
   if (Math.random() < BAG_CHANCE) {
     pushBattleEvent({ type: "bag", copper: earnCopper(mob.bag) });
@@ -495,6 +572,26 @@ function resolveKill(mob) {
   }
 }
 
+// Bonus damage riding on each auto-attack from active buffs: Power Fist /
+// Tiger Flash / Overdrive riders, Wave Eye's 10% roll, Doppelganger clone
+// swings. Riders ignore defense (like procs).
+function autoRiderDamage(cls, eff) {
+  let d = 0;
+  const clones = activeClones();
+  for (const s of cls?.skills ?? []) {
+    const b = s.buff;
+    if (!b || !buffActive(s.id)) continue;
+    const L = effSkillLevel(player.skills[s.id], eff);
+    if (b.autoRider && (!b.riderChance || Math.random() < b.riderChance)) {
+      let r = L * (b.autoRider.base + eff.totalInt * b.autoRider.mult);
+      if (b.perAttacker) r *= 1 + clones; // Tiger Flash: clones swing it too
+      d += r;
+    }
+    if (b.cloneRider) d += b.clones * L * (b.cloneRider.base + eff.totalInt * b.cloneRider.mult);
+  }
+  return Math.round(d);
+}
+
 // Small dt: attack-by-attack with real RNG procs, macro, cooldowns.
 function simulateLive(dt) {
   if (!frontMob()) return;
@@ -502,7 +599,7 @@ function simulateLive(dt) {
   runMacro();
 
   const eff = effectiveStats();
-  const { atk, skillAtk, interval, crit, intProcs, totalInt } = eff;
+  const { atk, interval, crit, intProcs, totalInt } = eff;
   const cls = getClass(player.classId);
 
   // don't let a stale lastAttack (old save) turn into an attack storm
@@ -517,11 +614,14 @@ function simulateLive(dt) {
     const target = frontMob();
     if (!target) break;
 
-    // auto-attack: single target (the front mob); item crit multiplies it
-    let dealt = Math.max(0, atk - target.defense);
-    if (crit && Math.random() < crit.chance) dealt = Math.round(dealt * crit.mult);
+    // auto-attack: single target (the front mob); armor strip lowers its
+    // defense; item crit multiplies it; buff riders add on top (ignore def)
+    let dealt = Math.max(0, atk - Math.max(0, target.defense - eff.armorStrip));
+    const isCrit = crit && Math.random() < crit.chance;
+    if (isCrit) dealt = Math.round(dealt * crit.mult);
+    dealt += autoRiderDamage(cls, eff);
     target.hp -= dealt;
-    pushBattleEvent({ type: "hit", dmg: dealt });
+    pushBattleEvent({ type: "hit", dmg: dealt, crit: isCrit });
     if (target.hp <= 0) resolveKill(target);
 
     // item INT procs: mult × INT bonus hits (ignore defense, like skills)
@@ -536,16 +636,33 @@ function simulateLive(dt) {
       }
     }
 
-    // passive class: each known skill rolls its proc chance per attack; AoE
-    // skills sweep the field around the front mob (the farm-vs-boss lever).
-    if (cls && cls.archetype === "passive") {
+    // proc skills roll per attack — passive classes AND active-class riders
+    // (Desperado's revolver, Storm Trooper's mastery). AoE procs sweep the
+    // field around the front mob (the farm-vs-boss lever).
+    if (cls) {
       const center = frontMob() || target;
       for (const skill of cls.skills) {
+        if (skill.kind !== "proc") continue;
         const level = player.skills[skill.id];
         if (level && Math.random() < skill.procChance) {
-          const procDmg = skillDamage(skill, effSkillLevel(level, eff), skillAtk);
-          applySkillDamage(skill, procDmg, center);
-          pushBattleEvent({ type: "skill", dmg: procDmg });
+          const L = effSkillLevel(level, eff);
+          if (skill.buff) { // Overdrive / Wave Eye: proc (re)starts the buff
+            gameState.buffs[skill.id] = { until: gameState.total_time + buffDuration(skill, L) };
+          }
+          if (skill.armorDebuff) { // Iron Strike armor window
+            gameState.buffs[`${skill.id}:armor`] = { until: gameState.total_time + skill.armorDebuff.durationMs };
+          }
+          let procDmg = skillDamage(skill, L, totalInt, eff.skillDmgMult);
+          // Death by Revolver triples the revolver; Miracle Vision arms the mastery
+          if (skill.id === "revolver" && buffActive("deathrev")) procDmg *= 3;
+          if (skill.id === "heavymastery" && buffActive("miracle")) {
+            const mv = cls.skills.find(s => s.id === "miracle");
+            procDmg += skillDamage(mv.buff.masteryRider, effSkillLevel(player.skills.miracle, eff), totalInt, eff.skillDmgMult);
+          }
+          if (procDmg > 0) {
+            applySkillDamage(skill, procDmg, center, radiusOf(skill, L, buffActive("miracle")));
+            pushBattleEvent({ type: "skill", dmg: procDmg });
+          }
           gameState.procCounts[skill.id] = (gameState.procCounts[skill.id] || 0) + 1;
         }
       }
@@ -586,19 +703,23 @@ function simulateBatch(dt) {
   if (!mob || mob.isBoss || mob.isFieldBoss) return; // only estimate regular zone farming
 
   const eff = effectiveStats();
-  const { atk, skillAtk, interval, crit, intProcs, totalInt } = eff;
+  const { atk, interval, crit, intProcs, totalInt } = eff;
   const cls = getClass(player.classId);
 
   // total damage the field soaks per attack: auto hits 1 (crit EV), item INT
-  // procs hit 1, each AoE proc hits its coverage
-  let fieldDmgPerAttack = Math.max(0, atk - mob.defense) * (1 + (crit ? crit.chance * (crit.mult - 1) : 0));
+  // procs hit 1, each AoE proc hits its coverage. Buffs are not modeled
+  // offline (like macros); armorStrip here is only its static parts — timed
+  // debuffs have expired across a big dt.
+  let fieldDmgPerAttack = Math.max(0, atk - Math.max(0, mob.defense - eff.armorStrip))
+    * (1 + (crit ? crit.chance * (crit.mult - 1) : 0));
   for (const p of intProcs) fieldDmgPerAttack += p.chance * p.mult * totalInt;
-  if (cls && cls.archetype === "passive") {
+  if (cls) {
     for (const skill of cls.skills) {
+      if (skill.kind !== "proc") continue;
       const level = player.skills[skill.id];
       if (!level) continue;
-      const per = skill.procChance * skillDamage(skill, effSkillLevel(level, eff), skillAtk);
-      fieldDmgPerAttack += per * (skill.aoe ? aoeCoverage(skill.radius) : 1);
+      const per = skill.procChance * skillDamage(skill, effSkillLevel(level, eff), totalInt, eff.skillDmgMult);
+      fieldDmgPerAttack += per * (skill.aoe ? aoeCoverage(radiusOf(skill, effSkillLevel(level, eff))) : 1);
     }
   }
 
@@ -607,7 +728,8 @@ function simulateBatch(dt) {
   if (kills <= 0) return;
 
   const copper = earnCopper(Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag)));
-  player.int += kills * mob.intPerKill;
+  // int drip respects the zone's cap; coarse (whole batch at pre-batch int)
+  player.int += kills * intDrip(getZone(mob.zoneId), player);
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
   gainXP(player, kills * mob.xp);
 
@@ -624,9 +746,11 @@ const bossHandlers = {
 };
 
 function render() {
-  updateUI(gameState, player);
+  const eff = effectiveStats();
+  updateUI(gameState, player, eff);
   renderBattle(gameState, player);
-  renderSkillBar(gameState, player, effectiveStats(), castSkill);
+  renderSkillBar(gameState, player, eff, castSkill);
+  renderZoneList(player, selectZone); // key-cached; re-renders when a gate flips
   renderBestiary(gameState);
   renderLegion(gameState, rosterHandlers);
   renderBossList(gameState, player, bossHandlers);
@@ -640,6 +764,25 @@ window.addEventListener("beforeunload", () => {
 
 document.getElementById("huntFieldBoss").onclick = huntFieldBoss;
 
+document.getElementById("offlineDismiss").onclick = () => {
+  document.getElementById("offlineModal").style.display = "none";
+};
+
+// number-format toggle: label shows the CURRENT mode
+const fmtToggle = document.getElementById("fmtToggle");
+function refreshFmtToggle() {
+  fmtToggle.textContent = gameState.settings.fullNumbers ? "1,234,567" : "1.2M";
+}
+fmtToggle.onclick = () => {
+  gameState.settings.fullNumbers = !gameState.settings.fullNumbers;
+  refreshFmtToggle();
+  renderShop(buy); // static lists re-render; per-frame UI picks it up next tick
+  renderEquipment(player, equipHandlers);
+  bustRenderCaches();
+  save(gameState);
+};
+refreshFmtToggle();
+
 document.getElementById("resetGame").onclick = () => {
   if (confirm("Are you sure you want to reset the game? This cannot be undone.")) {
     resetting = true;
@@ -652,10 +795,11 @@ document.getElementById("resetGame").onclick = () => {
 initBattle(document.getElementById("battleCanvas"));
 if (!player.classId) renderClassSelect(pickClass);
 initTabs();
-renderZoneList(gameState, selectZone);
+initFeedFilter();
+renderZoneList(player, selectZone, true);
 renderShop(buy);
 renderEquipment(player, equipHandlers);
 refreshMacro();
 refreshGathering();
-updateUI(gameState, player);
+updateUI(gameState, player, effectiveStats());
 startGameLoop(tick, render);

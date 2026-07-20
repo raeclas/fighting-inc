@@ -1,113 +1,107 @@
 // items.js
-// Item definitions, per-plus stat scaling, and equipment aggregation.
+// Item definitions + aggregation, on the decompiled per-tier data.
 //
-// Primary stat: "atk" = flat attack, stacks. "atkspd" = % attack speed,
-// does NOT stack (best one counts) — decompile-accurate.
-// `int`: flat INT at +0 (boss items only, ≈10% of atk per the w3t data);
-// scales with plus on the same quadratic ramp as the primary stat.
-// `effect`: ONE signature mechanic per item (w3t taxonomy), constant per item:
-//   atkPct        +% total damage ("processed internally", Rosetta line)
-//   intProc       {chance, mult} — chance per auto to deal mult×INT bonus damage
-//   crit          {chance, mult} — chance per auto of a mult× critical (best item only)
-//   skillDmgPct   +% skill damage
-//   itemIntPct    +% to total item-granted INT
-//   cooldownPct   −% skill cooldowns
-//   skillLevelBonus  talisman: +N effective levels to known skills
-export const items = [
-  // shop
-  { id: "rafaros",    name: "Rafaros Staff",    shop: true, cost: 1,     enhCost: 21,   stat: "atk",    base: 1,  per20: 500 },
-  { id: "darkness",   name: "Defined Darkness", shop: true, cost: 500,   enhCost: 66,   stat: "atk",    base: 30, per20: 950 },
-  { id: "liberation", name: "Liberation Staff", shop: true, cost: 5000,  enhCost: 450,  stat: "atk",    base: 80, per20: 1600 },
-  { id: "lumen",      name: "Lumen Caligo",     shop: true, cost: 10000, enhCost: 3900, stat: "atkspd", base: 30, per20: 205 },
+// Every item carries `tiers[plus]` — the VERBATIM source ramp (+0..+20 for
+// equipment, +0..+6 for talismans/insignia) from war3map.w3t. A tier holds:
+//   atk, int              flat stats
+//   dmgInc                +% "Increase attack power by N%" — stacks
+//   addDmg, skillDmg      "Additional/Skill damage" — addDmg is BEST-ONLY
+//                         (source: "Only 1 additional damage items are applied")
+//   procChance, procMult  N% chance per auto to deal mult×INT bonus damage
+//   critChance, critMult  crit on autos — best item only
+//   intPct                +% to total item-granted INT
+//   spdPct                attack speed % — best only (source non-stacking)
+//   skillLevels           talismans: +N effective skill levels
+import { ITEM_DATA } from "./itemdata.js";
 
-  // boss drops (int ≈ atk/10; one signature effect each)
-  { id: "rosetta",      name: "Rosetta Stone",              enhCost: 10_000,    stat: "atk",    base: 300,    per20: 4_000,   int: 30,    effect: { atkPct: 10 } },
-  { id: "partyhat",     name: "Party Hat of Despair",       enhCost: 10_000,    stat: "atk",    base: 200,    per20: 3_000,   int: 20,    effect: { intProc: { chance: 0.10, mult: 2 } } },
-  { id: "kneecap",      name: "Anton's Left Kneecap",       enhCost: 50_000,    stat: "atk",    base: 800,    per20: 12_000,  int: 80,    effect: { crit: { chance: 0.15, mult: 2 } } },
-  { id: "refinedlumen", name: "Refined Lumen Caligo",       enhCost: 50_000,    stat: "atkspd", base: 60,     per20: 300,     int: 6 },
-  { id: "rosetta2",     name: "Rosetta Stone 2: Rosettier", enhCost: 250_000,   stat: "atk",    base: 3_000,  per20: 50_000,  int: 300,   effect: { atkPct: 20 } },
-  { id: "globetrophy",  name: "Harlem Globetrophy",         enhCost: 1_000_000, stat: "atk",    base: 12_000, per20: 200_000, int: 1_200, effect: { skillDmgPct: 15 } },
+const S = 1e9, G = 1e18; // silver / gold in copper
 
-  // decompiled-roster boss drops
-  { id: "siroccoheart", name: "Sirocco's Stormheart",         enhCost: 5_000_000,     stat: "atk",    base: 48_000,     per20: 800_000,     int: 4_800,     effect: { intProc: { chance: 0.10, mult: 4 } } },
-  { id: "ozmabrand",    name: "Revenge: Ozma's Brand",        enhCost: 25_000_000,    stat: "atk",    base: 190_000,    per20: 3_200_000,   int: 19_000,    effect: { skillDmgPct: 25 } },
-  { id: "tiamatcurse",  name: "Despair: Tiamat's Curse",      enhCost: 125_000_000,   stat: "atk",    base: 760_000,    per20: 12_800_000,  int: 76_000,    effect: { itemIntPct: 30 } },
-  { id: "astarothgrim", name: "Astaroth's Grimoire",          enhCost: 600_000_000,   stat: "atk",    base: 3_000_000,  per20: 51_000_000,  int: 300_000,   effect: { cooldownPct: 15 } },
-  { id: "timewatch",    name: "Time Traveler's Silver Watch", enhCost: 500_000_000,   stat: "atkspd", base: 90,         per20: 420,         int: 9 },
-  { id: "ezraprophecy", name: "Ezra's Prophecy",              enhCost: 3_000_000_000, stat: "atk",    base: 12_000_000, per20: 205_000_000, int: 1_200_000, effect: { crit: { chance: 0.20, mult: 3 } } },
+// per-boss enhance cost (wiki "Enhance x1", copper)
+const ENH_COST = {
+  hellparty: 18_000, anton: 90_000, luke: 300_000, harlem: 9e6, taibers: 150e6,
+  fiendwar: 1 * S, prey: 12 * S, hyunfindwar: 108 * S, transfrey: 720 * S,
+  baekhwa: 2_700 * S, ezra: 15_300 * S, ezraabyss: 47_700 * S,
+  sirocco: 135_000 * S, astaroth: 1.98e6 * S, astaroth2: 7.65e6 * S,
+  tiamat: 36e6 * S, berias: 171e6 * S, ozma: 684e6 * S,
+  queendestroyer: 2 * G, abysswalker: 10 * G, spirazzi: 40 * G,
+  skasa: 160 * G, hisma: 640 * G,
+  luton: 320 * G, // ponytail: not on wiki — interpolated skasa..hisma
+};
 
-  // drop-pool epics (source-set names; one effect each, int ≈ atk/10)
-  // Heaven's Legacy pool — Taibers
-  { id: "heavenstaff",  name: "Heaven's Legacy: Staff",       enhCost: 12_000_000,     stat: "atk",    base: 90_000,      per20: 1_500_000,    int: 9_000,      effect: { atkPct: 25 } },
-  { id: "heavenspear",  name: "Heaven's Legacy: Spear",       enhCost: 12_000_000,     stat: "atk",    base: 90_000,      per20: 1_500_000,    int: 9_000,      effect: { crit: { chance: 0.20, mult: 2 } } },
-  { id: "samsara",      name: "Samsara: The Cycle of Time",   enhCost: 12_000_000,     stat: "atkspd", base: 75,          per20: 350,          int: 7 },
-  // Black Heaven pool — Prey
-  { id: "blackstaff",   name: "Master of Black Heaven: Staff", enhCost: 60_000_000,    stat: "atk",    base: 380_000,     per20: 6_400_000,    int: 38_000,     effect: { skillDmgPct: 30 } },
-  { id: "blackswan",    name: "Black Swan: Splitting Sky",     enhCost: 60_000_000,    stat: "atk",    base: 380_000,     per20: 6_400_000,    int: 38_000,     effect: { intProc: { chance: 0.15, mult: 5 } } },
-  { id: "blackflame",   name: "Black Flame: Encroaching Sky",  enhCost: 60_000_000,    stat: "atk",    base: 380_000,     per20: 6_400_000,    int: 38_000,     effect: { atkPct: 35 } },
-  // -Hyun-/-Transcendence- pool — -Hyun- Find War
-  { id: "hyunclouds",   name: "-Hyun- Clouds That Fill the Sky", enhCost: 1_200_000_000, stat: "atk",  base: 6_000_000,   per20: 100_000_000,  int: 600_000,    effect: { intProc: { chance: 0.20, mult: 8 } } },
-  { id: "transwisdom",  name: "-Transcendence- Wisdom to See the Future", enhCost: 1_200_000_000, stat: "atk", base: 6_000_000, per20: 100_000_000, int: 600_000, effect: { cooldownPct: 25 } },
-  { id: "transjustice", name: "-Transcendence- Justice: Equality", enhCost: 1_200_000_000, stat: "atk", base: 6_000_000,   per20: 100_000_000,  int: 600_000,    effect: { itemIntPct: 60 } },
-  // Luna/Myth pool — Baekhwa Mandarin
-  { id: "lunabene",     name: "Luna Benedicto",                enhCost: 8_000_000_000,  stat: "atk",    base: 25_000_000,  per20: 420_000_000,  int: 2_500_000,  effect: { skillDmgPct: 50 } },
-  { id: "youngchang",   name: "Youngchang: Immortal Soul",     enhCost: 8_000_000_000,  stat: "atk",    base: 25_000_000,  per20: 420_000_000,  int: 2_500_000,  effect: { crit: { chance: 0.30, mult: 4 } } },
-  { id: "mythroar",     name: "[Myth] Roar That Echoes Heaven and Earth", enhCost: 20_000_000_000, stat: "atk", base: 60_000_000, per20: 1_000_000_000, int: 6_000_000, effect: { atkPct: 80 } },
-  // ★Abyss★ pool — Ezra, Engulfed in the Abyss
-  { id: "abyssroots",   name: "★Abyss★ Roots of the World Tree", enhCost: 40_000_000_000, stat: "atk",  base: 130_000_000, per20: 2_200_000_000, int: 13_000_000, effect: { itemIntPct: 100 } },
-  { id: "abyssend",     name: "★Abyss★ The End of Time",        enhCost: 40_000_000_000, stat: "atk",   base: 130_000_000, per20: 2_200_000_000, int: 13_000_000, effect: { intProc: { chance: 0.25, mult: 15 } } },
-  { id: "abyssmadness", name: "★Abyss★ The One Who Holds Madness", enhCost: 40_000_000_000, stat: "atk", base: 130_000_000, per20: 2_200_000_000, int: 13_000_000, effect: { skillDmgPct: 80 } },
-  // dragon pool — Hisma / Skasa
-  { id: "lightscale",   name: "Hisma's Radiant Scale",         enhCost: 150_000_000_000, stat: "atk",   base: 500_000_000, per20: 8_500_000_000, int: 50_000_000, effect: { atkPct: 120 } },
-  { id: "frostfang",    name: "Skasa's Frozen Fang",           enhCost: 150_000_000_000, stat: "atk",   base: 500_000_000, per20: 8_500_000_000, int: 50_000_000, effect: { crit: { chance: 0.35, mult: 6 } } },
+// shop metadata (source shop staples; ramps are w3t-exact)
+const SHOP = {
+  rafaros:    { cost: 1,      enhCost: 21 },
+  darkness:   { cost: 500,    enhCost: 66 },
+  liberation: { cost: 5_000,  enhCost: 450 },
+  lumen:      { cost: 10_000, enhCost: 3_900 },
+};
 
-  // talismans (special: no attack, pure skill levels; from rare boss rolls)
-  { id: "talisman",      name: "Talisman",                  enhCost: 1_000_000_000,   stat: "atk", base: 0, per20: 0, effect: { skillLevelBonus: 1 } },
-  { id: "transtalisman", name: "-Transcendence- Talisman",  enhCost: 100_000_000_000, stat: "atk", base: 0, per20: 0, effect: { skillLevelBonus: 2 } },
-];
+// talismans/insignia enhance costs (merge system is the real source sink — later)
+const SPECIAL_ENH = { talisman: 1 * S, transtalisman: 100 * S, brtalisman: 5000 * S, insignia: 1000 * S };
 
-export const getItem = id => items.find(i => i.id === id);
+export const items = Object.entries(ITEM_DATA).map(([id, d]) => ({
+  id,
+  name: d.name,
+  boss: d.boss,                        // null for shop/talismans
+  shop: id in SHOP,
+  cost: SHOP[id]?.cost ?? 0,
+  enhCost: SHOP[id]?.enhCost ?? ENH_COST[d.boss] ?? SPECIAL_ENH[id] ?? 1 * S,
+  tiers: d.tiers,
+}));
 
-// Quadratic ramp: +20 is a drastic spike, early plusses feel small.
-export function statValue(def, plus) {
-  return Math.round(def.base + (def.per20 - def.base) * (plus / 20) ** 2);
+const byId = new Map(items.map(i => [i.id, i]));
+export const getItem = id => byId.get(id);
+
+// a boss's drop pool = its items in the generated data
+export const poolFor = bossId => items.filter(i => i.boss === bossId).map(i => i.id);
+
+export const maxPlus = def => def.tiers.length - 1;
+
+export function tierOf(def, plus) {
+  return def.tiers[Math.max(0, Math.min(plus, def.tiers.length - 1))] ?? {};
 }
 
-// Item INT rides the same ramp, proportional to the primary stat.
-export function intValue(def, plus) {
-  if (!def.int || !def.base) return def.int ?? 0;
-  return Math.round(def.int * (statValue(def, plus) / def.base));
-}
+// compat helpers (UI labels)
+export const statValue = (def, plus) => tierOf(def, plus).atk ?? 0;
+export const intValue = (def, plus) => tierOf(def, plus).int ?? 0;
 
 // equipment: array of ({itemId, plus} | null) -> folded stat bundle.
 export function aggregate(equipment) {
   const out = {
-    atk: 0, spdPct: 0, int: 0,
-    atkPct: 0, skillDmgPct: 0, itemIntPct: 0, cooldownPct: 0, skillLevelBonus: 0,
-    crit: null,       // best single crit item (like atkspd, only one applies)
-    intProcs: [],     // all apply
+    atk: 0, int: 0,
+    spdPct: 0,          // best only
+    dmgIncPct: 0,       // stacks
+    addDmgPct: 0,       // best only
+    skillDmgPct: 0,     // stacks
+    itemIntPct: 0,      // stacks
+    skillLevelBonus: 0, // talismans stack
+    defReduce: 0,       // armor auras (Lumen Basilium) — stacks
+    cooldownPct: 0,     // no source item grants this yet (class weapons later)
+    crit: null,         // best single crit item
+    intProcs: [],       // all apply
   };
   for (const eq of equipment) {
     if (!eq) continue;
-    const def = getItem(eq.itemId);
-    const v = statValue(def, eq.plus);
-    if (def.stat === "atk") out.atk += v;
-    else if (def.stat === "atkspd") out.spdPct = Math.max(out.spdPct, v);
-    out.int += intValue(def, eq.plus);
-
-    const e = def.effect;
-    if (!e) continue;
-    if (e.atkPct) out.atkPct += e.atkPct;
-    if (e.skillDmgPct) out.skillDmgPct += e.skillDmgPct;
-    if (e.itemIntPct) out.itemIntPct += e.itemIntPct;
-    if (e.cooldownPct) out.cooldownPct += e.cooldownPct;
-    if (e.skillLevelBonus) out.skillLevelBonus += e.skillLevelBonus;
-    if (e.intProc) out.intProcs.push(e.intProc);
-    if (e.crit && (!out.crit || e.crit.chance * (e.crit.mult - 1) > out.crit.chance * (out.crit.mult - 1))) {
-      out.crit = e.crit;
+    const def = byId.get(eq.itemId);
+    if (!def) continue;
+    const t = tierOf(def, eq.plus);
+    out.atk += t.atk ?? 0;
+    out.int += t.int ?? 0;
+    if (t.spdPct) out.spdPct = Math.max(out.spdPct, t.spdPct);
+    if (t.dmgInc) out.dmgIncPct += t.dmgInc;
+    if (t.addDmg) out.addDmgPct = Math.max(out.addDmgPct, t.addDmg);
+    if (t.skillDmg) out.skillDmgPct += t.skillDmg;
+    if (t.intPct) out.itemIntPct += t.intPct;
+    if (t.skillLevels) out.skillLevelBonus += t.skillLevels;
+    if (t.defReduce) out.defReduce += t.defReduce;
+    if (t.procMult) out.intProcs.push({ chance: t.procChance / 100, mult: t.procMult });
+    if (t.critMult) {
+      const ev = (t.critChance / 100) * (t.critMult - 1);
+      if (!out.crit || ev > out.crit.chance * (out.crit.mult - 1)) {
+        out.crit = { chance: t.critChance / 100, mult: t.critMult };
+      }
     }
   }
   out.int = Math.round(out.int * (1 + out.itemIntPct / 100));
-  out.cooldownPct = Math.min(out.cooldownPct, 60); // ponytail: hard cap, raise if a build earns it
   return out;
 }

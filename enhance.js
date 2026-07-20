@@ -17,7 +17,9 @@ export function enhanceChance(plus) {
 // buffs: { doubleChance: n, freeAttempts: n } — crafted enhancement aids.
 // Returns { result: "success" | "fail" | "max" | "poor", chance }
 export function tryEnhance(state, eq, def, rng = Math.random, buffs = null) {
-  if (eq.plus >= MAX_PLUS) return { result: "max", chance: 0 };
+  // per-item cap: equipment +20, talismans/insignia +6 (tier table length)
+  const cap = def.tiers ? def.tiers.length - 1 : MAX_PLUS;
+  if (eq.plus >= cap) return { result: "max", chance: 0 };
 
   const free = buffs?.freeAttempts > 0;
   const cost = free ? 0 : def.enhCost;

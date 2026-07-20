@@ -18,39 +18,65 @@ shifts get a fresh `baseline.json` in the same commit.
 - ✅ Boss item effects: INT on items + signature mechanics (atk%, INT-procs,
   crit, skill%, item-INT%, cooldown%, talisman skill levels).
 
-## Next — the load-bearing gap
+## Done (source-fidelity rounds, 2026-07-20)
+- ✅ Full source numbers: per-tier item data (itemdata.js), per-boss drop
+  pools + Q..D ticket ladder, real class skill tables, per-level AGI/INT
+  growth, save v3 wipe. See GROUND-TRUTH.md.
+- ✅ Zone gates + "No Entry after X" lockouts + "No INT after X" drip caps
+  (zones.js `zoneLocked`/`intDrip`), source zone names ("N laps of X").
+- ✅ Combat foundations: armor/DEF debuffs (Lumen aura, Boxing Gloves, Iron
+  Strike/Seventh Flow windows), timed buff registry (Power Fist, Death by
+  Revolver ×3, Miracle Vision, Khai, Tiger Flash, Overdrive, Wave Eye),
+  Doppelganger clones (rider model + battlefield sprites).
 
-### 1. Zone gates + "No Entry after X"
-**Map:** zones require level/INT to enter (Otherverse lv70 … Harlem lv2750),
-and *lock out* once you outgrow them ("No Entry after INT X") — anti-boosting.
-**Us:** per-zone `reqLevel` / `reqInt`, and optional `lockAfterInt`. Zone list
-shows locked zones greyed with the requirement; the lockout is the honest
-anti-Temple-forever fix the sim flagged (F2/F3). Gate values scaled to OUR
-curve, not the map's (our levels top ~45, not 2750).
-**Touches:** [zones.js](../zones.js), [ui.js](../ui.js) renderZoneList, [main.js](../main.js) selectZone guard.
+## Next — remaining source gaps, in build order
 
-### 2. Party/lobby multiplier analogue (IV × YJ)
-**Map:** enhancement chance, bag chance, coin double-drop all ×`IV[player]`
-(elixirs) ×`YJ[party-size]`. "Play with 5+ players" is literally this.
-**Us:** single-player, so no party. Fold into the existing gathering buffs +
-a new consumable/elixir: a global `dropBonus` multiplier the player builds up
-(brewed from non-combat resources, or timed elixirs). Reuses the buff plumbing
-in [gathering.js](../gathering.js)/[enhance.js](../enhance.js).
-**Touches:** enhance.js (already takes buffs), zones.js bag/coin rolls, a buff source.
+### 1. Talisman merge + special bags (next session's round)
+**Map:** talismans drop +0, merge 2×(+n)→+(n+1) to +6 (64× +0 for a +6).
+Rings/necklaces/talismans/insignia/avatars live in a SPECIAL EQUIPMENT BAG /
+Avatar Warehouse — they don't eat the 6 weapon slots. Lumen-style auras only
+work from the special slot (and their atk/INT then don't apply — we're
+currently generous, applying both from a normal slot).
+**Us:** `player.specialBag` slots + merge UI (2 same-tier → +1); move
+talisman/insignia acquisition there. Tier data already in itemdata.js.
+**Touches:** player.js (bag), items.js aggregate (special-slot rules),
+main.js acquireItem routing, ui.js gear tab, saveSystem (v4 or additive).
 
-## Later — content breadth (needs the systems above)
+### 2. Enhanced skills + special bosses (biggest payoff)
+**Map:** Bernardo (100k) Abyssal ticket EVOLVES Q; Trans-Bernardo (500k) W/E;
+Giver of Trials (5M) True Awakening M ultimate (300s CD, INT×1.7M–12M).
+Class weapons carry meta-modifiers (activation rate +40–60%, skill INT-ratio
++38–60%, cooldown −22–35%, buff value +32–45%, Geniewiz great-success);
+Seria/Library Keeper drop avatars (incl. MAGIC CRIT) upgraded with Seria
+Coins. All enhanced-skill tables transcribed (scratchpad wiki-classes*.md +
+HEROES.md); item data extractable same as round 1.
+**Us:** skill evolution state per character, M slot, meta-modifier fields in
+effectiveStats, special-boss drop tables, coin currency.
 
-### 3. Talisman merging (endgame skill boosters)
-**Map:** talismans drop at +0; merge 2×(+n)→+(n+1) up to +6 (64× +0 for a +6);
-boost specific skills past level 7.
-**Us:** basic talismans (flat `skillLevelBonus` items from rare boss rolls)
-shipped with the drop tables — the MERGE system (+0…+6 ladder, merge UI,
-per-key targeting) is what remains. Pure endgame sink.
+### 3. Consumables/jars
+Zone-dropped Talisman/Myth/Insignia jars, Ezra/Sirocco pots, Golden Book
+(Reversal Staff amp), INT potions, enhancement-protection tickets. Add after
+merge exists so jars have somewhere to pour. Per-zone jar list in
+GROUND-TRUTH.md zone table.
 
-### 4. Job-change scroll (0.1%)
-**Superseded by the Legion roster:** a new character IS the job change (per
-LEGION-DESIGN.md). Revisit only if a "re-class in place, keep INT" item still
-feels needed once multi-char play settles.
+### 4. Party/lobby multiplier analogue (IV × YJ)
+**Map:** enhance/bag/coin all ×`IV[player]` (elixirs) ×`YJ[party-size]`.
+**Us:** single-player → brewed elixirs granting a global `dropBonus`; reuses
+gathering buff plumbing. Touches enhance.js, zones.js rolls, a buff source.
+
+### 5. Batch-2 heroes + missing boss
+Crusader (auto-cast), Majesty (on-hit riders), Divineress (spheres), Geniewiz
+(GS/S/F rolls), Spectre (speed stacks), Hekate/Ashtarte (buffers),
+Necromancer (stance), Dark Knight (borrows skills) — port notes in HEROES.md.
+Abyssal Intangible Sirocco boss (★Fusion★ pool `tR`, already extracted).
+Rakshasa last (prompt-timing minigame).
+
+### Mechanical residue (small, opportunistic)
+Khai buff duration assumed 15s (map silent); One Inch Punch on-attacked /
+knuckle pulls / 13 discrete meteors (no substrate); clones are damage riders,
+not attackers; buffs absent from offline batch EV; locked-out zone farms
+until you switch (no kick-on-tick). Job-change scroll stays superseded by the
+Legion roster.
 
 ## Guardrails
 - The map file stays gitignored; extraction scripts in scratchpad (offer to
@@ -58,5 +84,6 @@ feels needed once multi-char play settles.
 - Every mechanic keeps the sim honest: model it in [sim.js](sim.js) if it
   affects the passive curve, or note it as an active-only bonus (like field
   bosses) if it doesn't.
-- Numbers scaled to OUR curve (levels ~45, not 2750; INT in thousands, not
-  millions). The *structure* is faithful; the *magnitudes* are ours to tune.
+- FULL SOURCE NUMBERS since the fidelity pass (user decision 2026-07-20):
+  magnitudes come from the map/wiki (+20-tier convention), not our tuning.
+  GROUND-TRUTH.md is the reference; map beats wiki on numbers.

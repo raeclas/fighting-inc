@@ -44,6 +44,7 @@
           <span class="cur curGold" title="Gold (1e9 silver)">● <b id="curGold">0</b></span>
           <span class="cur curSilver" title="Silver (1e9 copper)">● <b id="curSilver">0</b></span>
           <span class="cur curCopper" title="Copper">● <b id="curCopper">0</b></span>
+          <button id="fmtToggle" title="Toggle number format">1.2M</button>
         </div>
       </div>
       <div class="hudInv" id="hudInv"></div>
@@ -78,7 +79,14 @@
       </div>
       <div class="tabPanel" data-panel="gear">
         <div class="panel"><h3>Equipment</h3><div class="equipmentList"></div></div>
-        <div class="panel"><h3>Enhance Feed</h3><div id="feed"></div></div>
+        <div class="panel"><h3>Enhance Feed</h3>
+          <div class="feedFilter">
+            <button data-ff="" class="active">All</button>
+            <button data-ff="winsOnly">Wins</button>
+            <button data-ff="failsOnly">Fails</button>
+          </div>
+          <div id="feed"></div>
+        </div>
       </div>
       <div class="tabPanel" data-panel="jobs">
         <div class="panel"><h3>Odd Jobs</h3><div class="gatheringPanel"></div></div>
@@ -100,6 +108,14 @@
       <h2>Choose your class</h2>
       <p>No repick. No refunds. Choose the rest of your life.</p>
       <div class="classList"></div>
+    </div>
+  </div>
+
+  <div id="offlineModal">
+    <div class="classSelectBox">
+      <h2>Welcome back</h2>
+      <div id="offlineBody"></div>
+      <p><button id="offlineDismiss">Back to the grind</button></p>
     </div>
   </div>
 

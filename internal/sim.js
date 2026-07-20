@@ -7,27 +7,27 @@
 // Imports the REAL game modules, so any change to zones/items/enhance/bosses
 // math shows up here. All randomness is replaced with expected value:
 // enhancing to +N costs its expected copper, a boss item takes its expected
-// number of kills. The bot plays the wiki-guide build as an Overmind
-// (passive procs counted as EV damage). Not modeled: macros, gathering
-// buffs, Legion retirement, active-class play.
+// number of kills. The bot plays a Blood Evil (passive procs counted as EV
+// damage — the canonical idle farmer on source numbers). Not modeled: macros,
+// gathering buffs, active-class casts.
 import fs from "node:fs";
-import { zones, VARIANTS, spawnMob, BAG_CHANCE, FIELD_COLS, FIELD_ROWS } from "../zones.js";
-import { getItem, statValue, aggregate } from "../items.js";
+import { zones, VARIANTS, spawnMob, zoneLocked, intDrip, BAG_CHANCE, FIELD_COLS, FIELD_ROWS } from "../zones.js";
+import { getItem, tierOf, aggregate, poolFor } from "../items.js";
 import { enhanceChance } from "../enhance.js";
-import { bosses, getBoss, spawnBossMob, TICKET_CHANCE } from "../bosses.js";
-import { getClass, skillDamage } from "../classes.js";
+import { bosses, getBoss, spawnBossMob } from "../bosses.js";
+import { getClass, skillDamage, classStatBonuses } from "../classes.js";
 import { bestiaryBonus } from "../bestiary.js";
 import { legionBonuses } from "../legion.js";
 
 const MAX_SIM_S = 365 * 86400;
-const CLS = getClass("overmind");
+const CLS = getClass("bloodevil");
 
 ///// player state /////
 const P = {
   t: 0, copper: 0,
-  level: 1, xpAcc: 0, xpToNext: 100,
+  level: 1, xpAcc: 0, xpToNext: 150,
   attack: 5, attackSpeed: 1000,
-  int: 0,        // per-character flat damage from later zones (also feeds its Legion bonus)
+  int: 0,        // per-character flat damage (kill drip + 1/level)
   equipment: [], // {itemId, plus}
   skills: { [CLS.skills[0].id]: 1 },
   kills: {},
@@ -43,29 +43,31 @@ function expectedEnhanceCost(def, from, to) {
   return c;
 }
 
+// source hero growth: xpToNext = 150 × level, INT +1/level (see player.js)
 function gainXp(xp) {
   P.xpAcc += xp;
-  while (P.xpAcc >= P.xpToNext) {
+  while (P.level < 5000 && P.xpAcc >= P.xpToNext) {
     P.xpAcc -= P.xpToNext;
     P.level++;
-    P.xpToNext = Math.floor(P.xpToNext * 1.5);
-    P.attack += 1;
-    P.attackSpeed = Math.max(10, P.attackSpeed - 10);
+    P.xpToNext = 150 * P.level;
+    P.int += 1;
   }
 }
 
 function stats() {
   const g = aggregate(P.equipment);
-  // Legion: the bot is a 1-char account, so only its own class bonus applies
-  // (skill damage for Overmind). Multi-char rosters compound further.
+  // Legion: the bot is a 1-char account, so only its own class bonus applies.
   const leg = legionBonuses({ characters: [{ classId: CLS.id, int: P.int }] });
-  const bonus = 1 + bestiaryBonus({ kills: P.kills }) + (CLS.passive?.atkPct ?? 0) / 100
-    + leg.dmgPct / 100 + g.atkPct / 100;
+  const statSk = classStatBonuses(CLS, P.skills, g.skillLevelBonus);
+  const bonus = 1 + bestiaryBonus({ kills: P.kills }) + statSk.atkPct / 100
+    + leg.dmgPct / 100 + g.dmgIncPct / 100;
   const totalInt = P.int + g.int;
-  const A = Math.round((P.attack + g.atk + totalInt) * bonus);
-  const skillAtk = Math.round(A * (1 + (leg.skillDmgPct + g.skillDmgPct) / 100));
-  const interval = P.attackSpeed /
-    (1 + (g.spdPct + leg.atkSpeedPct + (CLS.passive?.atkSpdPct ?? 0)) / 100) / 1000; // s per attack
+  const A = Math.round((P.attack + g.atk + totalInt) * bonus * (1 + g.addDmgPct / 100));
+  const skillDmgMult = 1 + (leg.skillDmgPct + g.skillDmgPct) / 100;
+  // AGI from levels caps the attack-speed bonus at +400% (WC3 cap)
+  const agiSpd = Math.min(400, 50 * (P.level - 1));
+  const spdPct = Math.min(400, agiSpd + g.spdPct + leg.atkSpeedPct + statSk.atkSpdPct);
+  const interval = P.attackSpeed / (1 + spdPct / 100) / 1000; // s per attack
   // crit multiplies autos (EV); item INT procs add flat single-target EV
   const critEV = 1 + (g.crit ? g.crit.chance * (g.crit.mult - 1) : 0);
   let intProcEV = 0;
@@ -73,14 +75,16 @@ function stats() {
   let procEV = 0; // skill procs ignore defense, same as the game
   for (const s of CLS.skills) {
     const lvl = P.skills[s.id];
-    if (lvl) procEV += s.procChance * skillDamage(s, lvl + g.skillLevelBonus, skillAtk);
+    if (lvl && s.kind === "proc") procEV += s.procChance * skillDamage(s, lvl + g.skillLevelBonus, totalInt, skillDmgMult);
   }
-  return { atk: A, skillAtk, interval, procEV, critEV, intProcEV, totalInt, slb: g.skillLevelBonus };
+  // static armor strip (item auras + Boxing Gloves); timed debuffs/buffs not EV-modeled
+  const armorStrip = g.defReduce + statSk.armorReduce;
+  return { atk: A, interval, procEV, critEV, intProcEV, totalInt, skillDmgMult, armorStrip, slb: g.skillLevelBonus };
 }
 
 function dpsAgainst(mob) {
-  const { atk, interval, procEV, critEV, intProcEV } = stats();
-  return (Math.max(0, atk - mob.defense) * critEV + intProcEV + procEV) / interval - mob.regen;
+  const { atk, interval, procEV, critEV, intProcEV, armorStrip } = stats();
+  return (Math.max(0, atk - Math.max(0, mob.defense - armorStrip)) * critEV + intProcEV + procEV) / interval - mob.regen;
 }
 
 // mobs of the 4×4 field within `radius` of the centre — AoE coverage.
@@ -96,14 +100,14 @@ function aoeCoverage(radius) {
 // kill per hit); each AoE proc kills up to its coverage; each source kills at
 // most 1 mob per mob it hits. This is the farm-vs-boss lever in the tracker.
 function fieldKillsPerSec(mob) {
-  const { atk, skillAtk, interval, critEV, intProcEV, slb } = stats();
+  const { atk, interval, critEV, intProcEV, totalInt, skillDmgMult, armorStrip, slb } = stats();
   const hp = mob.maxHp;
-  let killsPerAtk = Math.min(1, Math.max(0, atk - mob.defense) * critEV / hp); // auto, single-target
+  let killsPerAtk = Math.min(1, Math.max(0, atk - Math.max(0, mob.defense - armorStrip)) * critEV / hp); // auto, single-target
   killsPerAtk += Math.min(1, intProcEV / hp); // item INT procs, single-target EV
   for (const s of CLS.skills) {
     const lvl = P.skills[s.id];
-    if (!lvl) continue;
-    const dmg = skillDamage(s, lvl + slb, skillAtk);
+    if (!lvl || s.kind !== "proc") continue;
+    const dmg = skillDamage(s, lvl + slb, totalInt, skillDmgMult);
     const cover = s.aoe ? aoeCoverage(s.radius) : 1;
     killsPerAtk += s.procChance * cover * Math.min(1, dmg / hp);
   }
@@ -125,6 +129,7 @@ function timeToKill(mob) {
 function bestZoneRate() {
   let best = null;
   for (const z of zones) {
+    if (zoneLocked(z, { level: P.level, int: P.int })) continue; // gates + lockouts
     for (let v = 0; v < VARIANTS.length; v++) {
       const mob = spawnMob(z, v);
       const kps = fieldKillsPerSec(mob);
@@ -133,7 +138,7 @@ function bestZoneRate() {
         zone: z, variant: v, name: mob.name,
         copperPerSec: kps * (mob.copper + BAG_CHANCE * mob.bag),
         xpPerSec: kps * mob.xp,
-        intPerSec: kps * mob.intPerKill,
+        intPerSec: kps * intDrip(z, { int: P.int }), // "No INT after X" cap
         killsPerSec: kps,
       };
       if (!best || r.copperPerSec > best.copperPerSec) best = r;
@@ -177,15 +182,12 @@ function farmUntil(targetCopper) {
 
 ///// equipment ops /////
 function equip(itemId) {
-  const def = getItem(itemId);
   if (P.equipment.length >= 6) {
-    // replace the weakest item of the same stat family
-    const family = P.equipment
-      .map((eq, i) => ({ eq, i, v: statValue(getItem(eq.itemId), eq.plus) }))
-      .filter(x => getItem(x.eq.itemId).stat === def.stat)
-      .sort((a, b) => a.v - b.v);
-    if (family.length) P.equipment.splice(family[0].i, 1);
-    else P.equipment.pop();
+    // replace the weakest slot by tier ATK
+    const weakest = P.equipment
+      .map((eq, i) => ({ i, v: tierOf(getItem(eq.itemId), eq.plus).atk ?? 0 }))
+      .sort((a, b) => a.v - b.v)[0];
+    P.equipment.splice(weakest.i, 1);
   }
   P.equipment.push({ itemId, plus: 0 });
 }
@@ -230,16 +232,17 @@ function bossItem(bossId, itemId) {
 
   // expected kills for a SPECIFIC pool item: pool_size / roll_chance
   const d = info.boss.drops;
-  const killsNeeded = (d?.pool?.length ?? 1) / (d?.itemChance ?? 0.08);
+  const poolSize = poolFor(bossId).length || 1;
+  const killsNeeded = poolSize / (d?.itemChance ?? 0.02);
   P.t += killsNeeded * info.ttk;
   P.copper += killsNeeded * info.netPerKill;
   P.kills[bossId] = (P.kills[bossId] || 0) + killsNeeded;
   gainXp(killsNeeded * info.mob.xp);
 
-  // side effect: enough kills to have seen a skill ticket (E = 1/0.25 = 4)
+  // ticket rides the item roll (source): EV ≥ 1 ticket seen over those kills
   if (info.boss.skillIndex !== null) {
     const skill = CLS.skills[info.boss.skillIndex];
-    if (!P.skills[skill.id] && killsNeeded >= 1 / TICKET_CHANCE) {
+    if (!P.skills[skill.id] && killsNeeded * (d?.itemChance ?? 0) >= 1) {
       P.skills[skill.id] = 1;
       mark(`learned ${skill.name} (ticket EV)`);
     }
@@ -259,12 +262,13 @@ const plan = [
   () => buyShop("lumen"),      () => enhance("lumen", 15),
   () => buyShop("liberation"), () => enhance("liberation", 20), // replaces rafaros
   () => buyShop("liberation"), () => enhance("liberation", 20), // replaces darkness
-  () => bossItem("hellparty", "rosetta"),   () => enhance("rosetta", 20),
-  () => bossItem("hellparty", "partyhat"),  () => enhance("partyhat", 20),
-  () => bossItem("anton", "kneecap"),       () => enhance("kneecap", 20),
-  () => bossItem("anton", "refinedlumen"),  () => enhance("refinedlumen", 15),
-  () => bossItem("luke", "rosetta2"),       () => enhance("rosetta2", 20),
-  () => bossItem("harlem", "globetrophy"),  () => enhance("globetrophy", 20),
+  // boss ladder — dmgInc piece then proc piece per boss, wiki-guide style
+  () => bossItem("hellparty", "hellparty_dmg"),  () => enhance("hellparty_dmg", 20),
+  () => bossItem("hellparty", "hellparty_proc"), () => enhance("hellparty_proc", 20),
+  () => bossItem("anton", "anton_dmg"),          () => enhance("anton_dmg", 20),
+  () => bossItem("anton", "anton_crit"),         () => enhance("anton_crit", 20),
+  () => bossItem("luke", "luke_dmg"),            () => enhance("luke_dmg", 20),   // Rosetta Stone
+  () => bossItem("harlem", "harlem_dmg"),        () => enhance("harlem_dmg", 20),
 ];
 
 ///// run /////
@@ -279,7 +283,7 @@ function fmtT(s) {
   return `${(s / 86400).toFixed(1)}d`;
 }
 function fmtC(n) {
-  const units = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx"];
+  const units = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
   if (n < 1e4) return Math.round(n).toString();
   const tier = Math.min(units.length - 1, Math.floor(Math.log10(n) / 3));
   return (n / 10 ** (tier * 3)).toFixed(2) + units[tier];
