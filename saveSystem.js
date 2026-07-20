@@ -22,6 +22,7 @@ export function serialize(state) {
     kills: state.kills,
     fieldKills: state.fieldKills,
     achievements: state.achievements,
+    tabsSeen: state.tabsSeen,
     currentZoneId: state.currentZoneId,
     currentVariant: state.currentVariant,
     autoResummon: state.autoResummon,
@@ -121,6 +122,7 @@ export function load(state) {
   state.kills = s.kills ?? {};
   state.fieldKills = s.fieldKills ?? {};
   state.achievements = s.achievements ?? {};
+  state.tabsSeen = s.tabsSeen ?? {};
   state.currentZoneId = s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;
   state.autoResummon = s.autoResummon ?? false;

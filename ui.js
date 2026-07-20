@@ -192,9 +192,37 @@ function renderChips(state, player) {
     .join("");
 }
 
+// Progressive tab reveal: advanced systems stay hidden until their moment.
+// Once seen, a tab stays visible forever (tabsSeen persists in the save).
+const TAB_UNLOCKS = {
+  jobs: s => bosses.some(b => (s.kills[b.id] || 0) >= 1),
+  macro: s => bosses.some(b => (s.kills[b.id] || 0) >= 1),
+  bestiary: s => featCount(s) > 0,
+  legion: s => accountInt(s) >= 10_000,
+};
+const TAB_TOASTS = {
+  jobs: "New tab: Odd Jobs — mine ore and fish; both feed the enhancement grind",
+  macro: "New tab: Macro Workshop — automate the grind",
+  bestiary: "New tab: Mastery — feats, bestiary, and item mastery live here",
+  legion: "New tab: Legion — build a roster; benched characters still help",
+};
+function updateTabVisibility(state) {
+  for (const tab in TAB_UNLOCKS) {
+    const btn = document.querySelector(`.tabBar [data-tab="${tab}"]`);
+    if (!btn) continue;
+    const open = state.tabsSeen[tab] || TAB_UNLOCKS[tab](state);
+    btn.style.display = open ? "" : "none";
+    if (open && !state.tabsSeen[tab]) {
+      state.tabsSeen[tab] = true;
+      logLine(TAB_TOASTS[tab], "success");
+    }
+  }
+}
+
 export function updateUI(state, player, eff) {
   updateHud(state, player);
   renderChips(state, player);
+  updateTabVisibility(state);
   document.getElementById("playerInt").textContent = fmt(eff.totalInt);
   document.getElementById("playerDamage").textContent = fmt(eff.atk);
   document.getElementById("playerAttackSpeed").textContent = Math.round(eff.interval);
