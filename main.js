@@ -7,7 +7,7 @@ import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
-import { getItem, aggregate, absorbDupes, bagDupeCount, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
+import { getItem, aggregate, absorbDupes, bagDupeCount, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
@@ -20,7 +20,7 @@ import { renderGathering, renderLegion } from "./ui.js";
 import { legionBonuses, unlockedSlots, intTutorMult } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
-import { getBoss, spawnBossMob, TICKET_SUCCESS } from "./bosses.js";
+import { getBoss, spawnBossMob, TICKET_SUCCESS, EVOLUTION } from "./bosses.js";
 
 const FIRST_KILL_MULT = 10; // first-kill trophy bounty multiplier
 import { poolFor } from "./items.js";
@@ -68,8 +68,24 @@ function huntFieldBoss() {
   logLine(`A ${fb.name} lumbers into view.`);
 }
 
+// MIGRATION (reduction pass): stored jar inventories → their contents. Each
+// whole jar gets one open roll at its map rate, then the counters are gone.
+for (const c of gameState.characters) {
+  if (!c.jars) continue;
+  for (const [jarId, count] of Object.entries(c.jars)) {
+    const jar = JARS[jarId];
+    if (!jar) continue;
+    let got = 0;
+    for (let i = 0; i < Math.floor(count); i++) if (Math.random() < jar.openChance) got++;
+    for (let i = 0; i < got; i++) c.specialBag.push({ itemId: jar.yields, plus: 0 });
+    if (got) logLine(`Your ${jar.name}s were opened: ${got}× ${getItem(jar.yields).name}.`, "success");
+  }
+  delete c.jars;
+}
+
 // resume farming where the save left off
 if (gameState.currentZoneId) selectZone(gameState.currentZoneId, gameState.currentVariant);
+syncEvolutions(); // kill-count ladder may outrank saved ticket levels
 
 ///// TIME /////
 // Wall clock is the source of truth. A 250ms tick and an 8h offline gap run
@@ -349,21 +365,26 @@ function useTicket(boss) {
   }
 }
 
-// Special-boss evolution tickets: 100% success, +1 level, cap 7 (map nwx —
-// unlike the 5% Q..D ladder). Applies immediately on drop.
-function useEvolutionTicket(boss, tier) {
+// Enhanced-skill evolution: deterministic kill-count ladder (bosses.js
+// EVOLUTION). Account kills drive every character's evolution level — only
+// raises, never lowers (old ticket-earned levels survive as the floor).
+function syncEvolutions() {
   const cls = getClass(player.classId);
-  const skill = cls?.enhanced?.find(e => e.tier === tier);
-  if (!skill) return;
-  const level = player.skills[skill.id] || 0;
-  if (level >= MAX_SKILL_LEVEL) {
-    return logLine(`${boss.name} dropped a ${tier} ticket, but ${skill.name} is already Lv${MAX_SKILL_LEVEL}.`);
+  let changed = false;
+  for (const skill of cls?.enhanced ?? []) {
+    const evo = EVOLUTION[skill.tier];
+    if (!evo) continue;
+    const derived = Math.min(MAX_SKILL_LEVEL, Math.floor((gameState.kills[evo.boss] || 0) / evo.kills));
+    const level = player.skills[skill.id] || 0;
+    if (derived > level) {
+      player.skills[skill.id] = derived;
+      logLine(level === 0
+        ? `${skill.tier.toUpperCase()} EVOLUTION: ${skill.replaces ? "skill evolved into" : "learned"} ${skill.name}!`
+        : `${skill.tier.toUpperCase()} EVOLUTION: ${skill.name} Lv${level} → Lv${derived}.`, "success");
+      changed = true;
+    }
   }
-  player.skills[skill.id] = level + 1;
-  logLine(level === 0
-    ? `${tier.toUpperCase()} TICKET: ${skill.replaces ? "skill evolved into" : "learned"} ${skill.name}!`
-    : `${tier.toUpperCase()} TICKET: ${skill.name} Lv${level} → Lv${level + 1} (100%).`, "success");
-  refreshMacro(); // skill bar re-renders on the next tick
+  if (changed) refreshMacro(); // skill bar re-renders on the next tick
 }
 
 // The roll multiplier on every drop AND enhance: potions/elixir (ivMult) +
@@ -381,11 +402,6 @@ function rollBossDrops(boss, dropMult = 1) {
     pushBattleEvent({ type: "bag", copper: paid });
     logLine(`Bounty: +${fmt(paid)}c.`, "success");
   }
-  // guaranteed avatar-enhancement souls (Seria / Library Keeper)
-  if (d.souls) {
-    player.souls[d.souls.kind] = (player.souls[d.souls.kind] || 0) + d.souls.count;
-    logLine(`${boss.name} leaves ${d.souls.count} souls behind.`, "success");
-  }
   // all boss drop rolls scale with the source IV multiplier (probability
   // potion / elixir / first-kill trophies) and the elite twin's 3× (Formless Sirocco)
   const iv = luckMult() * dropMult;
@@ -398,8 +414,6 @@ function rollBossDrops(boss, dropMult = 1) {
     if (pool.length) acquireItem(pool[Math.floor(Math.random() * pool.length)], `${boss.name} dropped`);
     if (boss.skillIndex !== null) useTicket(boss);
   }
-  // evolution ticket — independent roll (source dispatch)
-  if (d.ticket && Math.random() < Math.min(1, d.ticket.chance * iv)) useEvolutionTicket(boss, d.ticket.tier);
   // Elixir of Strength — potion count, not an item, so it skips acquireItem
   if (d.elixir && Math.random() < Math.min(1, d.elixir * iv)) {
     player.potions.elixir++;
@@ -485,6 +499,7 @@ function switchCharacter(i) {
   renderEquipment(player, equipHandlers);
   refreshMacro();
   renderZoneList(player, selectZone, true);
+  syncEvolutions(); // account kills grant this character its evolutions too
   if (player.classId) {
     logLine(`Now playing ${getClass(player.classId).name} Lv${player.level}. Pick a hunting ground.`, "success");
   } else {
@@ -584,26 +599,7 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbAll: absorbStashAll, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
-
-// Open jars: each is a gacha roll (map ORx) — openChance × IV, consumed either way.
-function openJar(jarId, times) {
-  const jar = JARS[jarId];
-  if (!jar) return;
-  let opened = 0, hits = 0;
-  const iv = luckMult();
-  while (opened < times && (player.jars[jarId] || 0) >= 1) {
-    player.jars[jarId]--;
-    opened++;
-    if (Math.random() < Math.min(1, jar.openChance * iv)) {
-      hits++;
-      acquireItem(jar.yields, `${jar.name} yields`);
-    }
-  }
-  if (!opened) return;
-  if (!hits) logLine(`Opened ${opened}× ${jar.name} — nothing but dust (${(jar.openChance * iv * 100).toFixed(2)}% each).`, "fail");
-  renderEquipment(player, equipHandlers);
-}
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbAll: absorbStashAll, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onUsePotion: usePotion };
 
 function usePotion(kind) {
   if ((player.potions[kind] || 0) < 1) return;
@@ -636,17 +632,15 @@ function enhanceBag(bagIdx, times) {
   const eq = player.specialBag[bagIdx];
   if (!eq || MERGE_IDS.has(eq.itemId)) return; // talisman family is merge-only
   const def = getItem(eq.itemId);
-  // avatars: souls + copper per try on their own (softer) odds bands
+  // avatars: copper per try on their own (softer) odds bands
   const avatar = AVATAR_IDS.has(eq.itemId);
-  const [soulKind, soulCost] = AVATAR_SOULS[eq.itemId] ?? ["old", 2];
   for (let i = 0; i < times; i++) {
     const iv = luckMult();
     const { result, chance } = avatar
-      ? tryAvatarEnhance(player, eq, def, soulKind, soulCost, Math.random, gameState.gathering.buffs, iv)
+      ? tryAvatarEnhance(player, eq, def, Math.random, gameState.gathering.buffs, iv)
       : tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, iv);
     if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
-    if (result === "nosouls") { logLine(`Need ${soulCost} ${soulKind === "old" ? '"100 years old"' : '"Brilliant Sarah"'} souls per try.`, "fail"); break; }
     const pct = (chance * 100).toFixed(2);
     if (result === "success") {
       logLine(`${def.name} +${eq.plus - 1} → +${eq.plus} SUCCESS (${pct}%)`, "success");
@@ -861,6 +855,7 @@ function resolveKill(mob) {
 
   if (mob.isBoss) {
     gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
+    syncEvolutions(); // kill-count evolution ladder (specials)
     const boss = getBoss(mob.bossId);
     logLine(`${boss.name} defeated! ${boss.respawnMs ? "Bounty" : "Refund"} ${fmt(mob.copper)}c.`, "success");
     // first-kill trophy: 10× bounty burst + permanent account bonus
@@ -904,11 +899,14 @@ function resolveKill(mob) {
   if (Math.random() < BAG_CHANCE * iv) {
     pushBattleEvent({ type: "bag", copper: earnCopper(mob.bag) });
   }
-  // zone jar roll (map rates × IV) — field bosses keep their guaranteed-bag identity
+  // zone specials drop DIRECTLY (jar inventory cut in the reduction pass):
+  // one chained roll = the map's jar-drop rate × its open rate, both × Luck
   const jarRoll = jarFor(mob.zoneId, mob.variant);
   if (jarRoll && Math.random() < Math.min(1, jarRoll[1] * iv)) {
-    player.jars[jarRoll[0]] = (player.jars[jarRoll[0]] || 0) + 1;
-    logLine(`A ${JARS[jarRoll[0]].name} drops!`, "success");
+    const jar = JARS[jarRoll[0]];
+    if (Math.random() < Math.min(1, jar.openChance * iv)) {
+      acquireItem(jar.yields, `A ${jar.name} shatters open:`);
+    }
   }
   const zone = getZone(mob.zoneId);
   if (Math.random() < FIELD_BOSS_SPAWN_CHANCE) {
@@ -1152,9 +1150,17 @@ function simulateBatch(dt) {
   // int drip respects the zone's cap; coarse (whole batch at pre-batch int).
   // Tutoring applies; field-boss spikes don't (not modeled in batch).
   player.int += kills * intDrip(getZone(mob.zoneId), player) * intTutorMult(gameState);
-  // jar EV (float counts; no IV offline — buffs aren't modeled in batch)
+  // zone-special EV (direct drops; no Luck offline — buffs aren't modeled in
+  // batch): expected count = kills × drop rate × open rate, fractional
+  // remainder resolved with one roll so nothing accumulates
   const jarEV = jarFor(mob.zoneId, mob.variant);
-  if (jarEV) player.jars[jarEV[0]] = (player.jars[jarEV[0]] || 0) + kills * jarEV[1];
+  if (jarEV) {
+    const jar = JARS[jarEV[0]];
+    const expect = kills * jarEV[1] * jar.openChance;
+    let n = Math.floor(expect);
+    if (Math.random() < expect - n) n++;
+    for (let i = 0; i < n; i++) acquireItem(jar.yields, `While you were gone, a ${jar.name} yielded`);
+  }
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
   gainXP(player, kills * mob.xp);
 

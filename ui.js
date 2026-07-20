@@ -4,8 +4,8 @@ import { zones, VARIANTS, zoneLocked, intDrip, BAG_CHANCE, FIELD_BOSS_SPAWN_CHAN
 import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryStars, masteryStarsOf, MASTERY_MILESTONES, bagDupeCount, aggregate } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills, classStatBonuses } from "./classes.js";
-import { JARS, potionActive, ivMult, PROB_POTION_IV, ELIXIR_IV, INT_POTION_MULT } from "./consumables.js";
-import { bosses, INTEREST, TICKET_SUCCESS } from "./bosses.js";
+import { potionActive, ivMult, PROB_POTION_IV, ELIXIR_IV, INT_POTION_MULT } from "./consumables.js";
+import { bosses, INTEREST, TICKET_SUCCESS, EVOLUTION } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES, BONUS_PER_MILESTONE } from "./bestiary.js";
 import { FEATS, featCount, featBonus, firstKillFeats, starFeats, FEAT_DMG, FEAT_LUCK } from "./feats.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
@@ -76,11 +76,6 @@ function updateHud(state, player) {
   document.getElementById("curSilver").textContent = fmt(Math.floor(c / 1e9) % 1e9);
   document.getElementById("curCopper").textContent = fmt(c % 1e9);
 
-  // avatar souls (special-boss drops) — hidden until the first one drops
-  const souls = player.souls || {};
-  const anySouls = (souls.old || 0) + (souls.brilliant || 0) > 0;
-  document.getElementById("soulsRow").style.display = anySouls ? "" : "none";
-  if (anySouls) document.getElementById("soulsVal").textContent = `${fmt(souls.old || 0)} / ${fmt(souls.brilliant || 0)}`;
 
   // active potion countdowns — hidden when none running
   const now = state.total_time;
@@ -485,30 +480,13 @@ export function renderEquipment(player, handlers) {
     });
   }
 
-  // Consumables: zone jars (gacha opens) + potions. Jar counts are floats
-  // (offline EV) — display floors; opening needs ≥1.
-  const jars = Object.entries(player.jars || {}).filter(([, n]) => n >= 1);
+  // Consumables: potions (zone specials now drop directly on kill)
   const pots = Object.entries(player.potions || {}).filter(([, n]) => n >= 1);
-  if (jars.length || pots.length) {
+  if (pots.length) {
     const header = document.createElement("div");
     header.innerHTML = `<strong>Consumables</strong>`;
     header.style.marginTop = "8px";
     container.appendChild(header);
-
-    for (const [jarId, count] of jars) {
-      const jar = JARS[jarId];
-      if (!jar) continue;
-      const div = document.createElement("div");
-      div.className = "equipSlot";
-      div.innerHTML = `<span><strong>${jar.name}</strong> ×${Math.floor(count)} — ${(jar.openChance * 100).toFixed(2)}% for ${getItem(jar.yields)?.name ?? jar.yields}</span> `;
-      for (const [label, times] of [["Open", 1], ["×10", 10], ["×all", Infinity]]) {
-        const btn = document.createElement("button");
-        btn.textContent = label;
-        btn.onclick = () => handlers.onOpenJar(jarId, times);
-        div.appendChild(btn);
-      }
-      container.appendChild(div);
-    }
 
     const POT_LABELS = { int: "Intelligence Potion — pure INT +120%, 30min", prob: "Probability Potion — drops & enhances +25%, 30min", elixir: "Elixir of Strength — drops & enhances +60%, 30min, no restack" };
     for (const [kind, count] of pots) {
@@ -543,10 +521,12 @@ let lastBossKey = "";
 export function renderBossList(state, player, eff, handlers) {
   const atk = eff?.atk ?? 0;
   const intervalS = (eff?.interval ?? 1000) / 1000;
+  const evoTierOf = {}; // bossId -> evolution tier (kill-count ladder)
+  for (const [tier, e] of Object.entries(EVOLUTION)) evoTierOf[e.boss] = tier;
   const key = bosses.map(b => {
     if (!b.reqInt) return "s";
     const cd = Math.max(0, (state.bossCooldowns[b.id] || 0) - state.total_time);
-    return `${player.int >= b.reqInt}|${Math.ceil(cd / 1000)}`;
+    return `${player.int >= b.reqInt}|${Math.ceil(cd / 1000)}|${evoTierOf[b.id] ? state.kills[b.id] || 0 : 0}`;
   }).join(",") + `|${state.autoResummon}|${Math.round(Math.log10(atk + 1) * 4)}`
     + `|${bosses.filter(b => getSheet(b.id)?.img).length}`;
   if (key === lastBossKey) return;
@@ -577,9 +557,17 @@ export function renderBossList(state, player, eff, handlers) {
     const bounty = boss.drops?.bounty ? boss.drops.bounty * 1e9 ** (boss.drops.bountyTier ?? 0) : 0;
     const info = document.createElement("div");
     info.className = "bossInfo";
+    let evoLine = "";
+    if (evoTierOf[boss.id]) {
+      const evo = EVOLUTION[evoTierOf[boss.id]];
+      const k = state.kills[boss.id] || 0;
+      const lvl = Math.min(7, Math.floor(k / evo.kills));
+      evoLine = `<br><span class="econ">${evoTierOf[boss.id]} evolution Lv${lvl}/7`
+        + (lvl < 7 ? ` — next at ${fmt((lvl + 1) * evo.kills)} kills (${fmt(k)} now)` : "") + `</span>`;
+    }
     info.innerHTML = `<strong>${boss.name}</strong><br><span class="econ">Bounty ${fmt(bounty)}c`
       + (boss.drops?.intBounty ? ` · +${fmt(boss.drops.intBounty)} INT` : "")
-      + (boss.reqInt ? ` · Respawn ${Math.round(boss.respawnMs / 60000)}m` : "") + `</span>`;
+      + (boss.reqInt ? ` · Respawn ${Math.round(boss.respawnMs / 60000)}m` : "") + `</span>` + evoLine;
     div.appendChild(info);
 
     const ttk = document.createElement("span");
@@ -1084,7 +1072,7 @@ export function renderCodex() {
       `Every drop AND enhance roll is multiplied by Luck`,
       `Probability Potion +${PROB_POTION_IV * 100}% and Elixir of Strength +${ELIXIR_IV * 100}% (30min each, elixir can't restack; they add together)`,
       `Every feat adds +${FEAT_LUCK * 100}% Luck permanently (see Feats)`,
-      `Money bags: ${BAG_CHANCE * 100}% per kill × Luck · zone jars drop and open at map rates × Luck`,
+      `Money bags: ${BAG_CHANCE * 100}% per kill × Luck · endgame zones drop talismans/insignia directly at map rates × Luck`,
       `★Abyss★ elite twin: 20% of summons, 3× drop rolls`,
     ]))
     + sec("Items, Stash & Mastery", li([
@@ -1120,7 +1108,7 @@ export function renderCodex() {
       `Feats — ONE pool: ${FEATS.length} named feats + a feat per boss first kill + a feat per mastery star; each is +${FEAT_DMG * 100}% damage and +${FEAT_LUCK * 100}% Luck`,
     ]))
     + sec("Offline", li([
-      `Progress is simulated while away (12h cap) using expected value: kills, copper, XP, INT drip (with tutoring), jar EV`,
+      `Progress is simulated while away (12h cap) using expected value: kills, copper, XP, INT drip (with tutoring), zone-special drops`,
       `Not modeled offline: potions/elixir luck, timed buffs, field-boss spikes — log in to use them`,
       `Your save also keeps a last-known-good backup; Export/Import lives in the danger zone`,
     ]));

@@ -34,12 +34,7 @@ export function newCharacter() {
     // one stash spare feed this instead of flooding the stash.
     mastery: {},
 
-    // avatar-enhancement souls: "100 years old" (Seria) / "Brilliant Sarah" (Library)
-    souls: { old: 0, brilliant: 0 },
-
-    // zone-jar inventory (FLOAT counts: live kills +1, offline EV +kills×chance;
-    // UI floors, opening needs ≥1) + potion counts and active-buff expiries
-    jars: {},
+    // potion counts and active-buff expiries
     potions: { int: 0, prob: 0, elixir: 0 },
     potionUntil: { int: 0, prob: 0, elixir: 0 }, // absolute total_time — survives reload
 

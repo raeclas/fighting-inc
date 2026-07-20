@@ -92,7 +92,6 @@ function normalizeChar(c) {
     return true;
   });
   // nested objects: the shallow spread can't backfill sub-fields of partials
-  c.souls = { old: 0, brilliant: 0, ...(c.souls || {}) };
   c.potions = { int: 0, prob: 0, elixir: 0, ...(c.potions || {}) };
   c.potionUntil = { int: 0, prob: 0, elixir: 0, ...(c.potionUntil || {}) };
   c.lastAttack = 0;

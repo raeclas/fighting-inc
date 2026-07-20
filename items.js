@@ -40,13 +40,12 @@ const SHOP = {
 export const MERGE_IDS = new Set(["talisman", "transtalisman", "brtalisman", "insignia"]);
 // true auras: from the bag only their aura effect applies (atk/int suppressed)
 export const AURA_IDS = new Set(["luke_def"]);
-// avatars enhance with souls + copper on their own odds bands (enhance.js);
-// [soulKind, soulCost] per attempt (map egx: 2× "100 years old" / aMx: 3× "Brilliant Sarah")
-export const AVATAR_SOULS = {
-  seria_weaponav: ["old", 2], seria_auraav: ["old", 2], seria_cloneav: ["old", 2],
-  lib_weaponav: ["brilliant", 3], lib_cloneav: ["brilliant", 3], lib_auraav: ["brilliant", 3],
-};
-export const AVATAR_IDS = new Set(Object.keys(AVATAR_SOULS));
+// avatars enhance with copper on their own (softer) odds bands (enhance.js);
+// the soul currencies were cut in the reduction pass
+export const AVATAR_IDS = new Set([
+  "seria_weaponav", "seria_auraav", "seria_cloneav",
+  "lib_weaponav", "lib_cloneav", "lib_auraav",
+]);
 // special-boss gear (map: "Can be used in special part item slots")
 export const SPECIAL_GEAR_IDS = new Set([
   "bernardo_neck", "bernardo_ring", "bernardo_staff", "bernardo_gsword", "bernardo_gswords",

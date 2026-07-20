@@ -2,12 +2,12 @@
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryStars, masteryStarsOf, absorbDupes, bagDupeCount, MERGE_IDS } from "../items.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, SPECIAL_IDS, masteryStars, masteryStarsOf, absorbDupes, bagDupeCount, MERGE_IDS } from "../items.js";
 import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js";
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
 import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
-import { bosses, spawnBossMob } from "../bosses.js";
+import { bosses, spawnBossMob, EVOLUTION } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
 import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES, intTutorMult } from "../legion.js";
 import { load, serialize, validSave, importSave } from "../saveSystem.js";
@@ -366,27 +366,33 @@ for (const bid of ["bernardo", "bernardo2", "seria", "librarykeeper", "trialgive
     if (pid !== "classWeapon") assert.ok(getItem(pid), `${bid} pool ${pid}`);
     assert.ok(pid === "classWeapon" || SPECIAL_IDS.has(pid), `${bid} ${pid} routes to bag`);
   }
-  if (b.drops.ticket) assert.ok(["abyss", "trans", "awaken"].includes(b.drops.ticket.tier));
-  if (b.drops.souls) assert.ok(["old", "brilliant"].includes(b.drops.souls.kind));
 }
 
-// avatar enhance: bands + soul/copper costs
+// evolution ladder: real bosses, sane pacing, level math
+for (const [tier, evo] of Object.entries(EVOLUTION)) {
+  assert.ok(bosses.find(b => b.id === evo.boss), `${tier} evolution boss`);
+  assert.ok(evo.kills >= 1);
+}
+assert.equal(Math.min(7, Math.floor(52 / EVOLUTION.abyss.kills)), 0);
+assert.equal(Math.min(7, Math.floor(53 / EVOLUTION.abyss.kills)), 1);
+assert.equal(Math.min(7, Math.floor(1e9 / EVOLUTION.abyss.kills)), 7); // caps at 7
+
+// avatar enhance: softer bands, copper-only cost (souls cut in the reduction pass)
 assert.equal(avatarChance(0), 1);
 assert.equal(avatarChance(4), 0.24);
 assert.equal(avatarChance(7), 0.09);
 assert.equal(avatarChance(11), 0.012);
 assert.equal(avatarChance(16), 0.003);
 const avDef = getItem("seria_weaponav");
-let avState = { copper: avDef.enhCost * 2, souls: { old: 4, brilliant: 0 } };
+let avState = { copper: avDef.enhCost * 2 };
 let avEq = { itemId: "seria_weaponav", plus: 0 };
-assert.equal(tryAvatarEnhance(avState, avEq, avDef, "old", 2, () => 0).result, "success");
+assert.equal(tryAvatarEnhance(avState, avEq, avDef, () => 0).result, "success");
 assert.equal(avEq.plus, 1);
-assert.equal(avState.souls.old, 2);
 assert.equal(avState.copper, avDef.enhCost);
-assert.equal(tryAvatarEnhance({ copper: 1e30, souls: { old: 1 } }, avEq, avDef, "old", 2).result, "nosouls");
-assert.equal(tryAvatarEnhance({ copper: 0, souls: { old: 9 } }, avEq, avDef, "old", 2).result, "poor");
+assert.equal(tryAvatarEnhance({ copper: 0 }, avEq, avDef).result, "poor");
 
-// save round-trip: souls persist, enhanced skill levels survive normalizeChar
+// save round-trip: enhanced skill levels survive normalizeChar; legacy souls
+// key on old saves is simply ignored (no crash)
 localStorage.setItem("esrpg_save", JSON.stringify({
   v: 3, characters: [{
     classId: "overmind", level: 1, skills: { lanternfire: 3, holloween: 2, cosmiccalamity: 1 },
@@ -396,10 +402,8 @@ localStorage.setItem("esrpg_save", JSON.stringify({
 }));
 const st4 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: {}, settings: { fullNumbers: false } };
 load(st4);
-assert.deepEqual(st4.characters[0].souls, { old: 5, brilliant: 1 });
 assert.equal(st4.characters[0].skills.holloween, 2);
 assert.equal(st4.characters[0].specialBag[0].itemId, "bernardo_staff");
-assert.deepEqual(serialize(st4).characters[0].souls, { old: 5, brilliant: 1 });
 
 // jars: yields are bag-routed items, zone table sane
 for (const [id, jar] of Object.entries(JARS)) {
@@ -442,13 +446,14 @@ assert.equal(r.chance, 1);                        // guaranteed band caps at 1
 // avatar path honors ticket + mult too
 const avDef2 = getItem("seria_weaponav");
 let avB = { okTickets: 1 };
-r = tryAvatarEnhance({ copper: 1e30, souls: { old: 9 } }, { itemId: "seria_weaponav", plus: 16 }, avDef2, "old", 2, () => 0.999, avB);
+r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 16 }, avDef2, () => 0.999, avB);
 assert.equal(r.result, "success");
 assert.equal(avB.okTickets, 0);
-r = tryAvatarEnhance({ copper: 1e30, souls: { old: 9 } }, { itemId: "seria_weaponav", plus: 4 }, avDef2, "old", 2, () => 0.9, null, 1.25);
+r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 4 }, avDef2, () => 0.9, null, 1.25);
 assert.equal(r.chance, 0.24 * 1.25);
 
-// save round-trip: float jars, potions, potionUntil; old gathering buffs get okTickets
+// save round-trip: potions, potionUntil; old gathering buffs get okTickets;
+// legacy jar counts load intact (main.js converts them to items at boot)
 localStorage.setItem("esrpg_save", JSON.stringify({
   v: 3, characters: [{
     classId: "striker", level: 1,
@@ -458,11 +463,10 @@ localStorage.setItem("esrpg_save", JSON.stringify({
 }));
 const st5 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: { doubleChance: 0, freeAttempts: 0, okTickets: 0 } }, settings: { fullNumbers: false } };
 load(st5);
-assert.equal(st5.characters[0].jars.sirocco, 2.75);
+assert.equal(st5.characters[0].jars.sirocco, 2.75); // preserved for the boot migration
 assert.deepEqual(st5.characters[0].potions, { int: 1, prob: 0, elixir: 0 });
 assert.deepEqual(st5.characters[0].potionUntil, { int: 0, prob: 12345, elixir: 0 });
 assert.deepEqual(st5.gathering.buffs, { doubleChance: 3, freeAttempts: 1, okTickets: 0 });
-assert.equal(serialize(st5).characters[0].jars.sirocco, 2.75);
 
 // decoupling round: buff targets declared on data, no dead keys, generic matcher
 const drev = classes.find(c => c.id === "desperado").skills.find(s => s.id === "deathrev");
@@ -487,19 +491,15 @@ for (const k of Object.keys(newCharacter())) {
 
 // normalizeChar: a minimal char round-trips with full factory defaults
 localStorage.setItem("esrpg_save", JSON.stringify({
-  v: 3, characters: [{ classId: "indra", level: 9, souls: { old: 5 } }], active: 0, slots: 1,
+  v: 3, characters: [{ classId: "indra", level: 9 }], active: 0, slots: 1,
 }));
 const st6 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: {} }, settings: { fullNumbers: false } };
 load(st6);
 const minC = st6.characters[0];
 assert.equal(minC.level, 9);
 assert.deepEqual(minC.equipment, [null, null, null, null, null, null]);
-assert.deepEqual(minC.souls, { old: 5, brilliant: 0 }); // partial nested keeps new sub-fields
 assert.deepEqual(minC.potions, { int: 0, prob: 0, elixir: 0 });
 assert.equal(minC.xpToNext, 150);
-
-// avatar soul map covers every avatar id
-for (const id of AVATAR_IDS) assert.ok(AVATAR_SOULS[id], `no soul cost for ${id}`);
 
 // fmt respects the injected settings getter
 const fakeSettings = { fullNumbers: false };
