@@ -2,19 +2,19 @@
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryMult, masteryStars, masteryStarsOf, absorbDupes, bagDupeCount, MERGE_IDS } from "../items.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, SPECIAL_IDS, masteryStars, masteryStarsOf, absorbDupes, bagDupeCount, MERGE_IDS } from "../items.js";
 import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js";
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
 import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
-import { bosses, spawnBossMob, FIRST_KILL_BONUS, firstKillBonuses } from "../bosses.js";
+import { bosses, spawnBossMob, EVOLUTION } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
 import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES, intTutorMult } from "../legion.js";
 import { load, serialize, validSave, importSave } from "../saveSystem.js";
 import { classes, skillDamage, classStatBonuses, radiusOf, buffDuration } from "../classes.js";
 import { newCharacter, gainXP, agiSpeedPct } from "../player.js";
 import { zones, zoneLocked, intDrip } from "../zones.js";
-import { ACHIEVEMENTS, ACHIEVEMENT_BONUS, achievementBonus, evalAchievements } from "../achievements.js";
+import { FEATS, FEAT_DMG, FEAT_LUCK, featCount, featBonus, evalFeats } from "../feats.js";
 
 // field: 16 mobs on a 4×4 grid, AoE radius → coverage
 const field = spawnField(getZone("kiln"), 0);
@@ -366,27 +366,33 @@ for (const bid of ["bernardo", "bernardo2", "seria", "librarykeeper", "trialgive
     if (pid !== "classWeapon") assert.ok(getItem(pid), `${bid} pool ${pid}`);
     assert.ok(pid === "classWeapon" || SPECIAL_IDS.has(pid), `${bid} ${pid} routes to bag`);
   }
-  if (b.drops.ticket) assert.ok(["abyss", "trans", "awaken"].includes(b.drops.ticket.tier));
-  if (b.drops.souls) assert.ok(["old", "brilliant"].includes(b.drops.souls.kind));
 }
 
-// avatar enhance: bands + soul/copper costs
+// evolution ladder: real bosses, sane pacing, level math
+for (const [tier, evo] of Object.entries(EVOLUTION)) {
+  assert.ok(bosses.find(b => b.id === evo.boss), `${tier} evolution boss`);
+  assert.ok(evo.kills >= 1);
+}
+assert.equal(Math.min(7, Math.floor(52 / EVOLUTION.abyss.kills)), 0);
+assert.equal(Math.min(7, Math.floor(53 / EVOLUTION.abyss.kills)), 1);
+assert.equal(Math.min(7, Math.floor(1e9 / EVOLUTION.abyss.kills)), 7); // caps at 7
+
+// avatar enhance: softer bands, copper-only cost (souls cut in the reduction pass)
 assert.equal(avatarChance(0), 1);
 assert.equal(avatarChance(4), 0.24);
 assert.equal(avatarChance(7), 0.09);
 assert.equal(avatarChance(11), 0.012);
 assert.equal(avatarChance(16), 0.003);
 const avDef = getItem("seria_weaponav");
-let avState = { copper: avDef.enhCost * 2, souls: { old: 4, brilliant: 0 } };
+let avState = { copper: avDef.enhCost * 2 };
 let avEq = { itemId: "seria_weaponav", plus: 0 };
-assert.equal(tryAvatarEnhance(avState, avEq, avDef, "old", 2, () => 0).result, "success");
+assert.equal(tryAvatarEnhance(avState, avEq, avDef, () => 0).result, "success");
 assert.equal(avEq.plus, 1);
-assert.equal(avState.souls.old, 2);
 assert.equal(avState.copper, avDef.enhCost);
-assert.equal(tryAvatarEnhance({ copper: 1e30, souls: { old: 1 } }, avEq, avDef, "old", 2).result, "nosouls");
-assert.equal(tryAvatarEnhance({ copper: 0, souls: { old: 9 } }, avEq, avDef, "old", 2).result, "poor");
+assert.equal(tryAvatarEnhance({ copper: 0 }, avEq, avDef).result, "poor");
 
-// save round-trip: souls persist, enhanced skill levels survive normalizeChar
+// save round-trip: enhanced skill levels survive normalizeChar; legacy souls
+// key on old saves is simply ignored (no crash)
 localStorage.setItem("esrpg_save", JSON.stringify({
   v: 3, characters: [{
     classId: "overmind", level: 1, skills: { lanternfire: 3, holloween: 2, cosmiccalamity: 1 },
@@ -396,10 +402,8 @@ localStorage.setItem("esrpg_save", JSON.stringify({
 }));
 const st4 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: {}, settings: { fullNumbers: false } };
 load(st4);
-assert.deepEqual(st4.characters[0].souls, { old: 5, brilliant: 1 });
 assert.equal(st4.characters[0].skills.holloween, 2);
 assert.equal(st4.characters[0].specialBag[0].itemId, "bernardo_staff");
-assert.deepEqual(serialize(st4).characters[0].souls, { old: 5, brilliant: 1 });
 
 // jars: yields are bag-routed items, zone table sane
 for (const [id, jar] of Object.entries(JARS)) {
@@ -420,35 +424,45 @@ assert.equal(potionActive({ potionUntil: { prob: 100 } }, "prob", 100), false);
 assert.equal(ivMult({ potionUntil: { prob: 100 } }, 50), 1 + PROB_POTION_IV);
 assert.equal(ivMult({ potionUntil: { prob: 0 } }, 50), 1);
 
-// confirmation ticket: forces success, consumes only itself, copper still paid;
-// IV mult scales bands and caps at 1
+// confirmation ticket: forces success, consumes only itself, copper still paid
+// — but ONLY through +15; the 0.45% band (+16→+20) can't be ticket-forced
+// (abuse fix: guaranteed tickets were a 30-minute path to +20 stat tables)
 const tDef = getItem("rafaros");
 let tState = { copper: 1e9 };
-let tEq = { itemId: "rafaros", plus: 16 }; // 0.45% band
+let tEq = { itemId: "rafaros", plus: 15 }; // last ticketable band
 let tBuffs = { doubleChance: 1, freeAttempts: 0, okTickets: 1 };
 let r = tryEnhance(tState, tEq, tDef, () => 0.999, tBuffs);
 assert.equal(r.result, "success");
 assert.equal(r.chance, 1);
-assert.equal(tEq.plus, 17);
+assert.equal(tEq.plus, 16);
 assert.equal(tBuffs.okTickets, 0);
 assert.equal(tBuffs.doubleChance, 1);           // untouched — ticket wins
 assert.equal(tState.copper, 1e9 - tDef.enhCost); // copper still paid
+// +16 and above: ticket NOT consumed, normal 0.45% roll happens
+let hiB = { doubleChance: 0, freeAttempts: 0, okTickets: 3 };
+r = tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: 16 }, tDef, () => 0.999, hiB);
+assert.equal(r.result, "fail");
+assert.equal(r.chance, 0.0045);
+assert.equal(hiB.okTickets, 3); // ticket preserved for a ticketable band
 assert.equal(tryEnhance({ copper: 0 }, { itemId: "rafaros", plus: 5 }, tDef, Math.random, { okTickets: 1 }).result, "poor");
 assert.equal(tryEnhance({ copper: 0 }, { itemId: "rafaros", plus: 5 }, tDef, Math.random, { okTickets: 1 }).result, "poor"); // guard didn't consume
 r = tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: 11 }, tDef, () => 0.9, null, 1.25);
 assert.equal(r.chance, 0.018 * 1.25);            // IV scales the band
 r = tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: 0 }, tDef, () => 0.9, null, 1.25);
 assert.equal(r.chance, 1);                        // guaranteed band caps at 1
-// avatar path honors ticket + mult too
+// avatar path honors ticket + mult too (same +15 ticket ceiling)
 const avDef2 = getItem("seria_weaponav");
 let avB = { okTickets: 1 };
-r = tryAvatarEnhance({ copper: 1e30, souls: { old: 9 } }, { itemId: "seria_weaponav", plus: 16 }, avDef2, "old", 2, () => 0.999, avB);
+r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 10 }, avDef2, () => 0.999, avB);
 assert.equal(r.result, "success");
 assert.equal(avB.okTickets, 0);
-r = tryAvatarEnhance({ copper: 1e30, souls: { old: 9 } }, { itemId: "seria_weaponav", plus: 4 }, avDef2, "old", 2, () => 0.9, null, 1.25);
+r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 16 }, avDef2, () => 0.999, { okTickets: 1 });
+assert.equal(r.result, "fail"); // 0.45%-band avatars can't be ticket-forced either
+r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 4 }, avDef2, () => 0.9, null, 1.25);
 assert.equal(r.chance, 0.24 * 1.25);
 
-// save round-trip: float jars, potions, potionUntil; old gathering buffs get okTickets
+// save round-trip: potions, potionUntil; old gathering buffs get okTickets;
+// legacy jar counts load intact (main.js converts them to items at boot)
 localStorage.setItem("esrpg_save", JSON.stringify({
   v: 3, characters: [{
     classId: "striker", level: 1,
@@ -458,11 +472,10 @@ localStorage.setItem("esrpg_save", JSON.stringify({
 }));
 const st5 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: { doubleChance: 0, freeAttempts: 0, okTickets: 0 } }, settings: { fullNumbers: false } };
 load(st5);
-assert.equal(st5.characters[0].jars.sirocco, 2.75);
+assert.equal(st5.characters[0].jars.sirocco, 2.75); // preserved for the boot migration
 assert.deepEqual(st5.characters[0].potions, { int: 1, prob: 0, elixir: 0 });
 assert.deepEqual(st5.characters[0].potionUntil, { int: 0, prob: 12345, elixir: 0 });
 assert.deepEqual(st5.gathering.buffs, { doubleChance: 3, freeAttempts: 1, okTickets: 0 });
-assert.equal(serialize(st5).characters[0].jars.sirocco, 2.75);
 
 // decoupling round: buff targets declared on data, no dead keys, generic matcher
 const drev = classes.find(c => c.id === "desperado").skills.find(s => s.id === "deathrev");
@@ -487,19 +500,51 @@ for (const k of Object.keys(newCharacter())) {
 
 // normalizeChar: a minimal char round-trips with full factory defaults
 localStorage.setItem("esrpg_save", JSON.stringify({
-  v: 3, characters: [{ classId: "indra", level: 9, souls: { old: 5 } }], active: 0, slots: 1,
+  v: 3, characters: [{ classId: "indra", level: 9 }], active: 0, slots: 1,
 }));
 const st6 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: {} }, settings: { fullNumbers: false } };
 load(st6);
 const minC = st6.characters[0];
 assert.equal(minC.level, 9);
 assert.deepEqual(minC.equipment, [null, null, null, null, null, null]);
-assert.deepEqual(minC.souls, { old: 5, brilliant: 0 }); // partial nested keeps new sub-fields
 assert.deepEqual(minC.potions, { int: 0, prob: 0, elixir: 0 });
 assert.equal(minC.xpToNext, 150);
 
-// avatar soul map covers every avatar id
-for (const id of AVATAR_IDS) assert.ok(AVATAR_SOULS[id], `no soul cost for ${id}`);
+// rivals: derived board scales off account best, announcements deterministic
+{
+  const { rivalRows, accountBest, rollAnnouncement, RIVAL_ROSTER } = await import("../rivals.js");
+  const st = { characters: [
+    { int: 100_000, equipment: [{ itemId: "rafaros", plus: 14 }], specialBag: [] },
+    { int: 5_000, equipment: [], specialBag: [{ itemId: "talisman", plus: 3 }] },
+  ] };
+  assert.deepEqual(accountBest(st), { int: 100_000, plus: 14 });
+  const rows = rivalRows(st);
+  assert.equal(rows.length, RIVAL_ROSTER.length);
+  assert.equal(rows[0].int, Math.round(100_000 * RIVAL_ROSTER[0].talent));
+  assert.equal(rows[0].topPlus, Math.min(20, 14 + RIVAL_ROSTER[0].plusOff));
+  for (const r of rows) assert.ok(r.topPlus >= 0 && r.topPlus <= 20 && r.int >= 10);
+  // empty account: floors hold
+  for (const r of rivalRows({ characters: [] })) assert.ok(r.int >= 10 && r.topPlus >= 0);
+  // deterministic rolls: fail branch, fanfare branch
+  const fail = rollAnnouncement(st, () => 0.1);
+  assert.ok(fail.kind === "plain" && fail.text.includes("FAILED"));
+  const fan = rollAnnouncement(st, () => 0.95);
+  assert.ok(fan.kind === "fanfare" && fan.text.includes("★"));
+}
+
+// titles: derived earn set, worn title guarded against unearned ids
+{
+  const { TITLES, earnedTitles, titleName } = await import("../titles.js");
+  const st = { kills: { hellparty: 3 }, fieldKills: {}, gathering: { level: { mining: 1, fishing: 1 } },
+    characters: [{ int: 150_000, equipment: [{ itemId: "rafaros", plus: 16 }], specialBag: [], title: "plus15" }] };
+  const ids = earnedTitles(st).map(t => t.id);
+  assert.ok(ids.includes("slave") && ids.includes("plus15") && ids.includes("slayer") && ids.includes("bigbrain"));
+  assert.ok(!ids.includes("plus20") && !ids.includes("galaxy"));
+  assert.equal(titleName(st, st.characters[0]), "Against the Odds");
+  assert.equal(titleName(st, { title: "plus20" }), null);  // unearned = not worn
+  assert.equal(titleName(st, { title: null }), null);
+  for (const t of TITLES) assert.ok(typeof t.check(st) === "boolean" || t.check(st) === true);
+}
 
 // fmt respects the injected settings getter
 const fakeSettings = { fullNumbers: false };
@@ -550,19 +595,14 @@ const fs = bosses.find(b => b.id === "abyssirocco");
 assert.ok(fs && fs.eliteChance === 0.2 && fs.eliteDropMult === 3);
 assert.equal(poolFor("abyssirocco").length, 5);
 
-// item mastery: milestone mult + aggregate wiring (default arg = zero drift)
+// item mastery pays stars only (per-item mult cut in the reduction pass) —
+// aggregate atk/int come straight off the tier table
 {
-  assert.equal(masteryMult(0), 1);
-  assert.equal(masteryMult(1), 1.02);
-  assert.equal(masteryMult(10), 1.04);
-  assert.equal(masteryMult(999), 1.06);
-  assert.equal(masteryMult(1000), 1.08);
   const eqp = [{ itemId: "luke_dmg", plus: 20 }];
+  const t = tierOf(getItem("luke_dmg"), 20);
   const plain = aggregate(eqp);
-  const mastered = aggregate(eqp, [], { luke_dmg: 10 });
-  assert.equal(mastered.atk, Math.round(plain.atk * 1.04));
-  assert.equal(mastered.int, Math.round(tierOf(getItem("luke_dmg"), 20).int * 1.04));
-  assert.deepEqual(aggregate(eqp, [], {}), plain); // no mastery = identical
+  assert.equal(plain.atk, t.atk);
+  assert.equal(plain.int, Math.round(t.int * (1 + (t.intPct ?? 0) / 100)));
 }
 
 // Elixir of Strength: +60% IV, additive with prob potion, backfilled on load
@@ -577,23 +617,12 @@ assert.equal(poolFor("abyssirocco").length, 5);
     assert.equal(bosses.find(b => b.id === id).drops.elixir, 0.02);
 }
 
-// first-kill trophies: every table id is a real boss, every boss has a trophy
-{
-  const ids = new Set(bosses.map(b => b.id));
-  for (const id in FIRST_KILL_BONUS) assert.ok(ids.has(id), `unknown boss ${id}`);
-  for (const b of bosses) assert.ok(FIRST_KILL_BONUS[b.id], `no trophy for ${b.id}`);
-  assert.deepEqual(firstKillBonuses({}), { dmg: 0, enh: 0, drop: 0 });
-  const some = firstKillBonuses({ hellparty: 5, anton: 1, bernardo: 1, kiln: 99 });
-  assert.equal(some.dmg, 0.005);
-  assert.equal(some.drop, 0.01);
-  assert.equal(some.enh, 0.02);
-}
-
-// achievements: none on empty state, fire on synthetic, bonus math, no re-earn
+// feats: ONE pool — named defs + boss first kills + mastery stars; no re-earn
 {
   const empty = { achievements: {}, kills: {}, fieldKills: {}, characters: [], gathering: { level: { mining: 1, fishing: 1 } } };
-  assert.equal(evalAchievements(empty).length, 0);
-  assert.equal(achievementBonus(empty), 0);
+  assert.equal(evalFeats(empty).length, 0);
+  assert.equal(featCount(empty), 0);
+  assert.deepEqual(featBonus(empty), { dmg: 0, luck: 0 });
   const rich = {
     achievements: {}, kills: { kiln: 600, hellparty: 1 }, fieldKills: { kiln: 400 },
     characters: [
@@ -602,11 +631,18 @@ assert.equal(poolFor("abyssirocco").length, 5);
     ],
     gathering: { level: { mining: 10, fishing: 10 } },
   };
-  const earned = evalAchievements(rich);
+  const earned = evalFeats(rich);
   const ids = earned.map(a => a.id).sort();
   assert.deepEqual(ids, ["bossfirst", "fieldboss", "gather10", "int100k", "int1m", "kills1k", "lvl100", "mastery1", "merged", "plus10", "plus15", "plus20", "roster2", "silver"]);
-  assert.equal(achievementBonus(rich), ids.length * ACHIEVEMENT_BONUS);
-  assert.equal(evalAchievements(rich).length, 0); // already earned — no repeats
+  // count = named + 1 first-kill (hellparty; kiln is a zone, not a boss) + 1 star (rafaros: 3)
+  assert.equal(featCount(rich), ids.length + 1 + 1);
+  assert.equal(featBonus(rich).dmg, featCount(rich) * FEAT_DMG);
+  assert.equal(featBonus(rich).luck, featCount(rich) * FEAT_LUCK);
+  assert.equal(evalFeats(rich).length, 0); // already earned — no repeats
+  // every boss id counts exactly once, kill counts beyond 1 don't stack
+  const allKills = Object.fromEntries(bosses.map(b => [b.id, 5]));
+  assert.equal(featCount({ achievements: {}, kills: allKills, characters: [] })
+    - featCount({ achievements: {}, kills: {}, characters: [] }), bosses.length);
 }
 
 // absorbDupes: best copy per item survives, rest become mastery at 1+plus

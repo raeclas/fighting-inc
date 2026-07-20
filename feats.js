@@ -1,11 +1,18 @@
-// achievements.js
-// Account achievements — bestiary's sibling: checks read ONLY already-tracked
-// state (kills, characters, gathering, mastery), each earned one grants a
-// permanent global damage bonus. Collection is power.
+// feats.js
+// ONE system for permanent account bonuses. Merged (design-reduction pass,
+// 2026-07-20) from three parallel micro-bonus systems: achievements (+0.5%
+// dmg each), boss first-kill trophies (dmg/drop/enh IV), and item-mastery
+// stars (+0.5% dmg each). A feat is: an entry in FEATS below, a boss killed
+// for the first time, or a mastery star (item-absorb milestone).
+// featBonus(state) → { dmg, luck }: dmg adds to global damage, luck adds to
+// the drop & enhance roll multiplier — surfaced as "Luck" in the UI.
+// Earned FEATS entries persist under the legacy save key `state.achievements`;
+// first-kill and star feats are derived from kills/mastery (no extra state).
 import { bosses } from "./bosses.js";
-import { MERGE_IDS } from "./items.js";
+import { MERGE_IDS, masteryStars } from "./items.js";
 
-export const ACHIEVEMENT_BONUS = 0.005; // +0.5% damage each
+export const FEAT_DMG = 0.01;   // +1% global damage per feat
+export const FEAT_LUCK = 0.002; // +0.2% Luck per feat (drop & enhance rolls)
 
 const bossIds = new Set(bosses.map(b => b.id));
 const chars = s => s.characters ?? [];
@@ -19,7 +26,7 @@ const totalKills = s => {
   return n;
 };
 
-export const ACHIEVEMENTS = [
+export const FEATS = [
   { id: "kills1k", name: "Numbers Guy", desc: "Defeat 1,000 enemies", check: s => totalKills(s) >= 1000 },
   { id: "kills100k", name: "Genocide Route", desc: "Defeat 100,000 enemies", check: s => totalKills(s) >= 100_000 },
   { id: "kills10m", name: "The Grind Never Stops", desc: "Defeat 10,000,000 enemies", check: s => totalKills(s) >= 10_000_000 },
@@ -40,14 +47,33 @@ export const ACHIEVEMENTS = [
   { id: "silver", name: "First Silver", desc: "Hold 1 silver (1e9 copper) on one character", check: s => anyChar(s, c => c.copper >= 1e9) },
 ];
 
-export function achievementBonus(state) {
-  return Object.keys(state.achievements ?? {}).length * ACHIEVEMENT_BONUS;
+// one feat per boss defeated at least once
+export function firstKillFeats(state) {
+  let n = 0;
+  for (const b of bosses) if ((state.kills?.[b.id] ?? 0) >= 1) n++;
+  return n;
 }
 
-// Run un-earned checks; mark earned ones; return the newly earned defs.
-export function evalAchievements(state) {
+// mastery stars across the whole roster — each star is a feat
+export function starFeats(state) {
+  return chars(state).reduce((s, c) => s + masteryStars(c.mastery), 0);
+}
+
+export function featCount(state) {
+  return Object.keys(state.achievements ?? {}).length
+    + firstKillFeats(state) + starFeats(state);
+}
+
+export function featBonus(state) {
+  const n = featCount(state);
+  return { dmg: n * FEAT_DMG, luck: n * FEAT_LUCK };
+}
+
+// Run un-earned FEATS checks; mark earned ones; return the newly earned defs.
+// (First-kill and star feats are derived — nothing to evaluate.)
+export function evalFeats(state) {
   const earned = [];
-  for (const a of ACHIEVEMENTS) {
+  for (const a of FEATS) {
     if (state.achievements[a.id]) continue;
     if (a.check(state)) {
       state.achievements[a.id] = true;

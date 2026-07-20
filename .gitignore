@@ -2,3 +2,8 @@
 # Decompiled here for reference only; keep it out of the repo.
 *.w3x
 *.mpq
+
+# Local art-generation pipeline: venv + raw candidates stay out; only
+# picked sprites land in assets/.
+internal/art/.venv/
+internal/art/out/

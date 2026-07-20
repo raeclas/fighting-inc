@@ -1,7 +1,9 @@
-// consumables.js — zone jars, potions, and the source IV drop/enhance
-// multiplier. Drop + open rates are map-extracted (war3map.j zone dispatch +
-// ORx use handlers, see internal/extract/); never invented. Acquisition of
-// potions/tickets is adapted (gathering crafts) — effect magnitudes stay source.
+// consumables.js — zone-special drop rates ("jars"), potions, and the source
+// IV drop/enhance multiplier ("Luck"). Drop + open rates are map-extracted
+// (war3map.j zone dispatch + ORx use handlers, see internal/extract/); never
+// invented. The jar INVENTORY was cut in the reduction pass — kills roll
+// drop×open in one chain and the item lands directly (same EV, no clicking).
+// Potion acquisition is adapted (gathering crafts) — magnitudes stay source.
 
 export const JARS = {
   hyun:     { name: "-Hyun- Find War Talisman Jar",      openChance: 0.0020, yields: "talisman" },

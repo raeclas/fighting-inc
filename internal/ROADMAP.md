@@ -87,6 +87,28 @@ not attackers; buffs absent from offline batch EV; locked-out zone farms
 until you switch (no kick-on-tick). Job-change scroll stays superseded by the
 Legion roster.
 
+## SPEC CHANGE — design-reduction pass (2026-07-20, user decision)
+The spec moved from "port the map faithfully" to **"boss-fighting idle game
+that uses the source as a content library, not law."** Rationale: an honest
+review scored the core loop 8/10 but system legibility 3/10 — the map's
+accreted systems (built for a live multiplayer lobby) imported convolution
+without the social scaffolding that made them legible. Fun beats fidelity
+for pacing/bonus systems/currencies; bosses, items, classes, and enhance
+bands stay source-exact. What changed:
+- **Feats** (feats.js): achievements + boss first-kill trophies + mastery
+  stars merged into ONE pool — every feat = +1% damage +0.2% Luck. The
+  per-item mastery mult was cut. Luck (the old hidden IV) is a visible HUD
+  stat.
+- **Currencies cut:** avatar souls (copper-only avatar enhance), evolution
+  tickets (deterministic kill-count ladder in `EVOLUTION`, EV pacing kept),
+  jar inventory (zone specials drop directly, drop×open chained roll).
+- **Repace:** Fallen Temple copper ×3 — first boss kill ~10-12 min (was
+  ~40+); zone 2 onward exact.
+- **Progressive reveal:** Jobs/Macro/Mastery/Legion tabs appear on their
+  trigger with a toast (`state.tabsSeen`).
+The crafting progression design is preserved in [CRAFTING-PLAN.md](CRAFTING-PLAN.md)
+and revives post-reduction.
+
 ## Guardrails
 - The map file stays gitignored; extraction scripts + parsed item dump live in
   [extract/](extract/) (the decompiled war3map.j itself stays out).

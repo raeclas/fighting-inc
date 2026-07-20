@@ -22,6 +22,8 @@ export function serialize(state) {
     kills: state.kills,
     fieldKills: state.fieldKills,
     achievements: state.achievements,
+    tabsSeen: state.tabsSeen,
+    rivals: state.rivals,
     currentZoneId: state.currentZoneId,
     currentVariant: state.currentVariant,
     autoResummon: state.autoResummon,
@@ -92,7 +94,6 @@ function normalizeChar(c) {
     return true;
   });
   // nested objects: the shallow spread can't backfill sub-fields of partials
-  c.souls = { old: 0, brilliant: 0, ...(c.souls || {}) };
   c.potions = { int: 0, prob: 0, elixir: 0, ...(c.potions || {}) };
   c.potionUntil = { int: 0, prob: 0, elixir: 0, ...(c.potionUntil || {}) };
   c.lastAttack = 0;
@@ -122,6 +123,8 @@ export function load(state) {
   state.kills = s.kills ?? {};
   state.fieldKills = s.fieldKills ?? {};
   state.achievements = s.achievements ?? {};
+  state.tabsSeen = s.tabsSeen ?? {};
+  state.rivals = { nextAnnounceAt: 0, ...(s.rivals || {}) };
   state.currentZoneId = s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;
   state.autoResummon = s.autoResummon ?? false;

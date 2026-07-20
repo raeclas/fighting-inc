@@ -19,6 +19,7 @@ const events = [];
 export function pushBattleEvent(e) { events.push(e); }
 
 const floaters = []; // {x, y, alpha, text, color, sizePx}
+let shakeUntil = 0;  // boss-kill screen shake deadline
 let attackUntil = 0;
 let flashUntil = 0;
 
@@ -132,6 +133,7 @@ export function renderBattle(state, player) {
     else if (e.type === "skill") spawnFloater(fmtNum(e.dmg), "#ffb02e", 22);
     else if (e.type === "kill") spawnFloater(`+${fmtNum(e.copper)}c`, C.gold, 18);
     else if (e.type === "bag") spawnFloater(`💰 +${fmtNum(e.copper)}c!`, C.gold, 26);
+    else if (e.type === "bosskill") { shakeUntil = now + 350; spawnFloater("BOSS DOWN", C.gold, 30); }
   }
   events.length = 0;
 
@@ -152,6 +154,12 @@ export function renderBattle(state, player) {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#1e4023";
   ctx.fillRect(0, 0, W, H);
+  // boss-kill shake: jitter everything drawn after the background, decaying
+  ctx.save();
+  if (now < shakeUntil) {
+    const m = 5 * ((shakeUntil - now) / 350);
+    ctx.translate((Math.random() - 0.5) * 2 * m, (Math.random() - 0.5) * 2 * m);
+  }
   ctx.fillStyle = "#17351c";
   for (const [px, py, rx, ry] of PATCHES) {
     ctx.beginPath();
@@ -248,4 +256,5 @@ export function renderBattle(state, player) {
     ctx.globalAlpha = 1;
   }
   if (floaters.length > 40) floaters.splice(0, floaters.length - 40);
+  ctx.restore(); // shake translate
 }

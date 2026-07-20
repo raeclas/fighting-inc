@@ -7,20 +7,21 @@ import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
-import { getItem, aggregate, absorbDupes, bagDupeCount, masteryStars, MASTERY_STAR_BONUS, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
+import { getItem, aggregate, absorbDupes, bagDupeCount, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderMasteryItems, renderAchievements, renderStatsPanel, renderCodex, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderMasteryItems, renderFeats, renderLobby, renderStatsPanel, renderCodex, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
-import { evalAchievements, achievementBonus, ACHIEVEMENT_BONUS } from "./achievements.js";
+import { evalFeats, featBonus, FEAT_DMG, FEAT_LUCK } from "./feats.js";
+import { rollAnnouncement, scheduleNext, rollReaction } from "./rivals.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
 import { legionBonuses, unlockedSlots, intTutorMult } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
-import { getBoss, spawnBossMob, TICKET_SUCCESS, FIRST_KILL_BONUS, firstKillBonuses } from "./bosses.js";
+import { getBoss, spawnBossMob, TICKET_SUCCESS, EVOLUTION } from "./bosses.js";
 
 const FIRST_KILL_MULT = 10; // first-kill trophy bounty multiplier
 import { poolFor } from "./items.js";
@@ -60,12 +61,36 @@ function selectZone(zoneId, variantIndex) {
 // switch — kick-on-tick if boosting through it ever matters.
 
 // Hunt the field boss for the currently selected zone/variant (solo).
+// Cooldown (starting value 120s ≈ the passive 2%/kill EV at early kill rates):
+// the free button was an on-demand 100× INT-spike faucet the sim never
+// modeled — spam turned a rare wanderer into the primary income lane.
+const HUNT_CD_MS = 120_000;
 function huntFieldBoss() {
   if (!gameState.currentZoneId) return logLine("Select a hunting ground first.", "fail");
+  if ((gameState.bossCooldowns._fieldhunt || 0) > gameState.total_time)
+    return logLine("The wanderers are wary. Wait for the next one.", "fail");
+  gameState.bossCooldowns._fieldhunt = gameState.total_time + HUNT_CD_MS;
   const zone = getZone(gameState.currentZoneId);
   const fb = spawnFieldBoss(zone, gameState.currentVariant);
   gameState.field = [fb];
   logLine(`A ${fb.name} lumbers into view.`);
+}
+
+// MIGRATION (reduction pass): stored jar inventories → their contents. Each
+// whole jar gets one open roll at its map rate, then the counters are gone.
+// Dead soul counters drop too (avatars enhance with copper now).
+for (const c of gameState.characters) {
+  delete c.souls;
+  if (!c.jars) continue;
+  for (const [jarId, count] of Object.entries(c.jars)) {
+    const jar = JARS[jarId];
+    if (!jar) continue;
+    let got = 0;
+    for (let i = 0; i < Math.floor(count); i++) if (Math.random() < jar.openChance) got++;
+    for (let i = 0; i < got; i++) c.specialBag.push({ itemId: jar.yields, plus: 0 });
+    if (got) logLine(`Your ${jar.name}s were opened: ${got}× ${getItem(jar.yields).name}.`, "success");
+  }
+  delete c.jars;
 }
 
 // resume farming where the save left off
@@ -115,7 +140,7 @@ function activeClones(extra = 0) {
 }
 
 function effectiveStats() {
-  const g = aggregate(player.equipment, player.specialBag, player.mastery);
+  const g = aggregate(player.equipment, player.specialBag);
   const leg = legionBonuses(gameState);
   const cls = getClass(player.classId);
   const statSk = classStatBonuses(cls, player.skills, g.skillLevelBonus);
@@ -146,9 +171,7 @@ function effectiveStats() {
   // dmgInc ("Increase attack power by N%") stacks additively with the other
   // percent bonuses; addDmg ("Additional damage", best item only) multiplies
   // on top — matches the source tooltips' two separate multiplier families.
-  const bonus = 1 + bestiaryBonus(gameState) + firstKillBonuses(gameState.kills).dmg
-    + achievementBonus(gameState)
-    + MASTERY_STAR_BONUS * gameState.characters.reduce((s, c) => s + masteryStars(c.mastery), 0)
+  const bonus = 1 + bestiaryBonus(gameState) + featBonus(gameState).dmg
     + statSk.atkPct / 100 + leg.dmgPct / 100 + g.dmgIncPct / 100 + buffAtkPct / 100;
   // INT (character + item) is flat 1:1 damage, added before the % multipliers.
   // INT potion multiplies PURE (character) INT only — item INT untouched (map).
@@ -317,6 +340,16 @@ function acquireItem(itemId, sourceLabel) {
     renderEquipment(player, equipHandlers);
     return;
   }
+  // auto-absorb (opt-in): once you own any copy, further drops feed mastery
+  // directly — no stash spare, no squatting in an empty gear slot. OFF while
+  // gearing (multiple copies of one weapon stack), ON once a table is farmed.
+  if (gameState.settings.autoAbsorb
+      && (player.equipment.some(e => e && e.itemId === itemId) || player.stash.some(e => e.itemId === itemId))) {
+    player.mastery[itemId] = (player.mastery[itemId] || 0) + 1;
+    logLine(`${sourceLabel} ${def.name} — auto-absorbed (${player.mastery[itemId]}).`, "success");
+    renderEquipment(player, equipHandlers);
+    return;
+  }
   const slot = player.equipment.indexOf(null);
   if (slot !== -1) {
     player.equipment[slot] = { itemId, plus: 0 };
@@ -351,29 +384,32 @@ function useTicket(boss) {
   }
 }
 
-// Special-boss evolution tickets: 100% success, +1 level, cap 7 (map nwx —
-// unlike the 5% Q..D ladder). Applies immediately on drop.
-function useEvolutionTicket(boss, tier) {
+// Enhanced-skill evolution: deterministic kill-count ladder (bosses.js
+// EVOLUTION). Account kills drive every character's evolution level — only
+// raises, never lowers (old ticket-earned levels survive as the floor).
+function syncEvolutions() {
   const cls = getClass(player.classId);
-  const skill = cls?.enhanced?.find(e => e.tier === tier);
-  if (!skill) return;
-  const level = player.skills[skill.id] || 0;
-  if (level >= MAX_SKILL_LEVEL) {
-    return logLine(`${boss.name} dropped a ${tier} ticket, but ${skill.name} is already Lv${MAX_SKILL_LEVEL}.`);
+  let changed = false;
+  for (const skill of cls?.enhanced ?? []) {
+    const evo = EVOLUTION[skill.tier];
+    if (!evo) continue;
+    const derived = Math.min(MAX_SKILL_LEVEL, Math.floor((gameState.kills[evo.boss] || 0) / evo.kills));
+    const level = player.skills[skill.id] || 0;
+    if (derived > level) {
+      player.skills[skill.id] = derived;
+      logLine(level === 0
+        ? `${skill.tier.toUpperCase()} EVOLUTION: ${skill.replaces ? "skill evolved into" : "learned"} ${skill.name}!`
+        : `${skill.tier.toUpperCase()} EVOLUTION: ${skill.name} Lv${level} → Lv${derived}.`, "success");
+      changed = true;
+    }
   }
-  player.skills[skill.id] = level + 1;
-  logLine(level === 0
-    ? `${tier.toUpperCase()} TICKET: ${skill.replaces ? "skill evolved into" : "learned"} ${skill.name}!`
-    : `${tier.toUpperCase()} TICKET: ${skill.name} Lv${level} → Lv${level + 1} (100%).`, "success");
-  refreshMacro(); // skill bar re-renders on the next tick
+  if (changed) refreshMacro(); // skill bar re-renders on the next tick
 }
 
-// IV per roll family: potions/elixir (ivMult) + permanent first-kill trophies
-function dropIv() {
-  return ivMult(player, gameState.total_time) + firstKillBonuses(gameState.kills).drop;
-}
-function enhIv() {
-  return ivMult(player, gameState.total_time) + firstKillBonuses(gameState.kills).enh;
+// The roll multiplier on every drop AND enhance: potions/elixir (ivMult) +
+// permanent Luck from feats. One number, shown as "Luck" in the UI.
+function luckMult() {
+  return ivMult(player, gameState.total_time) + featBonus(gameState).luck;
 }
 
 function rollBossDrops(boss, dropMult = 1) {
@@ -385,14 +421,9 @@ function rollBossDrops(boss, dropMult = 1) {
     pushBattleEvent({ type: "bag", copper: paid });
     logLine(`Bounty: +${fmt(paid)}c.`, "success");
   }
-  // guaranteed avatar-enhancement souls (Seria / Library Keeper)
-  if (d.souls) {
-    player.souls[d.souls.kind] = (player.souls[d.souls.kind] || 0) + d.souls.count;
-    logLine(`${boss.name} leaves ${d.souls.count} souls behind.`, "success");
-  }
   // all boss drop rolls scale with the source IV multiplier (probability
   // potion / elixir / first-kill trophies) and the elite twin's 3× (Formless Sirocco)
-  const iv = dropIv() * dropMult;
+  const iv = luckMult() * dropMult;
   // item roll — the skill ticket drops ALONGSIDE a successful roll (source Epx)
   if (Math.random() < Math.min(1, d.itemChance * iv)) {
     // specials carry an explicit pool; "classWeapon" resolves per active class
@@ -402,8 +433,6 @@ function rollBossDrops(boss, dropMult = 1) {
     if (pool.length) acquireItem(pool[Math.floor(Math.random() * pool.length)], `${boss.name} dropped`);
     if (boss.skillIndex !== null) useTicket(boss);
   }
-  // evolution ticket — independent roll (source dispatch)
-  if (d.ticket && Math.random() < Math.min(1, d.ticket.chance * iv)) useEvolutionTicket(boss, d.ticket.tier);
   // Elixir of Strength — potion count, not an item, so it skips acquireItem
   if (d.elixir && Math.random() < Math.min(1, d.elixir * iv)) {
     player.potions.elixir++;
@@ -489,6 +518,7 @@ function switchCharacter(i) {
   renderEquipment(player, equipHandlers);
   refreshMacro();
   renderZoneList(player, selectZone, true);
+  syncEvolutions(); // account kills grant this character its evolutions too
   if (player.classId) {
     logLine(`Now playing ${getClass(player.classId).name} Lv${player.level}. Pick a hunting ground.`, "success");
   } else {
@@ -588,26 +618,7 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbAll: absorbStashAll, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
-
-// Open jars: each is a gacha roll (map ORx) — openChance × IV, consumed either way.
-function openJar(jarId, times) {
-  const jar = JARS[jarId];
-  if (!jar) return;
-  let opened = 0, hits = 0;
-  const iv = dropIv();
-  while (opened < times && (player.jars[jarId] || 0) >= 1) {
-    player.jars[jarId]--;
-    opened++;
-    if (Math.random() < Math.min(1, jar.openChance * iv)) {
-      hits++;
-      acquireItem(jar.yields, `${jar.name} yields`);
-    }
-  }
-  if (!opened) return;
-  if (!hits) logLine(`Opened ${opened}× ${jar.name} — nothing but dust (${(jar.openChance * iv * 100).toFixed(2)}% each).`, "fail");
-  renderEquipment(player, equipHandlers);
-}
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbAll: absorbStashAll, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onUsePotion: usePotion, getAutoAbsorb: () => gameState.settings.autoAbsorb, onToggleAutoAbsorb: v => { gameState.settings.autoAbsorb = v; } };
 
 function usePotion(kind) {
   if ((player.potions[kind] || 0) < 1) return;
@@ -640,20 +651,19 @@ function enhanceBag(bagIdx, times) {
   const eq = player.specialBag[bagIdx];
   if (!eq || MERGE_IDS.has(eq.itemId)) return; // talisman family is merge-only
   const def = getItem(eq.itemId);
-  // avatars: souls + copper per try on their own (softer) odds bands
+  // avatars: copper per try on their own (softer) odds bands
   const avatar = AVATAR_IDS.has(eq.itemId);
-  const [soulKind, soulCost] = AVATAR_SOULS[eq.itemId] ?? ["old", 2];
   for (let i = 0; i < times; i++) {
-    const iv = enhIv();
+    const iv = luckMult();
     const { result, chance } = avatar
-      ? tryAvatarEnhance(player, eq, def, soulKind, soulCost, Math.random, gameState.gathering.buffs, iv)
+      ? tryAvatarEnhance(player, eq, def, Math.random, gameState.gathering.buffs, iv)
       : tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, iv);
     if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
-    if (result === "nosouls") { logLine(`Need ${soulCost} ${soulKind === "old" ? '"100 years old"' : '"Brilliant Sarah"'} souls per try.`, "fail"); break; }
     const pct = (chance * 100).toFixed(2);
     if (result === "success") {
       logLine(`${def.name} +${eq.plus - 1} → +${eq.plus} SUCCESS (${pct}%)`, "success");
+      if (eq.plus >= 15 && Math.random() < 0.5) logLine(rollReaction("plus", eq.plus));
     } else {
       logLine(`${def.name} +${eq.plus} enhancement FAILED (${pct}%)`, "fail");
     }
@@ -767,12 +777,13 @@ function enhance(slotIdx, times) {
   const def = getItem(eq.itemId);
 
   for (let i = 0; i < times; i++) {
-    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, enhIv());
+    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, luckMult());
     if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
     const pct = (chance * 100).toFixed(2);
     if (result === "success") {
       logLine(`${def.name} +${eq.plus - 1} → +${eq.plus} SUCCESS (${pct}%)`, "success");
+      if (eq.plus >= 15 && Math.random() < 0.5) logLine(rollReaction("plus", eq.plus));
     } else {
       logLine(`${def.name} +${eq.plus} enhancement FAILED (${pct}%)`, "fail");
     }
@@ -838,9 +849,17 @@ function tick() {
   }
 
   if (gameState.total_time - gameState.last_save >= 5000) {
-    // achievements ride the 5s cadence — ~18 cheap boolean checks
-    for (const a of evalAchievements(gameState)) {
-      logLine(`Achievement unlocked: ${a.name} — ${a.desc}! (+${ACHIEVEMENT_BONUS * 100}% damage)`, "success");
+    // feats ride the 5s cadence — ~18 cheap boolean checks
+    for (const a of evalFeats(gameState)) {
+      logLine(`Feat earned: ${a.name} — ${a.desc}! (+${FEAT_DMG * 100}% damage, +${FEAT_LUCK * 100}% Luck)`, "success");
+    }
+    // fake-lobby announcement (flavor only; never touches the economy)
+    if (gameState.total_time >= (gameState.rivals.nextAnnounceAt || 0)) {
+      if (gameState.rivals.nextAnnounceAt) {
+        const a = rollAnnouncement(gameState);
+        logLine(a.text, a.kind === "fanfare" ? "success" : "");
+      }
+      gameState.rivals.nextAnnounceAt = scheduleNext(gameState.total_time);
     }
     save(gameState);
     gameState.last_save = gameState.total_time;
@@ -865,7 +884,9 @@ function resolveKill(mob) {
 
   if (mob.isBoss) {
     gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
+    syncEvolutions(); // kill-count evolution ladder (specials)
     const boss = getBoss(mob.bossId);
+    pushBattleEvent({ type: "bosskill" });
     logLine(`${boss.name} defeated! ${boss.respawnMs ? "Bounty" : "Refund"} ${fmt(mob.copper)}c.`, "success");
     // first-kill trophy: 10× bounty burst + permanent account bonus
     if (gameState.kills[mob.bossId] === 1) {
@@ -873,11 +894,8 @@ function resolveKill(mob) {
       const base = d?.bounty ? d.bounty * 1e9 ** (d.bountyTier ?? 0) : mob.copper;
       const paid = earnCopper(base * FIRST_KILL_MULT);
       pushBattleEvent({ type: "bag", copper: paid });
-      const fb = FIRST_KILL_BONUS[mob.bossId];
-      const fbLabel = fb
-        ? { dmg: `+${fb[1] * 100}% damage`, drop: `+${fb[1] * 100}% drop rates`, enh: `+${fb[1] * 100}% enhance rates` }[fb[0]]
-        : null;
-      logLine(`FIRST KILL: ${boss.name}! Trophy bounty +${fmt(paid)}c${fbLabel ? ` and ${fbLabel} forever` : ""}.`, "success");
+      logLine(`FIRST KILL: ${boss.name}! Trophy bounty +${fmt(paid)}c and a feat: +${FEAT_DMG * 100}% damage, +${FEAT_LUCK * 100}% Luck forever.`, "success");
+      if (Math.random() < 0.6) logLine(rollReaction("firstkill", boss.name));
     }
     rollBossDrops(boss, mob.elite ? (boss.eliteDropMult ?? 1) : 1);
     if (boss.respawnMs) gameState.bossCooldowns[boss.id] = gameState.total_time + boss.respawnMs;
@@ -908,15 +926,18 @@ function resolveKill(mob) {
   // regular field mob: INT, rare bag roll, refill the slot — or a field boss joins the ranks
   if (mob.intPerKill) player.int += intDrip(getZone(mob.zoneId), player) * intTutorMult(gameState); // capped drip × legion tutoring
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
-  const iv = dropIv();
+  const iv = luckMult();
   if (Math.random() < BAG_CHANCE * iv) {
     pushBattleEvent({ type: "bag", copper: earnCopper(mob.bag) });
   }
-  // zone jar roll (map rates × IV) — field bosses keep their guaranteed-bag identity
+  // zone specials drop DIRECTLY (jar inventory cut in the reduction pass):
+  // one chained roll = the map's jar-drop rate × its open rate, both × Luck
   const jarRoll = jarFor(mob.zoneId, mob.variant);
   if (jarRoll && Math.random() < Math.min(1, jarRoll[1] * iv)) {
-    player.jars[jarRoll[0]] = (player.jars[jarRoll[0]] || 0) + 1;
-    logLine(`A ${JARS[jarRoll[0]].name} drops!`, "success");
+    const jar = JARS[jarRoll[0]];
+    if (Math.random() < Math.min(1, jar.openChance * iv)) {
+      acquireItem(jar.yields, `A ${jar.name} shatters open:`);
+    }
   }
   const zone = getZone(mob.zoneId);
   if (Math.random() < FIELD_BOSS_SPAWN_CHANCE) {
@@ -1118,6 +1139,18 @@ function simulateBatch(dt) {
   const mob = frontMob();
   player.lastAttack = gameState.total_time;
   if (!mob || mob.isBoss || mob.isFieldBoss) return; // only estimate regular zone farming
+  // A zone you've outgrown kicks you offline (live play keeps farming until
+  // you switch — you're present; an away session shouldn't ghost-farm a
+  // ground that would refuse you at the door).
+  {
+    const zone = getZone(mob.zoneId);
+    if (zoneLocked(zone, player, mob.variant)) {
+      logLine(`${zone.name} no longer admits you — the away session ended there.`);
+      gameState.field = [];
+      gameState.currentZoneId = null;
+      return;
+    }
+  }
 
   const eff = effectiveStats();
   const { atk, interval, crit, intProcs, totalInt } = eff;
@@ -1159,10 +1192,26 @@ function simulateBatch(dt) {
   const copper = earnCopper(Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag)));
   // int drip respects the zone's cap; coarse (whole batch at pre-batch int).
   // Tutoring applies; field-boss spikes don't (not modeled in batch).
-  player.int += kills * intDrip(getZone(mob.zoneId), player) * intTutorMult(gameState);
-  // jar EV (float counts; no IV offline — buffs aren't modeled in batch)
+  // Clamped at the zone's INT cap: drip was sampled once for the whole batch,
+  // and an uncapped multiply let one big away-session blow through intCapAt
+  // by millions (live play caps per kill — offline must match).
+  {
+    const zone = getZone(mob.zoneId);
+    let gain = kills * intDrip(zone, player) * intTutorMult(gameState);
+    if (zone.intCapAt) gain = Math.min(gain, Math.max(0, zone.intCapAt - player.int));
+    player.int += gain;
+  }
+  // zone-special EV (direct drops; no Luck offline — buffs aren't modeled in
+  // batch): expected count = kills × drop rate × open rate, fractional
+  // remainder resolved with one roll so nothing accumulates
   const jarEV = jarFor(mob.zoneId, mob.variant);
-  if (jarEV) player.jars[jarEV[0]] = (player.jars[jarEV[0]] || 0) + kills * jarEV[1];
+  if (jarEV) {
+    const jar = JARS[jarEV[0]];
+    const expect = kills * jarEV[1] * jar.openChance;
+    let n = Math.floor(expect);
+    if (Math.random() < expect - n) n++;
+    for (let i = 0; i < n; i++) acquireItem(jar.yields, `While you were gone, a ${jar.name} yielded`);
+  }
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
   gainXP(player, kills * mob.xp);
 
@@ -1184,9 +1233,10 @@ function render() {
   renderBattle(gameState, player);
   renderSkillBar(gameState, player, eff, castSkill);
   renderZoneList(player, selectZone); // key-cached; re-renders when a gate flips
+  renderLobby(gameState, player);     // key-cached; moves when your benchmarks move
   renderBestiary(gameState);
   renderMasteryItems(gameState, player);
-  renderAchievements(gameState);
+  renderFeats(gameState);
   renderLegion(gameState, rosterHandlers);
   renderBossList(gameState, player, eff, bossHandlers);
   renderStatsPanel(gameState, player, eff);
@@ -1266,6 +1316,7 @@ renderCodex(); // static mechanics reference — built once from live constants
 renderZoneList(player, selectZone, true);
 renderShop(buy);
 renderEquipment(player, equipHandlers);
+syncEvolutions(); // after handlers init — kill ladder may outrank saved ticket levels
 refreshMacro();
 refreshGathering();
 updateUI(gameState, player, effectiveStats());

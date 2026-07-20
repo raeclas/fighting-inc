@@ -1,13 +1,15 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS, zoneLocked, intDrip, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT, FIELD_BOSS_BAG_MULT, FIELD_BOSS_HP_MULT } from "./zones.js";
-import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryMult, masteryStars, MASTERY_MILESTONES, MASTERY_BONUS, MASTERY_STAR_BONUS, bagDupeCount, aggregate } from "./items.js";
+import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryStars, masteryStarsOf, MASTERY_MILESTONES, bagDupeCount, aggregate } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills, classStatBonuses } from "./classes.js";
-import { JARS, potionActive, ivMult, PROB_POTION_IV, ELIXIR_IV, INT_POTION_MULT } from "./consumables.js";
-import { bosses, INTEREST, TICKET_SUCCESS, firstKillBonuses, FIRST_KILL_BONUS } from "./bosses.js";
+import { potionActive, ivMult, PROB_POTION_IV, ELIXIR_IV, INT_POTION_MULT } from "./consumables.js";
+import { rivalRows, accountBest } from "./rivals.js";
+import { TITLES, earnedTitles, titleName } from "./titles.js";
+import { bosses, INTEREST, TICKET_SUCCESS, EVOLUTION } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES, BONUS_PER_MILESTONE } from "./bestiary.js";
-import { ACHIEVEMENTS, achievementBonus, ACHIEVEMENT_BONUS } from "./achievements.js";
+import { FEATS, featCount, featBonus, firstKillFeats, starFeats, FEAT_DMG, FEAT_LUCK } from "./feats.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
 import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt, intTutorMult, TUTOR_PCT } from "./legion.js";
@@ -52,8 +54,9 @@ function portraitCanvas(sheetId, px, tint = "#2b3854") {
 
 function updateHud(state, player) {
   const cls = getClass(player.classId);
+  const worn = titleName(state, player);
   document.getElementById("hudPlate").textContent =
-    `Lv ${player.level} ${cls ? cls.name : "Enhancement Slave"}`;
+    `Lv ${player.level} ${cls ? cls.name : "Enhancement Slave"}${worn ? ` «${worn}»` : ""}`;
 
   // WC3 purple XP strip — HP is vestigial in the source (no hero-damage system)
   document.getElementById("hudHpBar").style.width = `${Math.min(100, (player.xp / player.xpToNext) * 100)}%`;
@@ -76,11 +79,10 @@ function updateHud(state, player) {
   document.getElementById("curSilver").textContent = fmt(Math.floor(c / 1e9) % 1e9);
   document.getElementById("curCopper").textContent = fmt(c % 1e9);
 
-  // avatar souls (special-boss drops) — hidden until the first one drops
-  const souls = player.souls || {};
-  const anySouls = (souls.old || 0) + (souls.brilliant || 0) > 0;
-  document.getElementById("soulsRow").style.display = anySouls ? "" : "none";
-  if (anySouls) document.getElementById("soulsVal").textContent = `${fmt(souls.old || 0)} / ${fmt(souls.brilliant || 0)}`;
+  // Luck — the ONE multiplier on every drop & enhance roll (potions + feats)
+  document.getElementById("luckVal").textContent =
+    `×${(ivMult(player, state.total_time) + featBonus(state).luck).toFixed(2)}`;
+
 
   // active potion countdowns — hidden when none running
   const now = state.total_time;
@@ -193,9 +195,37 @@ function renderChips(state, player) {
     .join("");
 }
 
+// Progressive tab reveal: advanced systems stay hidden until their moment.
+// Once seen, a tab stays visible forever (tabsSeen persists in the save).
+const TAB_UNLOCKS = {
+  jobs: s => bosses.some(b => (s.kills[b.id] || 0) >= 1),
+  macro: s => bosses.some(b => (s.kills[b.id] || 0) >= 1),
+  bestiary: s => featCount(s) > 0,
+  legion: s => accountInt(s) >= 10_000,
+};
+const TAB_TOASTS = {
+  jobs: "New tab: Odd Jobs — mine ore and fish; both feed the enhancement grind",
+  macro: "New tab: Macro Workshop — automate the grind",
+  bestiary: "New tab: Mastery — feats, bestiary, and item mastery live here",
+  legion: "New tab: Legion — build a roster; benched characters still help",
+};
+function updateTabVisibility(state) {
+  for (const tab in TAB_UNLOCKS) {
+    const btn = document.querySelector(`.tabBar [data-tab="${tab}"]`);
+    if (!btn) continue;
+    const open = state.tabsSeen[tab] || TAB_UNLOCKS[tab](state);
+    btn.style.display = open ? "" : "none";
+    if (open && !state.tabsSeen[tab]) {
+      state.tabsSeen[tab] = true;
+      logLine(TAB_TOASTS[tab], "success");
+    }
+  }
+}
+
 export function updateUI(state, player, eff) {
   updateHud(state, player);
   renderChips(state, player);
+  updateTabVisibility(state);
   document.getElementById("playerInt").textContent = fmt(eff.totalInt);
   document.getElementById("playerDamage").textContent = fmt(eff.atk);
   document.getElementById("playerAttackSpeed").textContent = Math.round(eff.interval);
@@ -216,11 +246,38 @@ export function updateUI(state, player, eff) {
 
   const fbBtn = document.getElementById("huntFieldBoss");
   const soloFieldBoss = solo && mob && mob.isFieldBoss;
-  fbBtn.disabled = !state.currentZoneId || soloFieldBoss;
+  const huntCd = Math.max(0, (state.bossCooldowns._fieldhunt || 0) - state.total_time);
+  fbBtn.disabled = !state.currentZoneId || soloFieldBoss || huntCd > 0;
+  fbBtn.textContent = huntCd > 0
+    ? `⚔ Hunt Field Boss (${fmtCountdown(huntCd)})`
+    : "⚔ Hunt Field Boss (10× HP · 20× XP · guaranteed bag)";
   fbBtn.style.display = state.currentZoneId ? "" : "none";
   const fk = state.currentZoneId ? (state.fieldKills[state.currentZoneId] || 0) : 0;
   document.getElementById("fieldKills").textContent =
     state.currentZoneId ? ` Field bosses felled here: ${fmt(fk)}` : "";
+}
+
+// Lobby ranking board: simulated rivals + the player, sorted by INT.
+// Called every frame; rebuilds only when the player's benchmarks move a band.
+let lastLobbyKey = "";
+export function renderLobby(state, player) {
+  const best = accountBest(state);
+  const worn = titleName(state, player);
+  const key = `${Math.round(Math.log10(best.int + 10) * 8)}|${best.plus}|${player.classId}|${worn}`;
+  if (key === lastLobbyKey) return;
+  lastLobbyKey = key;
+  const cls = getClass(player.classId);
+  const rows = [
+    ...rivalRows(state),
+    { name: "You", classId: null, int: Math.round(best.int), topPlus: best.plus, me: true },
+  ].sort((a, b) => b.int - a.int);
+  document.querySelector(".lobbyBoard").innerHTML =
+    `<div class="econ">8 slaves grinding. Rankings by INT — the only number anyone respects.</div>`
+    + rows.map((r, i) =>
+      `<div class="bestiaryEntry${r.me ? "" : " locked"}">#${i + 1} <strong>${r.name}</strong>`
+      + `${r.me && worn ? ` «${worn}»` : ""}`
+      + ` — ${getClass(r.classId)?.name ?? cls?.name ?? "Slave"} · ${fmt(r.int)} INT · best +${r.topPlus}</div>`
+    ).join("");
 }
 
 // Called every frame; rebuilds when a gate opens/closes or an INT drip caps out.
@@ -303,16 +360,16 @@ function itemLabel(def, plus) {
   if (t.addDmg) parts.push(`+${fmt(t.addDmg)}% add dmg (best only)`);
   if (t.skillDmg) parts.push(`+${fmt(t.skillDmg)}% skill dmg`);
   if (t.intPct) parts.push(`+${t.intPct}% item INT`);
-  if (t.spdPct) parts.push(`ATK SPD +${t.spdPct}%`);
+  if (t.spdPct) parts.push(`ATK SPD +${t.spdPct}% (best only)`);
   if (t.procMult) parts.push(`${t.procChance}% proc ${fmt(t.procMult)}×INT`);
-  if (t.critMult) parts.push(`${t.critChance}% crit ×${fmt(t.critMult)}`);
+  if (t.critMult) parts.push(`${t.critChance}% crit ×${fmt(t.critMult)} (best only)`);
   if (t.skillLevels) parts.push(`+${t.skillLevels} to all skills`);
   if (t.defReduce) parts.push(`nearby enemies DEF −${t.defReduce}`);
   if (t.cooldownPct) parts.push(`skill cooldowns −${t.cooldownPct}%`);
   if (t.intRatioPct) parts.push(`skill INT ratio +${t.intRatioPct}%`);
   if (t.procRatePct) parts.push(`skill activation +${t.procRatePct}%`);
   if (t.clones) parts.push(`+${t.clones} clones`);
-  if (t.magicCritPct) parts.push(`${t.magicCritChance}% magic crit +${t.magicCritPct}%`);
+  if (t.magicCritPct) parts.push(`${t.magicCritChance}% magic crit +${t.magicCritPct}% (best only)`);
   return parts.join(" · ") || "(no stats)";
 }
 
@@ -356,7 +413,7 @@ export function renderEquipment(player, handlers) {
         ? "MAX"
         : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
       const mCount = player.mastery?.[eq.itemId] || 0;
-      const mStars = mCount ? ` <span title="Mastery ${mCount}: +${Math.round((masteryMult(mCount) - 1) * 100)}% atk & INT">${"★".repeat(MASTERY_MILESTONES.filter(m => mCount >= m).length)}</span>` : "";
+      const mStars = mCount ? ` <span title="Mastery ${mCount} absorbed — each ★ is a feat">${"★".repeat(masteryStarsOf(mCount))}</span>` : "";
       const info = document.createElement("div");
       info.innerHTML = `<strong>${def.name} +${eq.plus}</strong>${mStars}<br>${itemLabel(def, eq.plus)} — ${next}`;
       div.appendChild(info);
@@ -376,6 +433,21 @@ export function renderEquipment(player, handlers) {
       div.appendChild(discard);
     }
     container.appendChild(div);
+  }
+
+  // auto-absorb toggle: owned dupes skip the stash and feed Mastery directly
+  {
+    const auto = document.createElement("label");
+    auto.className = "econ";
+    auto.style.display = "block";
+    auto.title = "OFF while gearing (copies of one weapon stack in your 6 slots); ON once a drop table is farmed out";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = !!handlers.getAutoAbsorb?.();
+    chk.onchange = () => handlers.onToggleAutoAbsorb?.(chk.checked);
+    auto.appendChild(chk);
+    auto.append(" Auto-absorb duplicates — drops you already own go straight to Mastery");
+    container.appendChild(auto);
   }
 
   // Stash: overflow drops waiting for a free slot.
@@ -485,30 +557,13 @@ export function renderEquipment(player, handlers) {
     });
   }
 
-  // Consumables: zone jars (gacha opens) + potions. Jar counts are floats
-  // (offline EV) — display floors; opening needs ≥1.
-  const jars = Object.entries(player.jars || {}).filter(([, n]) => n >= 1);
+  // Consumables: potions (zone specials now drop directly on kill)
   const pots = Object.entries(player.potions || {}).filter(([, n]) => n >= 1);
-  if (jars.length || pots.length) {
+  if (pots.length) {
     const header = document.createElement("div");
     header.innerHTML = `<strong>Consumables</strong>`;
     header.style.marginTop = "8px";
     container.appendChild(header);
-
-    for (const [jarId, count] of jars) {
-      const jar = JARS[jarId];
-      if (!jar) continue;
-      const div = document.createElement("div");
-      div.className = "equipSlot";
-      div.innerHTML = `<span><strong>${jar.name}</strong> ×${Math.floor(count)} — ${(jar.openChance * 100).toFixed(2)}% for ${getItem(jar.yields)?.name ?? jar.yields}</span> `;
-      for (const [label, times] of [["Open", 1], ["×10", 10], ["×all", Infinity]]) {
-        const btn = document.createElement("button");
-        btn.textContent = label;
-        btn.onclick = () => handlers.onOpenJar(jarId, times);
-        div.appendChild(btn);
-      }
-      container.appendChild(div);
-    }
 
     const POT_LABELS = { int: "Intelligence Potion — pure INT +120%, 30min", prob: "Probability Potion — drops & enhances +25%, 30min", elixir: "Elixir of Strength — drops & enhances +60%, 30min, no restack" };
     for (const [kind, count] of pots) {
@@ -543,10 +598,12 @@ let lastBossKey = "";
 export function renderBossList(state, player, eff, handlers) {
   const atk = eff?.atk ?? 0;
   const intervalS = (eff?.interval ?? 1000) / 1000;
+  const evoTierOf = {}; // bossId -> evolution tier (kill-count ladder)
+  for (const [tier, e] of Object.entries(EVOLUTION)) evoTierOf[e.boss] = tier;
   const key = bosses.map(b => {
     if (!b.reqInt) return "s";
     const cd = Math.max(0, (state.bossCooldowns[b.id] || 0) - state.total_time);
-    return `${player.int >= b.reqInt}|${Math.ceil(cd / 1000)}`;
+    return `${player.int >= b.reqInt}|${Math.ceil(cd / 1000)}|${evoTierOf[b.id] ? state.kills[b.id] || 0 : 0}`;
   }).join(",") + `|${state.autoResummon}|${Math.round(Math.log10(atk + 1) * 4)}`
     + `|${bosses.filter(b => getSheet(b.id)?.img).length}`;
   if (key === lastBossKey) return;
@@ -577,9 +634,17 @@ export function renderBossList(state, player, eff, handlers) {
     const bounty = boss.drops?.bounty ? boss.drops.bounty * 1e9 ** (boss.drops.bountyTier ?? 0) : 0;
     const info = document.createElement("div");
     info.className = "bossInfo";
+    let evoLine = "";
+    if (evoTierOf[boss.id]) {
+      const evo = EVOLUTION[evoTierOf[boss.id]];
+      const k = state.kills[boss.id] || 0;
+      const lvl = Math.min(7, Math.floor(k / evo.kills));
+      evoLine = `<br><span class="econ">${evoTierOf[boss.id]} evolution Lv${lvl}/7`
+        + (lvl < 7 ? ` — next at ${fmt((lvl + 1) * evo.kills)} kills (${fmt(k)} now)` : "") + `</span>`;
+    }
     info.innerHTML = `<strong>${boss.name}</strong><br><span class="econ">Bounty ${fmt(bounty)}c`
       + (boss.drops?.intBounty ? ` · +${fmt(boss.drops.intBounty)} INT` : "")
-      + (boss.reqInt ? ` · Respawn ${Math.round(boss.respawnMs / 60000)}m` : "") + `</span>`;
+      + (boss.reqInt ? ` · Respawn ${Math.round(boss.respawnMs / 60000)}m` : "") + `</span>` + evoLine;
     div.appendChild(info);
 
     const ttk = document.createElement("span");
@@ -842,7 +907,7 @@ export function renderGathering(state, player, handlers) {
   crafts.appendChild(probPot);
 
   const ticket = document.createElement("button");
-  ticket.textContent = `Confirmation Ticket (${OK_TICKET_COST.ore} ore + ${OK_TICKET_COST.fish} fish): next enhance 100%`;
+  ticket.textContent = `Confirmation Ticket (${OK_TICKET_COST.ore} ore + ${OK_TICKET_COST.fish} fish): next enhance 100% (up to +15)`;
   ticket.onclick = handlers.onCraftTicket;
   crafts.appendChild(ticket);
 
@@ -880,18 +945,18 @@ export function renderBestiary(state) {
 }
 
 // Item Mastery collection (Mastery tab): the ACTIVE character's absorbed
-// items. Stars pay a global damage bonus (account-wide, all characters).
+// items. Every star is a feat (see renderFeats).
 let lastMasteryKey = "";
 export function renderMasteryItems(state, player) {
-  const totalStars = state.characters.reduce((s, c) => s + masteryStars(c.mastery), 0);
+  const totalStars = starFeats(state);
   const mastered = Object.entries(player.mastery || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
   const key = `${totalStars}|${mastered.map(([id, n]) => `${id}:${n}`).join(",")}`;
   if (key === lastMasteryKey) return;
   lastMasteryKey = key;
 
-  let html = `<div>Account stars: <strong>★${totalStars} = +${(totalStars * MASTERY_STAR_BONUS * 100).toFixed(1)}% damage</strong>`
-    + ` — every milestone (${MASTERY_MILESTONES.join("/")}) on any item earns a star</div>`
-    + `<div class="econ">Absorb items from the Gear tab (stash & special bag). Each also gives this item +${MASTERY_BONUS * 100}% atk & INT per star while worn.</div>`;
+  let html = `<div>Account stars: <strong>★${totalStars}</strong> — every milestone`
+    + ` (${MASTERY_MILESTONES.join("/")} absorbed) on any item earns a star, and every star is a feat</div>`
+    + `<div class="econ">Absorb items from the Gear tab (stash & special bag).</div>`;
   if (!mastered.length) html += `<div class="bestiaryEntry locked">Nothing absorbed yet.</div>`;
   for (const [itemId, count] of mastered) {
     const def = getItem(itemId);
@@ -903,22 +968,37 @@ export function renderMasteryItems(state, player) {
   document.querySelector(".masteryList").innerHTML = html;
 }
 
-let lastAchKey = "";
-export function renderAchievements(state) {
-  // called every frame; rebuild only when the earned count changes
-  const key = Object.keys(state.achievements ?? {}).length;
-  if (key === lastAchKey) return;
-  lastAchKey = key;
+// Feats panel: the ONE permanent-bonus system. Named feats + boss first
+// kills + mastery stars, each worth +FEAT_DMG damage and +FEAT_LUCK Luck.
+let lastFeatKey = "";
+export function renderFeats(state) {
+  // called every frame; rebuild only when the total or earned titles change
+  const player = state.characters[state.active];
+  const titles = earnedTitles(state);
+  const total = `${featCount(state)}|${titles.length}|${player?.title}`;
+  if (total === lastFeatKey) return;
+  lastFeatKey = total;
   const container = document.querySelector(".achievementList");
-  const bonus = achievementBonus(state);
-  let html = `<div>Earned: <strong>${key}/${ACHIEVEMENTS.length}</strong> — <strong>+${(bonus * 100).toFixed(1)}% damage</strong></div>`;
-  for (const a of ACHIEVEMENTS) {
-    const earned = !!state.achievements?.[a.id];
-    html += `<div class="bestiaryEntry${earned ? "" : " locked"}">
-      ${earned ? "★" : "☆"} ${earned ? a.name : "???"} — ${a.desc}
+  const b = featBonus(state);
+  const earned = Object.keys(state.achievements ?? {}).length;
+  let html = `<div>Feats: <strong>${featCount(state)}</strong> = <strong>+${(b.dmg * 100).toFixed(0)}% damage · +${(b.luck * 100).toFixed(1)}% Luck</strong>`
+    + ` — each feat is +${FEAT_DMG * 100}% / +${FEAT_LUCK * 100}%</div>`
+    + `<div class="econ">Boss first kills: ${firstKillFeats(state)}/${bosses.length} · Mastery stars: ★${starFeats(state)} · Named feats: ${earned}/${FEATS.length}</div>`
+    + `<div style="margin:6px 0">Title: <select id="titlePick">`
+    + `<option value="">(none)</option>`
+    + titles.map(t => `<option value="${t.id}"${player?.title === t.id ? " selected" : ""}>${t.name}</option>`).join("")
+    + `</select> <span class="econ">${titles.length}/${TITLES.length} earned — worn on your plate and the Lobby board</span></div>`;
+  for (const a of FEATS) {
+    const got = !!state.achievements?.[a.id];
+    html += `<div class="bestiaryEntry${got ? "" : " locked"}">
+      ${got ? "★" : "☆"} ${got ? a.name : "???"} — ${a.desc}
     </div>`;
   }
   container.innerHTML = html;
+  container.querySelector("#titlePick").onchange = e => {
+    if (player) player.title = e.target.value || null;
+    bustRenderCaches(); // plate + lobby pick the new title up next frame
+  };
 }
 
 let lastLegionKey = "";
@@ -979,10 +1059,10 @@ export function renderStatsPanel(state, player, eff) {
   if (!document.querySelector('.tabPanel[data-panel="codex"]')?.classList.contains("active")) return;
   const pc = n => `${(n * 100).toFixed(1)}%`;
   const cls = getClass(player.classId);
-  const g = aggregate(player.equipment, player.specialBag, player.mastery);
+  const g = aggregate(player.equipment, player.specialBag);
   const leg = legionBonuses(state);
   const statSk = classStatBonuses(cls, player.skills, g.skillLevelBonus);
-  const fk = firstKillBonuses(state.kills);
+  const fb = featBonus(state);
   const now = state.total_time;
   const iv = ivMult(player, now);
   const tutor = intTutorMult(state);
@@ -1000,10 +1080,8 @@ export function renderStatsPanel(state, player, eff) {
   html += row("Attack per swing:", fmt(eff.atk), "(base 5 + item ATK + total INT) × damage bonus × additional damage");
   html += row("Total INT:", fmt(eff.totalInt),
     `pure ${fmt(Math.round(player.int))}${potionActive(player, "int", now) ? ` ×${INT_POTION_MULT} (potion)` : ""} + items ${fmt(g.int)}${g.itemIntPct ? ` (incl +${g.itemIntPct}% item INT)` : ""}`);
-  const stars = state.characters.reduce((s, c) => s + masteryStars(c.mastery), 0);
   html += row("Damage bonus:",
-    `bestiary +${pc(bestiaryBonus(state))} · achievements +${pc(achievementBonus(state))} · trophies +${pc(fk.dmg)}`
-    + ` · mastery ★${stars} +${pc(stars * MASTERY_STAR_BONUS)}`
+    `bestiary +${pc(bestiaryBonus(state))} · feats ×${featCount(state)} +${pc(fb.dmg)}`
     + ` · class passive +${statSk.atkPct.toFixed(1)}% · legion +${leg.dmgPct.toFixed(1)}% · items +${g.dmgIncPct}%`,
     "temporary buffs fold into the totals above");
   if (g.addDmgPct) html += row("Additional damage:", `+${g.addDmgPct}%`, "best single item only");
@@ -1024,10 +1102,9 @@ export function renderStatsPanel(state, player, eff) {
   if (eff.intProcs.length) html += row("INT procs:", eff.intProcs.map(p => `${(p.chance * 100).toFixed(0)}%×${fmt(p.mult)}·INT`).join(", "), "all apply");
   if (eff.armorStrip) html += row("Armor strip:", `−${fmt(eff.armorStrip)} enemy DEF`);
 
-  html += h("Luck (IV)");
-  html += row("Drop rolls:", `×${(iv + fk.drop).toFixed(2)}`,
-    `base 1 ${potionActive(player, "prob", now) ? `+ ${PROB_POTION_IV} potion ` : ""}${potionActive(player, "elixir", now) ? `+ ${ELIXIR_IV} elixir ` : ""}+ ${fk.drop.toFixed(2)} trophies`);
-  html += row("Enhance rolls:", `×${(iv + fk.enh).toFixed(2)}`, `trophies +${fk.enh.toFixed(2)}`);
+  html += h("Luck");
+  html += row("Drop & enhance rolls:", `×${(iv + fb.luck).toFixed(2)}`,
+    `base 1 ${potionActive(player, "prob", now) ? `+ ${PROB_POTION_IV} potion ` : ""}${potionActive(player, "elixir", now) ? `+ ${ELIXIR_IV} elixir ` : ""}+ ${fb.luck.toFixed(2)} feats`);
   if (buffs.doubleChance || buffs.freeAttempts || buffs.okTickets)
     html += row("Enhance aids ready:", `${buffs.doubleChance ?? 0} boosted · ${buffs.freeAttempts ?? 0} free · ${buffs.okTickets ?? 0} guaranteed`);
 
@@ -1068,8 +1145,6 @@ export function renderCodex() {
     return s;
   }).join("<br>");
 
-  const fkCounts = { dmg: 0, drop: 0, enh: 0 };
-  for (const id in FIRST_KILL_BONUS) fkCounts[FIRST_KILL_BONUS[id][0]]++;
   const bountyList = bosses.filter(b => b.drops?.intBounty)
     .map(b => `${b.name} +${fmt(b.drops.intBounty)} INT (needs ${fmt(b.reqInt)} INT, ${Math.round(b.respawnMs / 60000)}m respawn)`);
 
@@ -1077,19 +1152,19 @@ export function renderCodex() {
     sec("Enhancement", li([
       `Success bands: +0→+3 guaranteed, +4→+6 ${enhanceChance(4) * 100}%, +7→+10 ${enhanceChance(7) * 100}%, +11→+15 ${enhanceChance(11) * 100}%, +16→+20 ${enhanceChance(16) * 100}% (source-exact)`,
       `Cost per attempt is per-item (shown on the item); failures keep the level`,
-      `Gathering aids: Blessed Hammer = next enhance 2× odds, Greasy Offering = next enhance free, Confirmation Ticket = next enhance guaranteed`,
-      `All odds scale with your IV multiplier (see Luck)`,
+      `Gathering aids: Blessed Hammer = next enhance 2× odds, Greasy Offering = next enhance free, Confirmation Ticket = next enhance guaranteed up to +15 (the 0.45% band can't be bought)`,
+      `All odds scale with your Luck multiplier (see Luck)`,
     ]))
-    + sec("Luck (the IV multiplier)", li([
-      `Every drop AND enhance roll is multiplied by IV`,
+    + sec("Luck", li([
+      `Every drop AND enhance roll is multiplied by Luck`,
       `Probability Potion +${PROB_POTION_IV * 100}% and Elixir of Strength +${ELIXIR_IV * 100}% (30min each, elixir can't restack; they add together)`,
-      `First-kill trophies add permanently: +1% drop rolls per ladder boss (${fkCounts.drop} bosses), +2% enhance rolls per special (${fkCounts.enh} bosses)`,
-      `Money bags: ${BAG_CHANCE * 100}% per kill × IV · zone jars drop and open at map rates × IV`,
+      `Every feat adds +${FEAT_LUCK * 100}% Luck permanently (see Feats)`,
+      `Money bags: ${BAG_CHANCE * 100}% per kill × Luck · endgame zones drop talismans/insignia directly at map rates × Luck`,
       `★Abyss★ elite twin: 20% of summons, 3× drop rolls`,
     ]))
     + sec("Items, Stash & Mastery", li([
-      `6 equipment slots; overflow goes to the Stash (one spare per item — further copies become Mastery)`,
-      `Item Mastery: absorbed copies are worth 1 + plus each; milestones ${MASTERY_MILESTONES.join("/")} earn STARS — each star anywhere is +${MASTERY_STAR_BONUS * 100}% global damage (all characters count), plus +${MASTERY_BONUS * 100}% atk & INT on that item while worn`,
+      `6 equipment slots; overflow goes to the Stash (one spare per item — further copies become Mastery). Auto-absorb (Gear tab) skips the spare entirely for items you already own`,
+      `Item Mastery: absorbed copies are worth 1 + plus each; milestones ${MASTERY_MILESTONES.join("/")} earn STARS — every star is a feat (all characters count)`,
       `Special Bag items are always active and never eat the 6 slots; one copy per special — duplicates become Mastery`,
       `Best-only stats: Additional Damage, crit, and attack speed count only the best item; Increased Damage and Skill Damage stack`,
       `Auras (Lumen) give only their DEF strip from the bag`,
@@ -1099,8 +1174,9 @@ export function renderCodex() {
       `Summons cost copper, refund ×${INTEREST} on kill + bounty`,
       `The skill ticket drops alongside a successful item roll; a ticket upgrade is ${TICKET_SUCCESS * 100}% (new skills always learn)`,
       `Regen walls: some bosses heal a % of max HP per second — out-DPS it or gear up`,
+      `Enhanced skills evolve on kill-count ladders: ${Object.entries(EVOLUTION).map(([t, e]) => `${t} every ${e.kills} ${bosses.find(b => b.id === e.boss)?.name} kills`).join(" · ")} (progress on the boss cards)`,
       `INT-gated specials are free challenges on respawn timers and pay INT bounties (see below)`,
-      `First kill of EVERY boss: 10× bounty + a permanent trophy (+0.5% damage, +1% drop rolls, or +2% enhance rolls by boss family)`,
+      `First kill of EVERY boss: 10× bounty + a feat (+${FEAT_DMG * 100}% damage, +${FEAT_LUCK * 100}% Luck forever)`,
     ]))
     + sec("INT economy", li([
       `INT is flat 1:1 damage and the endgame gate; sources: zone drip per kill, +1 per level, boss bounties, field-boss spikes`,
@@ -1117,10 +1193,10 @@ export function renderCodex() {
     ]))
     + sec("Collection is power", li([
       `Bestiary: ${MILESTONES.join("/")} kills per entry = +${BONUS_PER_MILESTONE * 100}% damage each`,
-      `Achievements: ${ACHIEVEMENTS.length} to earn, +${ACHIEVEMENT_BONUS * 100}% damage each`,
+      `Feats — ONE pool: ${FEATS.length} named feats + a feat per boss first kill + a feat per mastery star; each is +${FEAT_DMG * 100}% damage and +${FEAT_LUCK * 100}% Luck`,
     ]))
     + sec("Offline", li([
-      `Progress is simulated while away (12h cap) using expected value: kills, copper, XP, INT drip (with tutoring), jar EV`,
+      `Progress is simulated while away (12h cap) using expected value: kills, copper, XP, INT drip (with tutoring), zone-special drops`,
       `Not modeled offline: potions/elixir luck, timed buffs, field-boss spikes — log in to use them`,
       `Your save also keeps a last-known-good backup; Export/Import lives in the danger zone`,
     ]));
@@ -1143,7 +1219,7 @@ export function initTabs() {
 // Force cached renderers (chips/bosses/legion) to rebuild — e.g. after the
 // number-format toggle changes how every number prints.
 export function bustRenderCaches() {
-  lastChipKey = lastBossKey = lastLegionKey = lastBestiaryKey = lastMasteryKey = skillBarKey = "";
+  lastChipKey = lastBossKey = lastLegionKey = lastBestiaryKey = lastMasteryKey = skillBarKey = lastLobbyKey = "";
 }
 
 // Feed filter chips: the buttons just swap a class on #feed; CSS hides the rest.

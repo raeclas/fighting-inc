@@ -1,242 +1,242 @@
 [
   {
     "t": 0,
-    "desc": "farm spot: 5 laps of Fallen Temple (0.98 c/s)"
+    "desc": "farm spot: 5 laps of Fallen Temple (2.91 c/s)"
   },
   {
     "t": 1,
     "desc": "bought Rafaros Staff"
   },
   {
-    "t": 758,
+    "t": 257,
     "desc": "Rafaros Staff +10 (E[cost] 819)"
   },
   {
-    "t": 816,
+    "t": 281,
     "desc": "bought Defined Darkness"
   },
   {
-    "t": 1017,
+    "t": 365,
     "desc": "Defined Darkness +10 (E[cost] 2574)"
   },
   {
-    "t": 1017,
-    "desc": "farm spot: 20 laps of Fallen Temple (24.97 c/s)"
-  },
-  {
-    "t": 1218,
+    "t": 446,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 8418,
-    "desc": "farm spot: 5 laps of Magtonium (71.71 c/s)"
+    "t": 446,
+    "desc": "farm spot: 20 laps of Fallen Temple (94.16 c/s)"
   },
   {
-    "t": 11480,
+    "t": 5382,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 11508,
+    "t": 5382,
+    "desc": "farm spot: 5 laps of Magtonium (162.76 c/s)"
+  },
+  {
+    "t": 5412,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 14470,
+    "t": 8647,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 14487,
+    "t": 8664,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 16291,
+    "t": 10529,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 16315,
+    "t": 10554,
     "desc": "bought Lumen Caligo"
   },
   {
-    "t": 18711,
+    "t": 12982,
     "desc": "Lumen Caligo +15 (E[cost] 1.05M)"
   },
   {
-    "t": 18721,
+    "t": 12991,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 19987,
+    "t": 14265,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 19996,
+    "t": 14275,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 21000,
+    "t": 15279,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 21096,
+    "t": 15374,
     "desc": "got Superstar Ring from Hell Party (E[125] kills)"
   },
   {
-    "t": 31896,
-    "desc": "farm spot: 20 laps of Magtonium (970.21 c/s)"
+    "t": 26174,
+    "desc": "farm spot: 20 laps of Magtonium (984.82 c/s)"
   },
   {
-    "t": 41897,
+    "t": 35896,
     "desc": "Superstar Ring +20 (E[cost] 21.85M)"
   },
   {
-    "t": 41912,
+    "t": 35911,
     "desc": "got Shepherd's Rod from Hell Party (E[125] kills)"
   },
   {
-    "t": 43790,
+    "t": 37786,
     "desc": "Shepherd's Rod +20 (E[cost] 21.85M)"
   },
   {
-    "t": 43790,
-    "desc": "farm spot: 1 laps of Terranium (32993.69 c/s)"
+    "t": 37786,
+    "desc": "farm spot: 1 laps of Terranium (32916.17 c/s)"
   },
   {
-    "t": 43811,
+    "t": 37806,
     "desc": "learned Raging Fury (ticket EV)"
   },
   {
-    "t": 43811,
+    "t": 37806,
     "desc": "got Shape of Avarice from Anton (E[167] kills)"
   },
   {
-    "t": 45849,
+    "t": 39848,
     "desc": "Shape of Avarice +20 (E[cost] 109.26M)"
   },
   {
-    "t": 45867,
+    "t": 39867,
     "desc": "got Savior's Glory - Spear from Anton (E[167] kills)"
   },
   {
-    "t": 46507,
+    "t": 40506,
     "desc": "Savior's Glory - Spear +20 (E[cost] 109.26M)"
   },
   {
-    "t": 46534,
+    "t": 40533,
     "desc": "learned Blood Sword (ticket EV)"
   },
   {
-    "t": 46534,
+    "t": 40533,
     "desc": "got Rosetta Stone from Luke (E[250] kills)"
   },
   {
-    "t": 47037,
+    "t": 41035,
     "desc": "Rosetta Stone +20 (E[cost] 364.20M)"
   },
   {
-    "t": 47082,
+    "t": 41080,
     "desc": "learned Blood Boom (ticket EV)"
   },
   {
-    "t": 47082,
+    "t": 41080,
     "desc": "got Jealous Obsession Ring from Harlem Hell Party (E[200] kills)"
   },
   {
-    "t": 52662,
+    "t": 46655,
     "desc": "Jealous Obsession Ring +20 (E[cost] 10.93B)"
   },
   {
-    "t": 52662,
-    "desc": "farm spot: 20 laps of Terranium (10545902.66 c/s)"
+    "t": 46655,
+    "desc": "farm spot: 20 laps of Terranium (10555550.26 c/s)"
   },
   {
-    "t": 52892,
+    "t": 46885,
     "desc": "learned Outrage Break (ticket EV)"
   },
   {
-    "t": 52892,
+    "t": 46885,
     "desc": "got Serenity of Life: Harmonic from Taibers (E[250] kills)"
   },
   {
-    "t": 63876,
+    "t": 57860,
     "desc": "Serenity of Life: Harmonic +20 (E[cost] 182.10B)"
   },
   {
-    "t": 63876,
-    "desc": "INT farm spot: 1 laps of Harlem Dungeon (22.50 INT/s zone + 0.00 boss)"
+    "t": 57860,
+    "desc": "INT farm spot: 1 laps of Harlem Dungeon (22.52 INT/s zone + 0.00 boss)"
   },
   {
-    "t": 67934,
+    "t": 61915,
     "desc": "INT 100k — Bernardo + slot 2 unlock"
   },
   {
-    "t": 211934,
+    "t": 205915,
     "desc": "got Abyssal Fragment - Great Sword from Bernardo (E[133] kills)"
   },
   {
-    "t": 211934,
-    "desc": "farm spot: 20 laps of Terranium (39766873.14 c/s)"
+    "t": 205915,
+    "desc": "farm spot: 20 laps of Terranium (39802084.54 c/s)"
   },
   {
-    "t": 800536,
+    "t": 793869,
     "desc": "Abyssal Fragment - Great Sword +20 (E[cost] 29.14T)"
   },
   {
-    "t": 800536,
+    "t": 793869,
     "desc": "INT farm spot: 1 laps of Harlem Dungeon (42.72 INT/s zone + 1.39 boss)"
   },
   {
-    "t": 804136,
+    "t": 797469,
     "desc": "INT farm spot: 20 laps of Luke Raid (0.08 INT/s zone + 1.39 boss)"
   },
   {
-    "t": 899712,
+    "t": 893041,
     "desc": "INT 400k — Fiend War opens"
   },
   {
-    "t": 899756,
+    "t": 893085,
     "desc": "learned Extreme Overkill (ticket EV)"
   },
   {
-    "t": 899756,
+    "t": 893085,
     "desc": "got Wisdom of Futuresight from Fiend War (E[250] kills)"
   },
   {
-    "t": 899756,
+    "t": 893085,
     "desc": "Wisdom of Futuresight +20 (E[cost] 1.21T)"
   },
   {
-    "t": 968156,
+    "t": 961485,
     "desc": "INT farm spot: 1 laps of Fiend War (0.02 INT/s zone + 6.60 boss)"
   },
   {
-    "t": 994452,
+    "t": 987780,
     "desc": "INT 700k — Stormy Route opens"
   },
   {
-    "t": 1039758,
+    "t": 1033085,
     "desc": "INT 1M — slot 3"
   },
   {
-    "t": 1120934,
+    "t": 1114261,
     "desc": "INT 1.6M — Aiolite opens"
   },
   {
-    "t": 1146134,
+    "t": 1139461,
     "desc": "INT farm spot: 1 laps of Aiolite (0.00 INT/s zone + 17.71 boss)"
   },
   {
-    "t": 1256407,
+    "t": 1249734,
     "desc": "INT 4M — Ore of Despair opens"
   },
   {
-    "t": 1461607,
+    "t": 1454934,
     "desc": "INT farm spot: 1 laps of Terranium (0.00 INT/s zone + 178.82 boss)"
   },
   {
-    "t": 1464325,
+    "t": 1457653,
     "desc": "INT 15.5M — Golden Beryl opens"
   },
   {
-    "t": 1464325,
+    "t": 1457653,
     "desc": "END: level 5000, 7.58Qi copper banked"
   }
 ]

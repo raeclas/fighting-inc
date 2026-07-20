@@ -2,11 +2,12 @@
 // Game-wide state that is not specific to the player.
 import { defaultMacro } from "./macro.js";
 import { defaultGathering } from "./gathering.js";
+import { defaultRivalState } from "./rivals.js";
 
 export const gameState = {
   macro: defaultMacro(),
   gathering: defaultGathering(),
-  settings: { fullNumbers: false }, // display prefs (saved)
+  settings: { fullNumbers: false, autoAbsorb: false }, // prefs (saved); autoAbsorb: owned dupes -> mastery directly
   total_time: 0,
   last_save: 0,
 
@@ -18,7 +19,9 @@ export const gameState = {
 
   kills: {},            // zoneId/bossId -> lifetime kill count (feeds bestiary)
   fieldKills: {},       // zoneId -> field-boss kill count
-  achievements: {},     // achievementId -> true (earned; feeds damage bonus)
+  achievements: {},     // featId -> true (earned named feats; legacy key name)
+  tabsSeen: {},         // tabId -> true (progressive tab reveal, toast once)
+  rivals: defaultRivalState(), // fake-lobby announcement timer (saved)
 
   currentZoneId: null,
   currentVariant: 0,

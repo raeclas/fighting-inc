@@ -30,7 +30,9 @@ const mk = (id, name, copper, bag, hp1x, def, intPerKill = 0, gates = {}) => ({
 
 // Source zone names; copper/bag/hp/def are the decompiled ground-truth values.
 export const zones = [
-  mk("kiln",    "Fallen Temple",  2,             30,          200,        0,   0,  { lockAfterLevel: 100 }),
+  // kiln copper is 3× source (2c): the walk to the first boss was ~40min of
+  // sub-3c/s trickle — reduction-pass repace, everything past zone 1 is exact
+  mk("kiln",    "Fallen Temple",  6,             30,          200,        0,   0,  { lockAfterLevel: 100 }),
   mk("slag",    "Magtonium",      52,            1_200,       8_000,      5,   0,  { lockAfterInt: 1_000 }),
   mk("rift",    "Otherverse",     1_799,         48_000,      400_000,    20,  0,  { reqLevel: 70, lockAfterInt: 5_000 }),
   mk("loam",    "Terranium",      179_999,       5e6,         40_000_000, 50,  0),
