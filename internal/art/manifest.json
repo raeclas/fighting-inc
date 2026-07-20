@@ -43,26 +43,6 @@
     { "id": "seria",     "name": "Seria",             "prompt": "imposing boss, serene flower maiden, pink petals swirling, gentle glow" },
     { "id": "librarykeeper", "name": "Library Keeper", "prompt": "imposing boss, spectral librarian, floating ancient books, lantern" },
     { "id": "trialgiver", "name": "Trial Giver",      "prompt": "imposing boss, colossal blindfolded judge, golden scales, stone gavel" },
-    { "id": "abysswalker", "name": "Abyss Walker",    "prompt": "imposing boss, void knight stepping out of a black hole rift, star-torn cloak" },
-
-    { "id": "hero",        "name": "Classless slave",  "prompt": "heroic adventurer, ragged peasant miner with a rusty pickaxe, determined face" },
-    { "id": "striker",     "name": "Striker",          "prompt": "heroic adventurer, female martial artist, red boxing gloves, fighting stance" },
-    { "id": "overmind",    "name": "Overmind",         "prompt": "heroic adventurer, hooded psion mage, glowing third eye, floating tomes" },
-    { "id": "omniblade",   "name": "Omniblade",        "prompt": "heroic adventurer, stoic swordmaster, single massive greatsword on shoulder" },
-    { "id": "bloodevil",   "name": "Blood Evil",       "prompt": "heroic adventurer, berserker wreathed in crimson blood aura, wild grin" },
-    { "id": "indra",       "name": "Indra",            "prompt": "heroic adventurer, storm monk, water waves coiling around fists" },
-    { "id": "vagabond",    "name": "Neo: Vagabond",    "prompt": "heroic adventurer, wandering duelist woman, twin katanas, tattered coat" },
-    { "id": "desperado",   "name": "Desperado",        "prompt": "heroic adventurer, gunslinger in a duster coat, twin revolvers, wide hat" },
-    { "id": "stormtrooper", "name": "Storm Trooper",   "prompt": "heroic adventurer, heavy gunner woman, oversized artillery cannon, goggles" },
-    { "id": "nenempress",  "name": "Nen Empress",      "prompt": "heroic adventurer, serene empress channeling glowing energy palms, phantom clones" },
-    { "id": "crusader",    "name": "Crusader",         "prompt": "heroic adventurer, holy paladin, radiant cross shield, white and gold armor" },
-    { "id": "majesty",     "name": "Majesty",          "prompt": "heroic adventurer, elegant sword empress, rapier raised, royal blue cloak" },
-    { "id": "divineress",  "name": "Divineress",       "prompt": "heroic adventurer, shrine oracle, floating prayer spheres, rosary beads" },
-    { "id": "geniewiz",    "name": "Geniewiz",         "prompt": "heroic adventurer, trickster genie wizard, dice and cards swirling, lamp smoke" },
-    { "id": "spectre",     "name": "Spectre",          "prompt": "heroic adventurer, ghostly blade assassin, translucent body, phantom daggers" },
-    { "id": "hekate",      "name": "Hekate",           "prompt": "heroic adventurer, purple witch, brush wand painting glowing sigils" },
-    { "id": "ashtarte",    "name": "Ashtarte",         "prompt": "heroic adventurer, sea chaser with a trident, tidal energy orbs" },
-    { "id": "necromancer", "name": "Necromancer",      "prompt": "heroic adventurer, pale summoner, skull staff, green soul wisps" },
-    { "id": "darkknight",  "name": "Dark Knight",      "prompt": "heroic adventurer, black armored knight, dark flame sword, eclipse aura" }
+    { "id": "abysswalker", "name": "Abyss Walker",    "prompt": "imposing boss, void knight stepping out of a black hole rift, star-torn cloak" }
   ]
 }

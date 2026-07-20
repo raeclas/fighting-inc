@@ -713,21 +713,6 @@ export function hideClassSelect() {
 // on structural change; per-frame work is sweep/countdown updates on refs.
 let skillBarKey = "";
 let skillBarRefs = [];
-// skill icons: assets/skills/<id>.png (32px, art pipeline); the letter glyph
-// stays until the file loads — and forever for skills without an icon
-const skillIcons = {};
-function skillIcon(id) {
-  if (!(id in skillIcons)) {
-    const entry = { ok: false };
-    skillIcons[id] = entry;
-    const img = new Image();
-    img.onload = () => { entry.ok = true; skillBarKey = ""; }; // rebuild bar with the icon
-    img.src = `assets/skills/${id}.png`;
-    entry.img = img;
-  }
-  return skillIcons[id].ok ? skillIcons[id].img.src : null;
-}
-
 export function renderSkillBar(state, player, eff, onCast) {
   const slb = eff.skillLevelBonus ?? 0;
   const container = document.querySelector(".skillBar");
@@ -745,11 +730,9 @@ export function renderSkillBar(state, player, eff, onCast) {
       const r = { skill, level, tip: "" };
       const el = document.createElement(level && skill.kind === "cast" ? "button" : "div");
       el.className = "skillCell" + (level ? "" : " locked");
-      const icon = skillIcon(skill.id);
       el.innerHTML = `<span class="key">${skill.key}</span>`
         + (skill.tier ? `<span class="star">★</span>` : "")
-        + (icon ? `<img class="glyphIcon" src="${icon}" alt="${skill.name}">`
-                : `<span class="glyph">${skill.name[0]}</span>`)
+        + `<span class="glyph">${skill.name[0]}</span>`
         + (level ? `<span class="lv">${level}${slb ? `+${slb}` : ""}</span>` : "")
         + `<span class="cd"></span><span class="sweep"></span>`;
       r.el = el;
