@@ -11,7 +11,7 @@ import { getItem, aggregate, absorbDupes, bagDupeCount, SPECIAL_IDS, MERGE_IDS, 
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderAchievements, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderAchievements, renderStatsPanel, renderCodex, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { evalAchievements, achievementBonus, ACHIEVEMENT_BONUS } from "./achievements.js";
 import { renderMacro } from "./ui.js";
@@ -1174,6 +1174,7 @@ function render() {
   renderAchievements(gameState);
   renderLegion(gameState, rosterHandlers);
   renderBossList(gameState, player, eff, bossHandlers);
+  renderStatsPanel(gameState, player, eff);
 }
 
 ///// SAVE ON EXIT /////
@@ -1246,6 +1247,7 @@ initBattle(document.getElementById("battleCanvas"));
 if (!player.classId) renderClassSelect(pickClass);
 initTabs();
 initFeedFilter();
+renderCodex(); // static mechanics reference — built once from live constants
 renderZoneList(player, selectZone, true);
 renderShop(buy);
 renderEquipment(player, equipHandlers);
