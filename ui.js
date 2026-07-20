@@ -1,13 +1,13 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS, zoneLocked, intDrip, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT, FIELD_BOSS_BAG_MULT, FIELD_BOSS_HP_MULT } from "./zones.js";
-import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryMult, masteryStars, MASTERY_MILESTONES, MASTERY_BONUS, MASTERY_STAR_BONUS, bagDupeCount, aggregate } from "./items.js";
+import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryStars, masteryStarsOf, MASTERY_MILESTONES, bagDupeCount, aggregate } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills, classStatBonuses } from "./classes.js";
 import { JARS, potionActive, ivMult, PROB_POTION_IV, ELIXIR_IV, INT_POTION_MULT } from "./consumables.js";
-import { bosses, INTEREST, TICKET_SUCCESS, firstKillBonuses, FIRST_KILL_BONUS } from "./bosses.js";
+import { bosses, INTEREST, TICKET_SUCCESS } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES, BONUS_PER_MILESTONE } from "./bestiary.js";
-import { ACHIEVEMENTS, achievementBonus, ACHIEVEMENT_BONUS } from "./achievements.js";
+import { FEATS, featCount, featBonus, firstKillFeats, starFeats, FEAT_DMG, FEAT_LUCK } from "./feats.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
 import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt, intTutorMult, TUTOR_PCT } from "./legion.js";
@@ -356,7 +356,7 @@ export function renderEquipment(player, handlers) {
         ? "MAX"
         : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
       const mCount = player.mastery?.[eq.itemId] || 0;
-      const mStars = mCount ? ` <span title="Mastery ${mCount}: +${Math.round((masteryMult(mCount) - 1) * 100)}% atk & INT">${"★".repeat(MASTERY_MILESTONES.filter(m => mCount >= m).length)}</span>` : "";
+      const mStars = mCount ? ` <span title="Mastery ${mCount} absorbed — each ★ is a feat">${"★".repeat(masteryStarsOf(mCount))}</span>` : "";
       const info = document.createElement("div");
       info.innerHTML = `<strong>${def.name} +${eq.plus}</strong>${mStars}<br>${itemLabel(def, eq.plus)} — ${next}`;
       div.appendChild(info);
@@ -880,18 +880,18 @@ export function renderBestiary(state) {
 }
 
 // Item Mastery collection (Mastery tab): the ACTIVE character's absorbed
-// items. Stars pay a global damage bonus (account-wide, all characters).
+// items. Every star is a feat (see renderFeats).
 let lastMasteryKey = "";
 export function renderMasteryItems(state, player) {
-  const totalStars = state.characters.reduce((s, c) => s + masteryStars(c.mastery), 0);
+  const totalStars = starFeats(state);
   const mastered = Object.entries(player.mastery || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
   const key = `${totalStars}|${mastered.map(([id, n]) => `${id}:${n}`).join(",")}`;
   if (key === lastMasteryKey) return;
   lastMasteryKey = key;
 
-  let html = `<div>Account stars: <strong>★${totalStars} = +${(totalStars * MASTERY_STAR_BONUS * 100).toFixed(1)}% damage</strong>`
-    + ` — every milestone (${MASTERY_MILESTONES.join("/")}) on any item earns a star</div>`
-    + `<div class="econ">Absorb items from the Gear tab (stash & special bag). Each also gives this item +${MASTERY_BONUS * 100}% atk & INT per star while worn.</div>`;
+  let html = `<div>Account stars: <strong>★${totalStars}</strong> — every milestone`
+    + ` (${MASTERY_MILESTONES.join("/")} absorbed) on any item earns a star, and every star is a feat</div>`
+    + `<div class="econ">Absorb items from the Gear tab (stash & special bag).</div>`;
   if (!mastered.length) html += `<div class="bestiaryEntry locked">Nothing absorbed yet.</div>`;
   for (const [itemId, count] of mastered) {
     const def = getItem(itemId);
@@ -903,19 +903,24 @@ export function renderMasteryItems(state, player) {
   document.querySelector(".masteryList").innerHTML = html;
 }
 
-let lastAchKey = "";
-export function renderAchievements(state) {
-  // called every frame; rebuild only when the earned count changes
-  const key = Object.keys(state.achievements ?? {}).length;
-  if (key === lastAchKey) return;
-  lastAchKey = key;
+// Feats panel: the ONE permanent-bonus system. Named feats + boss first
+// kills + mastery stars, each worth +FEAT_DMG damage and +FEAT_LUCK Luck.
+let lastFeatKey = "";
+export function renderFeats(state) {
+  // called every frame; rebuild only when the total changes
+  const total = featCount(state);
+  if (total === lastFeatKey) return;
+  lastFeatKey = total;
   const container = document.querySelector(".achievementList");
-  const bonus = achievementBonus(state);
-  let html = `<div>Earned: <strong>${key}/${ACHIEVEMENTS.length}</strong> — <strong>+${(bonus * 100).toFixed(1)}% damage</strong></div>`;
-  for (const a of ACHIEVEMENTS) {
-    const earned = !!state.achievements?.[a.id];
-    html += `<div class="bestiaryEntry${earned ? "" : " locked"}">
-      ${earned ? "★" : "☆"} ${earned ? a.name : "???"} — ${a.desc}
+  const b = featBonus(state);
+  const earned = Object.keys(state.achievements ?? {}).length;
+  let html = `<div>Feats: <strong>${total}</strong> = <strong>+${(b.dmg * 100).toFixed(0)}% damage · +${(b.luck * 100).toFixed(1)}% Luck</strong>`
+    + ` — each feat is +${FEAT_DMG * 100}% / +${FEAT_LUCK * 100}%</div>`
+    + `<div class="econ">Boss first kills: ${firstKillFeats(state)}/${bosses.length} · Mastery stars: ★${starFeats(state)} · Named feats: ${earned}/${FEATS.length}</div>`;
+  for (const a of FEATS) {
+    const got = !!state.achievements?.[a.id];
+    html += `<div class="bestiaryEntry${got ? "" : " locked"}">
+      ${got ? "★" : "☆"} ${got ? a.name : "???"} — ${a.desc}
     </div>`;
   }
   container.innerHTML = html;
@@ -979,10 +984,10 @@ export function renderStatsPanel(state, player, eff) {
   if (!document.querySelector('.tabPanel[data-panel="codex"]')?.classList.contains("active")) return;
   const pc = n => `${(n * 100).toFixed(1)}%`;
   const cls = getClass(player.classId);
-  const g = aggregate(player.equipment, player.specialBag, player.mastery);
+  const g = aggregate(player.equipment, player.specialBag);
   const leg = legionBonuses(state);
   const statSk = classStatBonuses(cls, player.skills, g.skillLevelBonus);
-  const fk = firstKillBonuses(state.kills);
+  const fb = featBonus(state);
   const now = state.total_time;
   const iv = ivMult(player, now);
   const tutor = intTutorMult(state);
@@ -1000,10 +1005,8 @@ export function renderStatsPanel(state, player, eff) {
   html += row("Attack per swing:", fmt(eff.atk), "(base 5 + item ATK + total INT) × damage bonus × additional damage");
   html += row("Total INT:", fmt(eff.totalInt),
     `pure ${fmt(Math.round(player.int))}${potionActive(player, "int", now) ? ` ×${INT_POTION_MULT} (potion)` : ""} + items ${fmt(g.int)}${g.itemIntPct ? ` (incl +${g.itemIntPct}% item INT)` : ""}`);
-  const stars = state.characters.reduce((s, c) => s + masteryStars(c.mastery), 0);
   html += row("Damage bonus:",
-    `bestiary +${pc(bestiaryBonus(state))} · achievements +${pc(achievementBonus(state))} · trophies +${pc(fk.dmg)}`
-    + ` · mastery ★${stars} +${pc(stars * MASTERY_STAR_BONUS)}`
+    `bestiary +${pc(bestiaryBonus(state))} · feats ×${featCount(state)} +${pc(fb.dmg)}`
     + ` · class passive +${statSk.atkPct.toFixed(1)}% · legion +${leg.dmgPct.toFixed(1)}% · items +${g.dmgIncPct}%`,
     "temporary buffs fold into the totals above");
   if (g.addDmgPct) html += row("Additional damage:", `+${g.addDmgPct}%`, "best single item only");
@@ -1024,10 +1027,9 @@ export function renderStatsPanel(state, player, eff) {
   if (eff.intProcs.length) html += row("INT procs:", eff.intProcs.map(p => `${(p.chance * 100).toFixed(0)}%×${fmt(p.mult)}·INT`).join(", "), "all apply");
   if (eff.armorStrip) html += row("Armor strip:", `−${fmt(eff.armorStrip)} enemy DEF`);
 
-  html += h("Luck (IV)");
-  html += row("Drop rolls:", `×${(iv + fk.drop).toFixed(2)}`,
-    `base 1 ${potionActive(player, "prob", now) ? `+ ${PROB_POTION_IV} potion ` : ""}${potionActive(player, "elixir", now) ? `+ ${ELIXIR_IV} elixir ` : ""}+ ${fk.drop.toFixed(2)} trophies`);
-  html += row("Enhance rolls:", `×${(iv + fk.enh).toFixed(2)}`, `trophies +${fk.enh.toFixed(2)}`);
+  html += h("Luck");
+  html += row("Drop & enhance rolls:", `×${(iv + fb.luck).toFixed(2)}`,
+    `base 1 ${potionActive(player, "prob", now) ? `+ ${PROB_POTION_IV} potion ` : ""}${potionActive(player, "elixir", now) ? `+ ${ELIXIR_IV} elixir ` : ""}+ ${fb.luck.toFixed(2)} feats`);
   if (buffs.doubleChance || buffs.freeAttempts || buffs.okTickets)
     html += row("Enhance aids ready:", `${buffs.doubleChance ?? 0} boosted · ${buffs.freeAttempts ?? 0} free · ${buffs.okTickets ?? 0} guaranteed`);
 
@@ -1068,8 +1070,6 @@ export function renderCodex() {
     return s;
   }).join("<br>");
 
-  const fkCounts = { dmg: 0, drop: 0, enh: 0 };
-  for (const id in FIRST_KILL_BONUS) fkCounts[FIRST_KILL_BONUS[id][0]]++;
   const bountyList = bosses.filter(b => b.drops?.intBounty)
     .map(b => `${b.name} +${fmt(b.drops.intBounty)} INT (needs ${fmt(b.reqInt)} INT, ${Math.round(b.respawnMs / 60000)}m respawn)`);
 
@@ -1078,18 +1078,18 @@ export function renderCodex() {
       `Success bands: +0→+3 guaranteed, +4→+6 ${enhanceChance(4) * 100}%, +7→+10 ${enhanceChance(7) * 100}%, +11→+15 ${enhanceChance(11) * 100}%, +16→+20 ${enhanceChance(16) * 100}% (source-exact)`,
       `Cost per attempt is per-item (shown on the item); failures keep the level`,
       `Gathering aids: Blessed Hammer = next enhance 2× odds, Greasy Offering = next enhance free, Confirmation Ticket = next enhance guaranteed`,
-      `All odds scale with your IV multiplier (see Luck)`,
+      `All odds scale with your Luck multiplier (see Luck)`,
     ]))
-    + sec("Luck (the IV multiplier)", li([
-      `Every drop AND enhance roll is multiplied by IV`,
+    + sec("Luck", li([
+      `Every drop AND enhance roll is multiplied by Luck`,
       `Probability Potion +${PROB_POTION_IV * 100}% and Elixir of Strength +${ELIXIR_IV * 100}% (30min each, elixir can't restack; they add together)`,
-      `First-kill trophies add permanently: +1% drop rolls per ladder boss (${fkCounts.drop} bosses), +2% enhance rolls per special (${fkCounts.enh} bosses)`,
-      `Money bags: ${BAG_CHANCE * 100}% per kill × IV · zone jars drop and open at map rates × IV`,
+      `Every feat adds +${FEAT_LUCK * 100}% Luck permanently (see Feats)`,
+      `Money bags: ${BAG_CHANCE * 100}% per kill × Luck · zone jars drop and open at map rates × Luck`,
       `★Abyss★ elite twin: 20% of summons, 3× drop rolls`,
     ]))
     + sec("Items, Stash & Mastery", li([
       `6 equipment slots; overflow goes to the Stash (one spare per item — further copies become Mastery)`,
-      `Item Mastery: absorbed copies are worth 1 + plus each; milestones ${MASTERY_MILESTONES.join("/")} earn STARS — each star anywhere is +${MASTERY_STAR_BONUS * 100}% global damage (all characters count), plus +${MASTERY_BONUS * 100}% atk & INT on that item while worn`,
+      `Item Mastery: absorbed copies are worth 1 + plus each; milestones ${MASTERY_MILESTONES.join("/")} earn STARS — every star is a feat (all characters count)`,
       `Special Bag items are always active and never eat the 6 slots; one copy per special — duplicates become Mastery`,
       `Best-only stats: Additional Damage, crit, and attack speed count only the best item; Increased Damage and Skill Damage stack`,
       `Auras (Lumen) give only their DEF strip from the bag`,
@@ -1100,7 +1100,7 @@ export function renderCodex() {
       `The skill ticket drops alongside a successful item roll; a ticket upgrade is ${TICKET_SUCCESS * 100}% (new skills always learn)`,
       `Regen walls: some bosses heal a % of max HP per second — out-DPS it or gear up`,
       `INT-gated specials are free challenges on respawn timers and pay INT bounties (see below)`,
-      `First kill of EVERY boss: 10× bounty + a permanent trophy (+0.5% damage, +1% drop rolls, or +2% enhance rolls by boss family)`,
+      `First kill of EVERY boss: 10× bounty + a feat (+${FEAT_DMG * 100}% damage, +${FEAT_LUCK * 100}% Luck forever)`,
     ]))
     + sec("INT economy", li([
       `INT is flat 1:1 damage and the endgame gate; sources: zone drip per kill, +1 per level, boss bounties, field-boss spikes`,
@@ -1117,7 +1117,7 @@ export function renderCodex() {
     ]))
     + sec("Collection is power", li([
       `Bestiary: ${MILESTONES.join("/")} kills per entry = +${BONUS_PER_MILESTONE * 100}% damage each`,
-      `Achievements: ${ACHIEVEMENTS.length} to earn, +${ACHIEVEMENT_BONUS * 100}% damage each`,
+      `Feats — ONE pool: ${FEATS.length} named feats + a feat per boss first kill + a feat per mastery star; each is +${FEAT_DMG * 100}% damage and +${FEAT_LUCK * 100}% Luck`,
     ]))
     + sec("Offline", li([
       `Progress is simulated while away (12h cap) using expected value: kills, copper, XP, INT drip (with tutoring), jar EV`,

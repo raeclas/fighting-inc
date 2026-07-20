@@ -15,10 +15,10 @@ import fs from "node:fs";
 import { zones, VARIANTS, spawnMob, zoneLocked, intDrip, BAG_CHANCE, FIELD_COLS, FIELD_ROWS, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "../zones.js";
 import { getItem, tierOf, aggregate, poolFor, SPECIAL_IDS } from "../items.js";
 import { enhanceChance } from "../enhance.js";
-import { bosses, getBoss, spawnBossMob, firstKillBonuses } from "../bosses.js";
+import { bosses, getBoss, spawnBossMob } from "../bosses.js";
 import { getClass, skillDamage, classStatBonuses } from "../classes.js";
 import { bestiaryBonus } from "../bestiary.js";
-import { evalAchievements, achievementBonus } from "../achievements.js";
+import { evalFeats, featBonus } from "../feats.js";
 import { legionBonuses } from "../legion.js";
 
 const MAX_SIM_S = 365 * 86400;
@@ -57,8 +57,9 @@ function gainXp(xp) {
   }
 }
 
-// achievements shim: persistent earned-set, live views over P (same checks
-// the game runs; kill counts are EV floats — >= comparisons hold)
+// feats shim: persistent earned-set, live views over P (same checks the game
+// runs; kill counts are EV floats — >= comparisons hold). First-kill feats
+// derive from P.kills; mastery stars are 0 (absorbs not modeled).
 const achState = { achievements: {}, gathering: { level: { mining: 1, fishing: 1 } } };
 
 function stats() {
@@ -69,9 +70,9 @@ function stats() {
   achState.kills = P.kills;
   achState.fieldKills = {};
   achState.characters = [{ int: P.int, level: P.level, copper: P.copper, equipment: P.equipment, stash: [], specialBag: P.specialBag, mastery: {} }];
-  evalAchievements(achState);
+  evalFeats(achState);
   const bonus = 1 + bestiaryBonus({ kills: P.kills }) + statSk.atkPct / 100
-    + achievementBonus(achState) + firstKillBonuses(P.kills).dmg
+    + featBonus(achState).dmg
     + leg.dmgPct / 100 + g.dmgIncPct / 100;
   const totalInt = P.int + g.int;
   const A = Math.round((P.attack + g.atk + totalInt) * bonus * (1 + g.addDmgPct / 100));

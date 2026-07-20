@@ -2,19 +2,19 @@
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryMult, masteryStars, masteryStarsOf, absorbDupes, bagDupeCount, MERGE_IDS } from "../items.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryStars, masteryStarsOf, absorbDupes, bagDupeCount, MERGE_IDS } from "../items.js";
 import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js";
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
 import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
-import { bosses, spawnBossMob, FIRST_KILL_BONUS, firstKillBonuses } from "../bosses.js";
+import { bosses, spawnBossMob } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
 import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES, intTutorMult } from "../legion.js";
 import { load, serialize, validSave, importSave } from "../saveSystem.js";
 import { classes, skillDamage, classStatBonuses, radiusOf, buffDuration } from "../classes.js";
 import { newCharacter, gainXP, agiSpeedPct } from "../player.js";
 import { zones, zoneLocked, intDrip } from "../zones.js";
-import { ACHIEVEMENTS, ACHIEVEMENT_BONUS, achievementBonus, evalAchievements } from "../achievements.js";
+import { FEATS, FEAT_DMG, FEAT_LUCK, featCount, featBonus, evalFeats } from "../feats.js";
 
 // field: 16 mobs on a 4×4 grid, AoE radius → coverage
 const field = spawnField(getZone("kiln"), 0);
@@ -550,19 +550,14 @@ const fs = bosses.find(b => b.id === "abyssirocco");
 assert.ok(fs && fs.eliteChance === 0.2 && fs.eliteDropMult === 3);
 assert.equal(poolFor("abyssirocco").length, 5);
 
-// item mastery: milestone mult + aggregate wiring (default arg = zero drift)
+// item mastery pays stars only (per-item mult cut in the reduction pass) —
+// aggregate atk/int come straight off the tier table
 {
-  assert.equal(masteryMult(0), 1);
-  assert.equal(masteryMult(1), 1.02);
-  assert.equal(masteryMult(10), 1.04);
-  assert.equal(masteryMult(999), 1.06);
-  assert.equal(masteryMult(1000), 1.08);
   const eqp = [{ itemId: "luke_dmg", plus: 20 }];
+  const t = tierOf(getItem("luke_dmg"), 20);
   const plain = aggregate(eqp);
-  const mastered = aggregate(eqp, [], { luke_dmg: 10 });
-  assert.equal(mastered.atk, Math.round(plain.atk * 1.04));
-  assert.equal(mastered.int, Math.round(tierOf(getItem("luke_dmg"), 20).int * 1.04));
-  assert.deepEqual(aggregate(eqp, [], {}), plain); // no mastery = identical
+  assert.equal(plain.atk, t.atk);
+  assert.equal(plain.int, Math.round(t.int * (1 + (t.intPct ?? 0) / 100)));
 }
 
 // Elixir of Strength: +60% IV, additive with prob potion, backfilled on load
@@ -577,23 +572,12 @@ assert.equal(poolFor("abyssirocco").length, 5);
     assert.equal(bosses.find(b => b.id === id).drops.elixir, 0.02);
 }
 
-// first-kill trophies: every table id is a real boss, every boss has a trophy
-{
-  const ids = new Set(bosses.map(b => b.id));
-  for (const id in FIRST_KILL_BONUS) assert.ok(ids.has(id), `unknown boss ${id}`);
-  for (const b of bosses) assert.ok(FIRST_KILL_BONUS[b.id], `no trophy for ${b.id}`);
-  assert.deepEqual(firstKillBonuses({}), { dmg: 0, enh: 0, drop: 0 });
-  const some = firstKillBonuses({ hellparty: 5, anton: 1, bernardo: 1, kiln: 99 });
-  assert.equal(some.dmg, 0.005);
-  assert.equal(some.drop, 0.01);
-  assert.equal(some.enh, 0.02);
-}
-
-// achievements: none on empty state, fire on synthetic, bonus math, no re-earn
+// feats: ONE pool — named defs + boss first kills + mastery stars; no re-earn
 {
   const empty = { achievements: {}, kills: {}, fieldKills: {}, characters: [], gathering: { level: { mining: 1, fishing: 1 } } };
-  assert.equal(evalAchievements(empty).length, 0);
-  assert.equal(achievementBonus(empty), 0);
+  assert.equal(evalFeats(empty).length, 0);
+  assert.equal(featCount(empty), 0);
+  assert.deepEqual(featBonus(empty), { dmg: 0, luck: 0 });
   const rich = {
     achievements: {}, kills: { kiln: 600, hellparty: 1 }, fieldKills: { kiln: 400 },
     characters: [
@@ -602,11 +586,18 @@ assert.equal(poolFor("abyssirocco").length, 5);
     ],
     gathering: { level: { mining: 10, fishing: 10 } },
   };
-  const earned = evalAchievements(rich);
+  const earned = evalFeats(rich);
   const ids = earned.map(a => a.id).sort();
   assert.deepEqual(ids, ["bossfirst", "fieldboss", "gather10", "int100k", "int1m", "kills1k", "lvl100", "mastery1", "merged", "plus10", "plus15", "plus20", "roster2", "silver"]);
-  assert.equal(achievementBonus(rich), ids.length * ACHIEVEMENT_BONUS);
-  assert.equal(evalAchievements(rich).length, 0); // already earned — no repeats
+  // count = named + 1 first-kill (hellparty; kiln is a zone, not a boss) + 1 star (rafaros: 3)
+  assert.equal(featCount(rich), ids.length + 1 + 1);
+  assert.equal(featBonus(rich).dmg, featCount(rich) * FEAT_DMG);
+  assert.equal(featBonus(rich).luck, featCount(rich) * FEAT_LUCK);
+  assert.equal(evalFeats(rich).length, 0); // already earned — no repeats
+  // every boss id counts exactly once, kill counts beyond 1 don't stack
+  const allKills = Object.fromEntries(bosses.map(b => [b.id, 5]));
+  assert.equal(featCount({ achievements: {}, kills: allKills, characters: [] })
+    - featCount({ achievements: {}, kills: {}, characters: [] }), bosses.length);
 }
 
 // absorbDupes: best copy per item survives, rest become mastery at 1+plus
