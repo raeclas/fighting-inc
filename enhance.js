@@ -16,8 +16,12 @@ export function enhanceChance(plus) {
 // One attempt. Mutates state.copper, eq.plus, and (if provided) buffs.
 // buffs: { doubleChance, freeAttempts, okTickets } — crafted enhancement aids.
 // okTickets = confirmation ticket: 100% success, ticket consumed, copper still
-// paid (map OK-item behavior). mult = the IV drop/enhance multiplier.
+// paid (map OK-item behavior) — but NOT in the 0.45% band: guaranteed +16→+20
+// let a 30-minute gathering session hand out endgame stat tables that were
+// balanced around 0.45% rarity (reduction-pass abuse fix; the ticket is left
+// unconsumed and the roll proceeds normally). mult = the Luck multiplier.
 // Returns { result: "success" | "fail" | "max" | "poor", chance }
+export const OK_TICKET_MAX_PLUS = 15; // tickets force +N→+N+1 only for N ≤ this
 export function tryEnhance(state, eq, def, rng = Math.random, buffs = null, mult = 1) {
   // per-item cap: equipment +20, talismans/insignia +6 (tier table length)
   const cap = def.tiers ? def.tiers.length - 1 : MAX_PLUS;
@@ -31,7 +35,7 @@ export function tryEnhance(state, eq, def, rng = Math.random, buffs = null, mult
   state.copper -= cost;
 
   let chance;
-  if (buffs?.okTickets > 0) {
+  if (buffs?.okTickets > 0 && eq.plus <= OK_TICKET_MAX_PLUS) {
     buffs.okTickets--;
     chance = 1; // doubleChance untouched — ticket wins outright
   } else {
@@ -68,7 +72,7 @@ export function tryAvatarEnhance(state, eq, def, rng = Math.random, buffs = null
   if (state.copper < def.enhCost) return { result: "poor", chance: 0 };
   state.copper -= def.enhCost;
   let chance;
-  if (buffs?.okTickets > 0) {
+  if (buffs?.okTickets > 0 && eq.plus <= OK_TICKET_MAX_PLUS) {
     buffs.okTickets--;
     chance = 1;
   } else {

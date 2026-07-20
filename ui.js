@@ -246,7 +246,11 @@ export function updateUI(state, player, eff) {
 
   const fbBtn = document.getElementById("huntFieldBoss");
   const soloFieldBoss = solo && mob && mob.isFieldBoss;
-  fbBtn.disabled = !state.currentZoneId || soloFieldBoss;
+  const huntCd = Math.max(0, (state.bossCooldowns._fieldhunt || 0) - state.total_time);
+  fbBtn.disabled = !state.currentZoneId || soloFieldBoss || huntCd > 0;
+  fbBtn.textContent = huntCd > 0
+    ? `⚔ Hunt Field Boss (${fmtCountdown(huntCd)})`
+    : "⚔ Hunt Field Boss (10× HP · 20× XP · guaranteed bag)";
   fbBtn.style.display = state.currentZoneId ? "" : "none";
   const fk = state.currentZoneId ? (state.fieldKills[state.currentZoneId] || 0) : 0;
   document.getElementById("fieldKills").textContent =
@@ -903,7 +907,7 @@ export function renderGathering(state, player, handlers) {
   crafts.appendChild(probPot);
 
   const ticket = document.createElement("button");
-  ticket.textContent = `Confirmation Ticket (${OK_TICKET_COST.ore} ore + ${OK_TICKET_COST.fish} fish): next enhance 100%`;
+  ticket.textContent = `Confirmation Ticket (${OK_TICKET_COST.ore} ore + ${OK_TICKET_COST.fish} fish): next enhance 100% (up to +15)`;
   ticket.onclick = handlers.onCraftTicket;
   crafts.appendChild(ticket);
 
@@ -1148,7 +1152,7 @@ export function renderCodex() {
     sec("Enhancement", li([
       `Success bands: +0→+3 guaranteed, +4→+6 ${enhanceChance(4) * 100}%, +7→+10 ${enhanceChance(7) * 100}%, +11→+15 ${enhanceChance(11) * 100}%, +16→+20 ${enhanceChance(16) * 100}% (source-exact)`,
       `Cost per attempt is per-item (shown on the item); failures keep the level`,
-      `Gathering aids: Blessed Hammer = next enhance 2× odds, Greasy Offering = next enhance free, Confirmation Ticket = next enhance guaranteed`,
+      `Gathering aids: Blessed Hammer = next enhance 2× odds, Greasy Offering = next enhance free, Confirmation Ticket = next enhance guaranteed up to +15 (the 0.45% band can't be bought)`,
       `All odds scale with your Luck multiplier (see Luck)`,
     ]))
     + sec("Luck", li([

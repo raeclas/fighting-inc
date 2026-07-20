@@ -61,8 +61,15 @@ function selectZone(zoneId, variantIndex) {
 // switch — kick-on-tick if boosting through it ever matters.
 
 // Hunt the field boss for the currently selected zone/variant (solo).
+// Cooldown (starting value 120s ≈ the passive 2%/kill EV at early kill rates):
+// the free button was an on-demand 100× INT-spike faucet the sim never
+// modeled — spam turned a rare wanderer into the primary income lane.
+const HUNT_CD_MS = 120_000;
 function huntFieldBoss() {
   if (!gameState.currentZoneId) return logLine("Select a hunting ground first.", "fail");
+  if ((gameState.bossCooldowns._fieldhunt || 0) > gameState.total_time)
+    return logLine("The wanderers are wary. Wait for the next one.", "fail");
+  gameState.bossCooldowns._fieldhunt = gameState.total_time + HUNT_CD_MS;
   const zone = getZone(gameState.currentZoneId);
   const fb = spawnFieldBoss(zone, gameState.currentVariant);
   gameState.field = [fb];
@@ -1132,6 +1139,18 @@ function simulateBatch(dt) {
   const mob = frontMob();
   player.lastAttack = gameState.total_time;
   if (!mob || mob.isBoss || mob.isFieldBoss) return; // only estimate regular zone farming
+  // A zone you've outgrown kicks you offline (live play keeps farming until
+  // you switch — you're present; an away session shouldn't ghost-farm a
+  // ground that would refuse you at the door).
+  {
+    const zone = getZone(mob.zoneId);
+    if (zoneLocked(zone, player, mob.variant)) {
+      logLine(`${zone.name} no longer admits you — the away session ended there.`);
+      gameState.field = [];
+      gameState.currentZoneId = null;
+      return;
+    }
+  }
 
   const eff = effectiveStats();
   const { atk, interval, crit, intProcs, totalInt } = eff;
@@ -1173,7 +1192,15 @@ function simulateBatch(dt) {
   const copper = earnCopper(Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag)));
   // int drip respects the zone's cap; coarse (whole batch at pre-batch int).
   // Tutoring applies; field-boss spikes don't (not modeled in batch).
-  player.int += kills * intDrip(getZone(mob.zoneId), player) * intTutorMult(gameState);
+  // Clamped at the zone's INT cap: drip was sampled once for the whole batch,
+  // and an uncapped multiply let one big away-session blow through intCapAt
+  // by millions (live play caps per kill — offline must match).
+  {
+    const zone = getZone(mob.zoneId);
+    let gain = kills * intDrip(zone, player) * intTutorMult(gameState);
+    if (zone.intCapAt) gain = Math.min(gain, Math.max(0, zone.intCapAt - player.int));
+    player.int += gain;
+  }
   // zone-special EV (direct drops; no Luck offline — buffs aren't modeled in
   // batch): expected count = kills × drop rate × open rate, fractional
   // remainder resolved with one roll so nothing accumulates

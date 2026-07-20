@@ -424,31 +424,40 @@ assert.equal(potionActive({ potionUntil: { prob: 100 } }, "prob", 100), false);
 assert.equal(ivMult({ potionUntil: { prob: 100 } }, 50), 1 + PROB_POTION_IV);
 assert.equal(ivMult({ potionUntil: { prob: 0 } }, 50), 1);
 
-// confirmation ticket: forces success, consumes only itself, copper still paid;
-// IV mult scales bands and caps at 1
+// confirmation ticket: forces success, consumes only itself, copper still paid
+// — but ONLY through +15; the 0.45% band (+16→+20) can't be ticket-forced
+// (abuse fix: guaranteed tickets were a 30-minute path to +20 stat tables)
 const tDef = getItem("rafaros");
 let tState = { copper: 1e9 };
-let tEq = { itemId: "rafaros", plus: 16 }; // 0.45% band
+let tEq = { itemId: "rafaros", plus: 15 }; // last ticketable band
 let tBuffs = { doubleChance: 1, freeAttempts: 0, okTickets: 1 };
 let r = tryEnhance(tState, tEq, tDef, () => 0.999, tBuffs);
 assert.equal(r.result, "success");
 assert.equal(r.chance, 1);
-assert.equal(tEq.plus, 17);
+assert.equal(tEq.plus, 16);
 assert.equal(tBuffs.okTickets, 0);
 assert.equal(tBuffs.doubleChance, 1);           // untouched — ticket wins
 assert.equal(tState.copper, 1e9 - tDef.enhCost); // copper still paid
+// +16 and above: ticket NOT consumed, normal 0.45% roll happens
+let hiB = { doubleChance: 0, freeAttempts: 0, okTickets: 3 };
+r = tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: 16 }, tDef, () => 0.999, hiB);
+assert.equal(r.result, "fail");
+assert.equal(r.chance, 0.0045);
+assert.equal(hiB.okTickets, 3); // ticket preserved for a ticketable band
 assert.equal(tryEnhance({ copper: 0 }, { itemId: "rafaros", plus: 5 }, tDef, Math.random, { okTickets: 1 }).result, "poor");
 assert.equal(tryEnhance({ copper: 0 }, { itemId: "rafaros", plus: 5 }, tDef, Math.random, { okTickets: 1 }).result, "poor"); // guard didn't consume
 r = tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: 11 }, tDef, () => 0.9, null, 1.25);
 assert.equal(r.chance, 0.018 * 1.25);            // IV scales the band
 r = tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: 0 }, tDef, () => 0.9, null, 1.25);
 assert.equal(r.chance, 1);                        // guaranteed band caps at 1
-// avatar path honors ticket + mult too
+// avatar path honors ticket + mult too (same +15 ticket ceiling)
 const avDef2 = getItem("seria_weaponav");
 let avB = { okTickets: 1 };
-r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 16 }, avDef2, () => 0.999, avB);
+r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 10 }, avDef2, () => 0.999, avB);
 assert.equal(r.result, "success");
 assert.equal(avB.okTickets, 0);
+r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 16 }, avDef2, () => 0.999, { okTickets: 1 });
+assert.equal(r.result, "fail"); // 0.45%-band avatars can't be ticket-forced either
 r = tryAvatarEnhance({ copper: 1e30 }, { itemId: "seria_weaponav", plus: 4 }, avDef2, () => 0.9, null, 1.25);
 assert.equal(r.chance, 0.24 * 1.25);
 
