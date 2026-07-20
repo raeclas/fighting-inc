@@ -31,9 +31,20 @@ function updateHud(state, player) {
   document.getElementById("hudPlate").textContent =
     `Lv ${player.level} ${cls ? cls.name : "Enhancement Slave"}`;
 
-  const hpFrac = player.maxHealth ? Math.max(0, player.health / player.maxHealth) : 1;
-  document.getElementById("hudHpBar").style.width = `${hpFrac * 100}%`;
-  document.getElementById("hudHpText").textContent = `${player.health} / ${player.maxHealth}`;
+  // WC3 purple XP strip — HP is vestigial in the source (no hero-damage system)
+  document.getElementById("hudHpBar").style.width = `${Math.min(100, (player.xp / player.xpToNext) * 100)}%`;
+  document.getElementById("hudHpText").textContent = `${fmt(player.xp)} / ${fmt(player.xpToNext)} XP`;
+
+  // gold portrait flash on level-up (throttled — early levels come fast)
+  if (updateHud.lastLevel && player.level > updateHud.lastLevel
+      && state.total_time - (updateHud.lastFlashAt || 0) > 900) {
+    updateHud.lastFlashAt = state.total_time;
+    const box = document.getElementById("hudPortrait");
+    box.classList.remove("levelFlash");
+    void box.offsetWidth; // restart the animation
+    box.classList.add("levelFlash");
+  }
+  updateHud.lastLevel = player.level;
 
   // display-only currency tiers (economy stays copper): 1 silver = 1e9 copper
   const c = player.copper;
@@ -274,48 +285,62 @@ function itemLabel(def, plus) {
 // handlers: { onEnhance(slotIdx, times), onUnequip(slotIdx), onDiscard(slotIdx),
 //             onEquipStash(stashIdx), onDiscardStash(stashIdx),
 //             onMergeBag(bagIdx), onEnhanceBag(bagIdx, times), onDiscardBag(bagIdx) }
+let selectedGearSlot = 0;
 export function renderEquipment(player, handlers) {
   const container = document.querySelector(".equipmentList");
   container.innerHTML = "";
 
+  // WC3 inventory: 6 square slots; click selects, detail + actions below
+  const grid = document.createElement("div");
+  grid.className = "gearGrid";
   player.equipment.forEach((eq, i) => {
-    const div = document.createElement("div");
-    div.className = "equipSlot";
+    const cell = document.createElement("div");
+    cell.className = "invCell gearCell" + (eq ? " filled" : "") + (i === selectedGearSlot ? " selected" : "");
+    if (eq) {
+      const def = getItem(eq.itemId);
+      cell.textContent = def.name[0];
+      const plus = document.createElement("span");
+      plus.textContent = `+${eq.plus}`;
+      cell.appendChild(plus);
+      attachItemTip(cell, eq);
+    }
+    cell.onclick = () => { selectedGearSlot = i; renderEquipment(player, handlers); };
+    grid.appendChild(cell);
+  });
+  container.appendChild(grid);
 
+  {
+    const i = selectedGearSlot;
+    const eq = player.equipment[i];
+    const div = document.createElement("div");
+    div.className = "equipSlot gearDetail";
     if (!eq) {
       div.textContent = `Slot ${i + 1}: (empty)`;
-      container.appendChild(div);
-      return;
+    } else {
+      const def = getItem(eq.itemId);
+      const next = eq.plus >= maxPlus(def)
+        ? "MAX"
+        : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
+      const info = document.createElement("div");
+      info.innerHTML = `<strong>${def.name} +${eq.plus}</strong><br>${itemLabel(def, eq.plus)} — ${next}`;
+      div.appendChild(info);
+      [1, 10, 30].forEach(times => {
+        const btn = document.createElement("button");
+        btn.textContent = `x${times}`;
+        btn.onclick = () => handlers.onEnhance(i, times);
+        div.appendChild(btn);
+      });
+      const toStash = document.createElement("button");
+      toStash.textContent = "→ Stash";
+      toStash.onclick = () => handlers.onUnequip(i);
+      div.appendChild(toStash);
+      const discard = document.createElement("button");
+      discard.textContent = "Discard";
+      discard.onclick = () => handlers.onDiscard(i);
+      div.appendChild(discard);
     }
-
-    const def = getItem(eq.itemId);
-    const next = eq.plus >= maxPlus(def)
-      ? "MAX"
-      : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
-
-    const info = document.createElement("div");
-    info.innerHTML = `<strong>${def.name} +${eq.plus}</strong><br>${itemLabel(def, eq.plus)} — ${next}`;
-    div.appendChild(info);
-
-    [1, 10, 30].forEach(times => {
-      const btn = document.createElement("button");
-      btn.textContent = `x${times}`;
-      btn.onclick = () => handlers.onEnhance(i, times);
-      div.appendChild(btn);
-    });
-
-    const toStash = document.createElement("button");
-    toStash.textContent = "→ Stash";
-    toStash.onclick = () => handlers.onUnequip(i);
-    div.appendChild(toStash);
-
-    const discard = document.createElement("button");
-    discard.textContent = "Discard";
-    discard.onclick = () => handlers.onDiscard(i);
-    div.appendChild(discard);
-
     container.appendChild(div);
-  });
+  }
 
   // Stash: overflow drops waiting for a free slot.
   const stash = player.stash || [];
@@ -506,11 +531,11 @@ export function hideClassSelect() {
   document.getElementById("classSelect").style.display = "none";
 }
 
-// Called every frame: cooldowns tick down visibly. DOM structure is rebuilt
-// only when the structural key (class/levels/evolutions) changes; per-frame
-// work is textContent updates on stored refs — no innerHTML churn.
-// eff: effectiveStats() bundle (totalInt/skillDmgMult/skillLevelBonus).
-// onCast(skill): tap-to-cast for cast skills (touch, no keyboard needed).
+// WC3 command card: square skill buttons in a grid — hotkey badge top-left,
+// level badge bottom-right, ★ on evolved, radial darkening sweep + seconds
+// while on cooldown, gold pulse while the skill's buff runs. Numbers live in
+// the hover/tap tooltip (built live from the ref each show). DOM rebuilds only
+// on structural change; per-frame work is sweep/countdown updates on refs.
 let skillBarKey = "";
 let skillBarRefs = [];
 export function renderSkillBar(state, player, eff, onCast) {
@@ -527,50 +552,64 @@ export function renderSkillBar(state, player, eff, onCast) {
     container.innerHTML = "";
     for (const skill of skills) {
       const level = player.skills[skill.id];
-      if (!level) {
-        const div = document.createElement("div");
-        div.className = "skillEntry locked";
-        div.textContent = `[${skill.key}] ${skill.name} — locked (boss ticket)`;
-        container.appendChild(div);
-        continue;
-      }
-      // evolved/awakened skills carry a tier marker (abyss/trans/awaken tickets)
-      const star = skill.tier ? "★ " : "";
-      const lvLabel = (slb > 0 ? `Lv${level}+${slb}` : `Lv${level}`) + (skill.tier ? ` [${skill.tier}]` : "");
-      if (skill.kind === "stat") {
-        const div = document.createElement("div");
-        div.className = "skillEntry";
-        div.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel} (passive) — ${skill.desc}`;
-        container.appendChild(div);
-        continue;
-      }
-      const el = document.createElement(skill.kind === "cast" ? "button" : "div");
-      el.className = "skillEntry" + (skill.kind === "cast" ? " skillCast" : "");
-      const head = document.createElement("strong");
-      head.textContent = `${star}[${skill.key}] ${skill.name}`;
-      const dyn = document.createElement("span");
-      el.append(head, ` ${lvLabel} — `, dyn);
-      if (skill.kind === "cast" && onCast) el.onclick = () => onCast(skill);
+      const r = { skill, level, tip: "" };
+      const el = document.createElement(level && skill.kind === "cast" ? "button" : "div");
+      el.className = "skillCell" + (level ? "" : " locked");
+      el.innerHTML = `<span class="key">${skill.key}</span>`
+        + (skill.tier ? `<span class="star">★</span>` : "")
+        + `<span class="glyph">${skill.name[0]}</span>`
+        + (level ? `<span class="lv">${level}${slb ? `+${slb}` : ""}</span>` : "")
+        + `<span class="cd"></span><span class="sweep"></span>`;
+      r.el = el;
+      r.sweep = el.querySelector(".sweep");
+      r.cd = el.querySelector(".cd");
+      if (level && skill.kind === "cast" && onCast) el.onclick = () => onCast(skill);
+      // live tooltip: content built at show-time from the ref
+      el.addEventListener("mouseenter", ev => showItemTip(r.tip, ev.clientX, ev.clientY));
+      el.addEventListener("mouseleave", hideItemTip);
+      el.addEventListener("touchstart", ev => {
+        const t = ev.touches[0];
+        showItemTip(r.tip, t.clientX, t.clientY);
+        setTimeout(hideItemTip, 1800);
+      }, { passive: true });
       container.appendChild(el);
-      skillBarRefs.push({ skill, level, el, dyn });
+      skillBarRefs.push(r);
     }
   }
 
-  // per-frame: countdowns, proc counts, damage (INT keeps growing)
+  // per-frame: cooldown sweep + seconds, buff pulse, tooltip content
   for (const r of skillBarRefs) {
-    const dmg = fmt(skillDamage(r.skill, r.level + slb, eff.totalInt, eff.skillDmgMult, eff.intRatioMult ?? 1));
-    if (r.skill.kind === "cast") {
-      const remaining = Math.max(0, (state.cooldowns[r.skill.id] || 0) - state.total_time);
+    const { skill, level } = r;
+    const name = `<strong>${skill.tier ? "★ " : ""}[${skill.key}] ${skill.name}</strong>`;
+    if (!level) {
+      r.tip = `${name}<br><em>locked (boss ticket)</em>`;
+      continue;
+    }
+    const lv = `Lv${level}${slb ? `+${slb}` : ""}${skill.tier ? ` [${skill.tier}]` : ""}`;
+    if (skill.kind === "stat") {
+      r.tip = `${name}<br>${lv} (passive)<br>${skill.desc}`;
+      continue;
+    }
+    const dmg = fmt(skillDamage(skill, level + slb, eff.totalInt, eff.skillDmgMult, eff.intRatioMult ?? 1));
+    if (skill.kind === "cast") {
+      const total = Math.max(1, Math.round(skill.cooldownMs * (eff.cdMult ?? 1)));
+      const remaining = Math.max(0, (state.cooldowns[skill.id] || 0) - state.total_time);
       const ready = remaining <= 0;
-      const buffLeft = Math.max(0, (state.buffs[r.skill.id]?.until ?? 0) - state.total_time);
+      const buffLeft = Math.max(0, (state.buffs[skill.id]?.until ?? 0) - state.total_time);
+      const frac = ready ? 0 : Math.min(1, remaining / total);
+      r.sweep.style.background = frac
+        ? `conic-gradient(rgba(0,0,0,0.72) ${frac * 360}deg, transparent 0)` : "none";
+      r.cd.textContent = ready ? "" : `${Math.ceil(remaining / 1000)}`;
+      r.el.disabled = !ready;
+      r.el.classList.toggle("buffed", buffLeft > 0);
       const status = buffLeft > 0 ? `ACTIVE ${(buffLeft / 1000).toFixed(1)}s`
         : ready ? "READY" : `${(remaining / 1000).toFixed(1)}s`;
-      r.dyn.textContent = (r.skill.buff && !r.skill.mult ? "" : `${dmg} dmg — `) + status;
-      r.el.disabled = !ready;
-      r.el.classList.toggle("onCooldown", !ready);
+      r.tip = `${name}<br>${lv}` + (skill.buff && !skill.mult ? "" : `<br>${dmg} dmg`)
+        + `<br>cooldown ${(total / 1000).toFixed(0)}s — <em>${status}</em>`;
     } else {
-      const rate = r.skill.every ? `every ${r.skill.every} attacks` : `${(r.skill.procChance * 100).toFixed(1)}% per attack`;
-      r.dyn.textContent = `${rate} — ${dmg} dmg — procs: ${fmt(state.procCounts[r.skill.id] || 0)}`;
+      const rate = skill.every ? `every ${skill.every} attacks` : `${(skill.procChance * 100).toFixed(1)}% per attack`;
+      r.el.classList.toggle("buffed", !!skill.buff && (state.buffs[skill.id]?.until ?? 0) > state.total_time);
+      r.tip = `${name}<br>${lv} (proc)<br>${rate}<br>${dmg} dmg — procs: ${fmt(state.procCounts[skill.id] || 0)}`;
     }
   }
 }
@@ -796,8 +835,21 @@ export function initFeedFilter() {
 
 export function logLine(text, cls = "") {
   const feed = document.getElementById("feed");
+  // repeats near the top collapse into one ×N line (window of 3 catches
+  // alternating pairs like boss-felled / field-boss-joins)
+  for (let i = 0; i < 3 && feed.children[i]; i++) {
+    const top = feed.children[i];
+    if (top.dataset.text === text && (top.className || "") === cls) {
+      const n = (Number(top.dataset.n) || 1) + 1;
+      top.dataset.n = n;
+      top.textContent = `${text} ×${n}`;
+      feed.prepend(top);
+      return;
+    }
+  }
   const line = document.createElement("div");
   line.textContent = text;
+  line.dataset.text = text;
   if (cls) line.className = cls;
   feed.prepend(line);
   while (feed.children.length > 100) feed.lastChild.remove();
