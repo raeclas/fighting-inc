@@ -33,18 +33,19 @@ export const SHEETS = {
   necromancer:     { src: "assets/necromancer.png",     size: 64, frames: 4, fps: 6,  fallback: "💀" },
   darkknight:      { src: "assets/darkknight.png",      size: 64, frames: 4, fps: 6,  fallback: "🌑" },
 
-  // zone mobs (keyed by zone id)
-  kiln:    { src: "assets/kiln.png",    size: 64, frames: 4, fps: 4, fallback: "😩" },
-  slag:    { src: "assets/slag.png",    size: 64, frames: 4, fps: 4, fallback: "🌋" },
-  rift:    { src: "assets/rift.png",    size: 64, frames: 4, fps: 4, fallback: "👾" },
-  loam:    { src: "assets/loam.png",    size: 64, frames: 4, fps: 4, fallback: "🗿" },
-  market:  { src: "assets/market.png",  size: 64, frames: 4, fps: 4, fallback: "🧟" },
-  spire:   { src: "assets/spire.png",   size: 64, frames: 4, fps: 4, fallback: "🛸" },
-  warpit:  { src: "assets/warpit.png",  size: 64, frames: 4, fps: 4, fallback: "😈" },
-  tempest: { src: "assets/tempest.png", size: 64, frames: 4, fps: 4, fallback: "🌩️" },
-  prism:   { src: "assets/prism.png",   size: 64, frames: 4, fps: 4, fallback: "💎" },
-  sorrow:  { src: "assets/sorrow.png",  size: 64, frames: 4, fps: 4, fallback: "🖤" },
-  aurum:   { src: "assets/aurum.png",   size: 64, frames: 4, fps: 4, fallback: "💛" },
+  // zone mobs (keyed by zone id) — static AI-generated pixel sprites
+  // (internal/art pipeline); frames: 1 per the art contract, animate later
+  kiln:    { src: "assets/kiln.png",    size: 64, frames: 1, fps: 4, fallback: "😩" },
+  slag:    { src: "assets/slag.png",    size: 64, frames: 1, fps: 4, fallback: "🌋" },
+  rift:    { src: "assets/rift.png",    size: 64, frames: 1, fps: 4, fallback: "👾" },
+  loam:    { src: "assets/loam.png",    size: 64, frames: 1, fps: 4, fallback: "🗿" },
+  market:  { src: "assets/market.png",  size: 64, frames: 1, fps: 4, fallback: "🧟" },
+  spire:   { src: "assets/spire.png",   size: 64, frames: 1, fps: 4, fallback: "🛸" },
+  warpit:  { src: "assets/warpit.png",  size: 64, frames: 1, fps: 4, fallback: "😈" },
+  tempest: { src: "assets/tempest.png", size: 64, frames: 1, fps: 4, fallback: "🌩️" },
+  prism:   { src: "assets/prism.png",   size: 64, frames: 1, fps: 4, fallback: "💎" },
+  sorrow:  { src: "assets/sorrow.png",  size: 64, frames: 1, fps: 4, fallback: "🖤" },
+  aurum:   { src: "assets/aurum.png",   size: 64, frames: 1, fps: 4, fallback: "💛" },
 
   // bosses (keyed by boss id)
   hellparty: { src: "assets/hellparty.png", size: 64, frames: 4, fps: 4, fallback: "🎉" },

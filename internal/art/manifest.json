@@ -1,0 +1,17 @@
+{
+  "style": "pixel art, 16-bit SNES style, dark fantasy RPG monster, full body, centered, facing viewer slightly angled, flat dark green background, no text, single creature",
+  "negative": "text, watermark, blurry, photorealistic, 3d render, multiple creatures, cropped",
+  "assets": [
+    { "id": "kiln",    "name": "Fallen Temple mob",  "prompt": "small hunched temple ghoul, crumbling stone skin, glowing ember eyes, ash dust" },
+    { "id": "slag",    "name": "Magtonium mob",      "prompt": "molten magma golem, cracked black rock body, lava veins" },
+    { "id": "rift",    "name": "Otherverse mob",     "prompt": "floating void wraith, torn purple cloak, starfield body" },
+    { "id": "loam",    "name": "Terranium mob",      "prompt": "hulking earth elemental, mossy boulders, crystal shards on back" },
+    { "id": "market",  "name": "Harlem Dungeon mob", "prompt": "dungeon brawler thug demon, spiked knuckles, red bandana" },
+    { "id": "spire",   "name": "Luke Raid mob",      "prompt": "mechanical raid construct, brass and steel, single glowing eye" },
+    { "id": "warpit",  "name": "Fiend War mob",      "prompt": "horned battle fiend, scarred hide, broken chains on wrists" },
+    { "id": "tempest", "name": "Stormy Route mob",   "prompt": "storm elemental, swirling cloud body, lightning arcs" },
+    { "id": "prism",   "name": "Aiolite mob",        "prompt": "crystalline sprite, prismatic gem body, refracted light" },
+    { "id": "sorrow",  "name": "Ore of Despair mob", "prompt": "weeping ore golem, dark iron body, glowing blue tear streaks" },
+    { "id": "aurum",   "name": "Golden Beryl mob",   "prompt": "gilded guardian statue, gold armor, emerald inlays" }
+  ]
+}
