@@ -18,16 +18,18 @@ shifts get a fresh `baseline.json` in the same commit.
 - ✅ Boss item effects: INT on items + signature mechanics (atk%, INT-procs,
   crit, skill%, item-INT%, cooldown%, talisman skill levels).
 
-## Next — the load-bearing gap
+## Done (source-fidelity rounds, 2026-07-20)
+- ✅ Full source numbers: per-tier item data (itemdata.js), per-boss drop
+  pools + Q..D ticket ladder, real class skill tables, per-level AGI/INT
+  growth, save v3 wipe. See GROUND-TRUTH.md.
+- ✅ Zone gates + "No Entry after X" lockouts + "No INT after X" drip caps
+  (zones.js `zoneLocked`/`intDrip`), source zone names ("N laps of X").
+- ✅ Combat foundations: armor/DEF debuffs (Lumen aura, Boxing Gloves, Iron
+  Strike/Seventh Flow windows), timed buff registry (Power Fist, Death by
+  Revolver ×3, Miracle Vision, Khai, Tiger Flash, Overdrive, Wave Eye),
+  Doppelganger clones (rider model + battlefield sprites).
 
-### 1. Zone gates + "No Entry after X"
-**Map:** zones require level/INT to enter (Otherverse lv70 … Harlem lv2750),
-and *lock out* once you outgrow them ("No Entry after INT X") — anti-boosting.
-**Us:** per-zone `reqLevel` / `reqInt`, and optional `lockAfterInt`. Zone list
-shows locked zones greyed with the requirement; the lockout is the honest
-anti-Temple-forever fix the sim flagged (F2/F3). Gate values scaled to OUR
-curve, not the map's (our levels top ~45, not 2750).
-**Touches:** [zones.js](../zones.js), [ui.js](../ui.js) renderZoneList, [main.js](../main.js) selectZone guard.
+## Next — the load-bearing gap
 
 ### 2. Party/lobby multiplier analogue (IV × YJ)
 **Map:** enhancement chance, bag chance, coin double-drop all ×`IV[player]`

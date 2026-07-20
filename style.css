@@ -34,23 +34,37 @@ body {
     gap: 4px;
     margin-bottom: 10px;
 }
+/* WC3 F9/F10 menu buttons: raised gold bevel, active = pressed in */
 .tabBar button {
     padding: 8px 14px;
-    border: 1px solid var(--gold-dim);
+    border: 1px solid #000;
     border-radius: 3px;
     background: linear-gradient(180deg, #1a2338, var(--panel));
     color: var(--gold);
     font-weight: bold;
     letter-spacing: 0.03em;
     cursor: pointer;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px var(--gold-dim),
+                inset 0 2px 0 rgba(255, 255, 255, 0.12),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.5);
 }
-.tabBar button:hover { border-color: var(--gold); }
+.tabBar button:hover { box-shadow: inset 0 0 0 1px var(--gold), inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 4px rgba(0, 0, 0, 0.5); }
 .tabBar button.active {
-    background: linear-gradient(180deg, #2b3854, #1a2338);
-    border-color: var(--gold);
+    background: linear-gradient(180deg, #101625, #1f2a44);
     color: #fff2cc;
-    box-shadow: inset 0 0 6px rgba(200, 168, 75, 0.35);
+    box-shadow: inset 0 0 0 1px var(--gold),
+                inset 0 2px 6px rgba(0, 0, 0, 0.7),
+                inset 0 0 8px rgba(200, 168, 75, 0.3);
+}
+/* thin double-border frame around the tabbed area (WC3 sub-menu panel) */
+.tabPanels {
+    border: 1px solid var(--gold-dim);
+    outline: 1px solid rgba(0, 0, 0, 0.8);
+    outline-offset: -3px;
+    border-radius: 3px;
+    background: rgba(12, 15, 26, 0.35);
+    padding: 8px 8px 0;
+    margin-bottom: 12px;
 }
 .tabPanel { display: none; }
 .tabPanel.active { display: block; }
@@ -120,6 +134,8 @@ button:disabled { opacity: 0.45; cursor: default; }
 .zoneEntry button, .equipSlot button {
     margin-left: 4px;
 }
+.zoneEntry.locked { opacity: 0.5; }
+.zoneEntry.locked em { color: var(--fail); font-size: 0.85em; }
 
 #feed {
     max-height: 300px;
@@ -130,7 +146,14 @@ button:disabled { opacity: 0.45; cursor: default; }
 #feed .success { color: var(--success); }
 #feed .fail    { color: var(--fail); }
 
-#classSelect {
+/* feed filter chips — CSS does the filtering via a class on #feed */
+.feedFilter { display: flex; gap: 4px; margin-bottom: 6px; }
+.feedFilter button { font-size: 0.78em; padding: 2px 8px; }
+.feedFilter button.active { border-color: var(--gold); color: #fff2cc; }
+#feed.winsOnly div:not(.success) { display: none; }
+#feed.failsOnly div:not(.fail) { display: none; }
+
+#classSelect, #offlineModal {
     display: none;
     position: fixed;
     inset: 0;
@@ -184,6 +207,7 @@ button.skillCast:disabled { cursor: default; }
 .chipBar {
     display: flex;
     flex-wrap: wrap;
+    justify-content: flex-end; /* source game: quest/timer boxes top-right */
     gap: 6px;
     margin-bottom: 8px;
 }
@@ -217,6 +241,16 @@ button.skillCast:disabled { cursor: default; }
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
 }
 .battleTooltip strong { color: var(--gold); }
+/* item tooltip reuses the WC3 hover box, but pinned to the viewport */
+.itemTip { position: fixed; z-index: 20; max-width: 220px; }
+
+/* number-format toggle in the currency row */
+#fmtToggle {
+    min-height: 0;
+    padding: 0 6px;
+    font-size: 0.78em;
+    font-variant-numeric: tabular-nums;
+}
 
 /* ---- battlefield info line ---- */
 .mobInfo {
@@ -248,6 +282,14 @@ button.skillCast:disabled { cursor: default; }
     text-align: center;
     align-self: center;
     overflow: hidden;
+    /* gold double frame: black seams inside and outside the gold border */
+    box-shadow: inset 0 0 0 1px #000, 0 0 0 1px #000;
+}
+.hudPortrait canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
 }
 .hudCenter {
     flex: 1;

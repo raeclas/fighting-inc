@@ -26,7 +26,7 @@ export function snapshotChar(c) {
 
 export function serialize(state) {
   return {
-    v: 2,
+    v: 3,
     lastSeen: Date.now(),   // offline-progress hook (Phase 6)
     total_time: state.total_time,
     kills: state.kills,
@@ -37,6 +37,7 @@ export function serialize(state) {
     bossCooldowns: state.bossCooldowns,
     macro: state.macro,
     gathering: state.gathering,
+    settings: state.settings,
     characters: state.characters.map(snapshotChar),
     active: state.active,
     slots: state.slots,
@@ -46,14 +47,6 @@ export function serialize(state) {
 export function save(state) {
   localStorage.setItem(KEY, JSON.stringify(serialize(state)));
 }
-
-// Old zone ids -> new original names, so existing saves keep their spot and
-// bestiary kills after the 2026-07 zone rename. Drop once no old saves remain.
-const ZONE_RENAMES = {
-  temple: "kiln", magtonium: "slag", otherverse: "rift", terranium: "loam",
-  harlemdungeon: "market", lukelab: "spire", fiendwar: "warpit",
-  stormy: "tempest", aiolite: "prism", despairore: "sorrow", goldenberyl: "aurum",
-};
 
 function normalizeChar(c) {
   if (!Array.isArray(c.equipment)) c.equipment = [null, null, null, null, null, null];
@@ -69,39 +62,27 @@ function normalizeChar(c) {
   return c;
 }
 
-// v1 -> v2: wrap the single character, move account int/copper onto it.
-// legion.retired is dropped (prestige replaced by the Legion board).
-function migrateV1(s) {
-  s.characters = [{ ...(s.player ?? {}), int: s.int ?? 0, copper: s.copper ?? 0 }];
-  s.active = 0;
-  s.slots = 1;
-  return s;
-}
-
 // Applies a saved game onto live state.
 // Returns the raw save object (for lastSeen etc.) or null if no save.
+// v<3 saves are DISCARDED: the source-fidelity pass rebased the whole economy
+// (items, skills, level growth) — old progress is incoherent on the new curve.
 export function load(state) {
   const raw = localStorage.getItem(KEY);
   if (!raw) return null;
   let s;
   try { s = JSON.parse(raw); } catch { return null; }
-  if (s.player) migrateV1(s);
+  if ((s.v ?? 1) < 3) return null;
 
   state.total_time = s.total_time ?? 0;
-  state.kills = {};
-  for (const [id, n] of Object.entries(s.kills ?? {})) {
-    state.kills[ZONE_RENAMES[id] ?? id] = n;
-  }
-  state.fieldKills = {};
-  for (const [id, n] of Object.entries(s.fieldKills ?? {})) {
-    state.fieldKills[ZONE_RENAMES[id] ?? id] = n;
-  }
-  state.currentZoneId = ZONE_RENAMES[s.currentZoneId] ?? s.currentZoneId ?? null;
+  state.kills = s.kills ?? {};
+  state.fieldKills = s.fieldKills ?? {};
+  state.currentZoneId = s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;
   state.autoResummon = s.autoResummon ?? false;
   state.bossCooldowns = s.bossCooldowns ?? {};
   if (s.macro) state.macro = { ...state.macro, ...s.macro };
   if (s.gathering) state.gathering = { ...state.gathering, ...s.gathering };
+  if (s.settings) state.settings = { ...state.settings, ...s.settings };
 
   state.characters = (s.characters ?? []).map(normalizeChar);
   state.slots = Math.max(s.slots ?? 1, state.characters.length, 1);

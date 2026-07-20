@@ -3,8 +3,11 @@
 // many attacks per tick); this layer aggregates them into representative
 // animation — hero lunge, mob flash/shake, floating damage numbers, HP bar.
 import { getSheet } from "./sprites.js";
+import { fmt as fmtNum } from "./ui.js";
 
 const W = 560, H = 280;
+// bigger tap-targets on touch devices
+const HIT_R = matchMedia("(pointer: coarse)").matches ? 34 : 24;
 const HERO = { x: 110, y: 215 };
 const MOB = { x: 400, y: 215 };
 const SPRITE_DRAW = 64;
@@ -75,8 +78,8 @@ export function initBattle(el) {
 
 function spawnFloater(text, color, sizePx = 16) {
   floaters.push({
-    x: MOB.x - 20 + Math.random() * 40,
-    y: MOB.y - 70,
+    x: MOB.x - 45 + Math.random() * 90,
+    y: MOB.y - 60 - Math.random() * 25,
     alpha: 1,
     text, color, sizePx,
   });
@@ -114,23 +117,27 @@ export function renderBattle(state, player) {
   if (!ctx) return;
   const now = performance.now();
 
-  // consume sim events
-  let hits = 0, hitDmg = 0;
+  // consume sim events — hits shown individually (source-style dense numbers,
+  // colored by type: white hit / orange crit / gold skill), overflow aggregated
+  const hits = [];
   for (const e of events) {
-    if (e.type === "hit") { hits++; hitDmg += e.dmg; }
+    if (e.type === "hit") hits.push(e);
     else if (e.type === "skill") spawnFloater(fmtNum(e.dmg), "#ffb02e", 22);
     else if (e.type === "kill") spawnFloater(`+${fmtNum(e.copper)}c`, "#ffd700", 18);
     else if (e.type === "bag") spawnFloater(`💰 +${fmtNum(e.copper)}c!`, "#ffd700", 26);
   }
   events.length = 0;
 
-  if (hits > 0) {
+  if (hits.length > 0) {
     attackUntil = now + 250;
     flashUntil = now + 120;
-    if (hits <= 3) {
-      for (let i = 0; i < hits; i++) spawnFloater(fmtNum(hitDmg / hits), "#ff5050", 16);
-    } else {
-      spawnFloater(`${fmtNum(hitDmg)} ×${hits}`, "#ff5050", 20);
+    const shown = hits.slice(0, 8);
+    for (const h of shown) {
+      spawnFloater(fmtNum(h.dmg), h.crit ? "#ff8c1a" : "#f0f0f0", h.crit ? 21 : 15);
+    }
+    const rest = hits.slice(8);
+    if (rest.length) {
+      spawnFloater(`${fmtNum(rest.reduce((a, h) => a + h.dmg, 0))} ×${rest.length}`, "#ff5050", 20);
     }
   }
 
@@ -160,6 +167,13 @@ export function renderBattle(state, player) {
     heroX += Math.sin(t * Math.PI) * 55;
   }
   drawActor(player.classId ?? "hero", heroX, HERO.y, now, { scale: 2.5 });
+
+  // Doppelganger clones: two smaller copies flank the hero while active
+  const doppel = state.buffs?.doppel;
+  if (doppel && doppel.until > state.total_time) {
+    drawActor(player.classId ?? "hero", heroX - 45, HERO.y - 28, now, { scale: 1.6 });
+    drawActor(player.classId ?? "hero", heroX - 62, HERO.y + 14, now, { scale: 1.6 });
+  }
 
   // WC3-style overhead HP bar: black outline, always visible
   function hpBar(x, y, w, frac, color = "#2fd42f") {
@@ -201,7 +215,7 @@ export function renderBattle(state, player) {
       drawActor(m.zoneId, x, y, now, { scale: m.isFieldBoss ? 1.1 : 0.75, flip: true, bright: flashing });
       hpBar(x, y - (m.isFieldBoss ? 76 : 56), 30, m.hp / m.maxHp,
         m.isFieldBoss ? "#ffd700" : "#2fd42f");
-      hitboxes.push({ m, x, y, r: 24 });
+      hitboxes.push({ m, x, y, r: HIT_R });
     }
     ctx.fillStyle = "#fff";
     ctx.font = "12px system-ui, sans-serif";
@@ -209,11 +223,11 @@ export function renderBattle(state, player) {
     ctx.fillText(`${primary.name} ×${field.filter(m => m.hp > 0).length}`, MOB.x, oy - 66);
   }
 
-  // floating damage numbers
+  // floating damage numbers (fast rise/fade so dense output stays readable)
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i];
-    f.y -= 0.8;
-    f.alpha -= 0.018;
+    f.y -= 1.0;
+    f.alpha -= 0.024;
     if (f.alpha <= 0) { floaters.splice(i, 1); continue; }
     ctx.globalAlpha = f.alpha;
     ctx.fillStyle = f.color;
@@ -223,11 +237,4 @@ export function renderBattle(state, player) {
     ctx.globalAlpha = 1;
   }
   if (floaters.length > 40) floaters.splice(0, floaters.length - 40);
-}
-
-function fmtNum(n) {
-  if (n < 1e4) return Math.round(n).toString();
-  const units = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx"];
-  const tier = Math.min(units.length - 1, Math.floor(Math.log10(n) / 3));
-  return (n / 10 ** (tier * 3)).toFixed(1) + units[tier];
 }
