@@ -10,28 +10,27 @@
 //   so you can add art one monster at a time.
 // - "<id>_attack" sheets are optional; without one the idle sheet lunges.
 export const SHEETS = {
-  // heroes (keyed by class id)
-  striker:         { src: "assets/striker.png",         size: 64, frames: 4, fps: 6,  fallback: "🥋" },
-  striker_attack:  { src: "assets/striker_attack.png",  size: 64, frames: 4, fps: 12, fallback: null },
-  overmind:        { src: "assets/overmind.png",        size: 64, frames: 6, fps: 6,  fallback: "🧠" },
-  overmind_attack: { src: "assets/overmind_attack.png", size: 64, frames: 6, fps: 12, fallback: null },
-  hero:            { src: "assets/hero.png",            size: 64, frames: 4, fps: 6,  fallback: "🧑" }, // no class yet
-  omniblade:       { src: "assets/omniblade.png",       size: 64, frames: 4, fps: 6,  fallback: "⚔️" },
-  bloodevil:       { src: "assets/bloodevil.png",       size: 64, frames: 4, fps: 6,  fallback: "🩸" },
-  indra:           { src: "assets/indra.png",           size: 64, frames: 4, fps: 6,  fallback: "🌊" },
-  vagabond:        { src: "assets/vagabond.png",        size: 64, frames: 4, fps: 6,  fallback: "🗡️" },
-  desperado:       { src: "assets/desperado.png",       size: 64, frames: 4, fps: 6,  fallback: "🤠" },
-  stormtrooper:    { src: "assets/stormtrooper.png",    size: 64, frames: 4, fps: 6,  fallback: "🔫" },
-  nenempress:      { src: "assets/nenempress.png",      size: 64, frames: 4, fps: 6,  fallback: "👑" },
-  crusader:        { src: "assets/crusader.png",        size: 64, frames: 4, fps: 6,  fallback: "✝️" },
-  majesty:         { src: "assets/majesty.png",         size: 64, frames: 4, fps: 6,  fallback: "🗡" },
-  divineress:      { src: "assets/divineress.png",      size: 64, frames: 4, fps: 6,  fallback: "🔮" },
-  geniewiz:        { src: "assets/geniewiz.png",        size: 64, frames: 4, fps: 6,  fallback: "🎰" },
-  spectre:         { src: "assets/spectre.png",         size: 64, frames: 4, fps: 6,  fallback: "👻" },
-  hekate:          { src: "assets/hekate.png",          size: 64, frames: 4, fps: 6,  fallback: "💜" },
-  ashtarte:        { src: "assets/ashtarte.png",        size: 64, frames: 4, fps: 6,  fallback: "🔱" },
-  necromancer:     { src: "assets/necromancer.png",     size: 64, frames: 4, fps: 6,  fallback: "💀" },
-  darkknight:      { src: "assets/darkknight.png",      size: 64, frames: 4, fps: 6,  fallback: "🌑" },
+  // heroes (keyed by class id) — static art-pipeline sprites; the idle-sheet
+  // lunge animates attacks, "<id>_attack" strips can return later
+  striker:         { src: "assets/striker.png",         size: 64, frames: 1, fps: 6,  fallback: "🥋" },
+  overmind:        { src: "assets/overmind.png",        size: 64, frames: 1, fps: 6,  fallback: "🧠" },
+  hero:            { src: "assets/hero.png",            size: 64, frames: 1, fps: 6,  fallback: "🧑" }, // no class yet
+  omniblade:       { src: "assets/omniblade.png",       size: 64, frames: 1, fps: 6,  fallback: "⚔️" },
+  bloodevil:       { src: "assets/bloodevil.png",       size: 64, frames: 1, fps: 6,  fallback: "🩸" },
+  indra:           { src: "assets/indra.png",           size: 64, frames: 1, fps: 6,  fallback: "🌊" },
+  vagabond:        { src: "assets/vagabond.png",        size: 64, frames: 1, fps: 6,  fallback: "🗡️" },
+  desperado:       { src: "assets/desperado.png",       size: 64, frames: 1, fps: 6,  fallback: "🤠" },
+  stormtrooper:    { src: "assets/stormtrooper.png",    size: 64, frames: 1, fps: 6,  fallback: "🔫" },
+  nenempress:      { src: "assets/nenempress.png",      size: 64, frames: 1, fps: 6,  fallback: "👑" },
+  crusader:        { src: "assets/crusader.png",        size: 64, frames: 1, fps: 6,  fallback: "✝️" },
+  majesty:         { src: "assets/majesty.png",         size: 64, frames: 1, fps: 6,  fallback: "🗡" },
+  divineress:      { src: "assets/divineress.png",      size: 64, frames: 1, fps: 6,  fallback: "🔮" },
+  geniewiz:        { src: "assets/geniewiz.png",        size: 64, frames: 1, fps: 6,  fallback: "🎰" },
+  spectre:         { src: "assets/spectre.png",         size: 64, frames: 1, fps: 6,  fallback: "👻" },
+  hekate:          { src: "assets/hekate.png",          size: 64, frames: 1, fps: 6,  fallback: "💜" },
+  ashtarte:        { src: "assets/ashtarte.png",        size: 64, frames: 1, fps: 6,  fallback: "🔱" },
+  necromancer:     { src: "assets/necromancer.png",     size: 64, frames: 1, fps: 6,  fallback: "💀" },
+  darkknight:      { src: "assets/darkknight.png",      size: 64, frames: 1, fps: 6,  fallback: "🌑" },
 
   // zone mobs (keyed by zone id) — static AI-generated pixel sprites
   // (internal/art pipeline); frames: 1 per the art contract, animate later
