@@ -164,6 +164,33 @@ button:disabled { opacity: 0.45; cursor: default; }
 }
 .zoneEntry.locked { opacity: 0.5; }
 .zoneEntry.locked em { color: var(--fail); font-size: 0.85em; }
+.econ { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+
+/* boss summon cards: portrait + name/bounty + kill-time badge + button */
+.bossCard {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+}
+.bossCard.dim { opacity: 0.45; }
+.bossPortrait {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    line-height: 38px;
+    font-size: 1.1rem;
+    cursor: default;
+}
+.bossPortrait canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.bossInfo { flex: 1; min-width: 0; }
+.ttk {
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--gold);
+    white-space: nowrap;
+}
+.ttk.wall { color: var(--fail); }
 
 #feed {
     max-height: 300px;

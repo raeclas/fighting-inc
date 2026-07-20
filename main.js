@@ -942,7 +942,7 @@ function render() {
   renderZoneList(player, selectZone); // key-cached; re-renders when a gate flips
   renderBestiary(gameState);
   renderLegion(gameState, rosterHandlers);
-  renderBossList(gameState, player, bossHandlers);
+  renderBossList(gameState, player, eff, bossHandlers);
 }
 
 ///// SAVE ON EXIT /////

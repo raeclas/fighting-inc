@@ -1,6 +1,6 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
-import { zones, VARIANTS, zoneLocked } from "./zones.js";
+import { zones, VARIANTS, zoneLocked, intDrip } from "./zones.js";
 import { items, getItem, tierOf, maxPlus, MERGE_IDS } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills } from "./classes.js";
@@ -25,6 +25,26 @@ const PORTRAIT_COLORS = {
   bloodevil: "#8f1f1f", indra: "#1f5f8f", vagabond: "#4f6f3f",
   desperado: "#8f6f2f", stormtrooper: "#2f6f6f", nenempress: "#8f2f6f",
 };
+
+// frame-0 face-crop (top-center 2× zoom) on a tinted radial backdrop.
+// Shared by the HUD portrait and boss cards; null when the sheet isn't loaded.
+function portraitCanvas(sheetId, px, tint = "#2b3854") {
+  const sheet = sheetId ? getSheet(sheetId) : null;
+  if (!sheet?.img) return null;
+  const cv = document.createElement("canvas");
+  cv.width = px;
+  cv.height = px;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  const grad = c.createRadialGradient(px / 2, px * 0.375, px / 10, px / 2, px / 2, px * 0.69);
+  grad.addColorStop(0, tint ?? "#2b3854");
+  grad.addColorStop(1, "#0a0d16");
+  c.fillStyle = grad;
+  c.fillRect(0, 0, px, px);
+  const s = sheet.meta.size;
+  c.drawImage(sheet.img, s / 4, 0, s / 2, s / 2, 0, 0, px, px);
+  return cv;
+}
 
 function updateHud(state, player) {
   const cls = getClass(player.classId);
@@ -72,21 +92,9 @@ function updateHud(state, player) {
   if (pKey !== hudPortraitKey) {
     hudPortraitKey = pKey;
     const box = document.getElementById("hudPortrait");
-    if (sheet?.img) {
+    const cv = portraitCanvas(player.classId, 64, PORTRAIT_COLORS[player.classId]);
+    if (cv) {
       box.textContent = "";
-      const cv = document.createElement("canvas");
-      cv.width = 64;
-      cv.height = 64;
-      const c = cv.getContext("2d");
-      c.imageSmoothingEnabled = false;
-      const grad = c.createRadialGradient(32, 24, 6, 32, 32, 44);
-      grad.addColorStop(0, PORTRAIT_COLORS[player.classId] ?? "#2b3854");
-      grad.addColorStop(1, "#0a0d16");
-      c.fillStyle = grad;
-      c.fillRect(0, 0, 64, 64);
-      // 2× zoom on the top-center quarter of frame 0 — the face
-      const s = sheet.meta.size;
-      c.drawImage(sheet.img, s / 4, 0, s / 2, s / 2, 0, 0, 64, 64);
       box.appendChild(cv);
     } else {
       box.textContent = sheet?.meta.fallback ?? SHEETS.hero.fallback;
@@ -205,10 +213,10 @@ export function updateUI(state, player, eff) {
     state.currentZoneId ? ` Field bosses felled here: ${fmt(fk)}` : "";
 }
 
-// Called every frame; rebuilds only when a gate opens/closes (level/INT bands).
+// Called every frame; rebuilds when a gate opens/closes or an INT drip caps out.
 let lastZoneKey = "";
 export function renderZoneList(player, onSelect, force = false) {
-  const key = zones.map(z => zoneLocked(z, player) ?? "").join("|");
+  const key = zones.map(z => `${zoneLocked(z, player) ?? ""}:${intDrip(z, player)}`).join("|");
   if (!force && key === lastZoneKey) return;
   lastZoneKey = key;
 
@@ -233,8 +241,19 @@ export function renderZoneList(player, onSelect, force = false) {
         const btn = document.createElement("button");
         btn.textContent = `${mult} laps`;
         btn.onclick = () => onSelect(zone.id, i);
+        attachTip(btn, `<strong>${mult} laps of ${zone.name}</strong><br>`
+          + `${fmt(zone.copper * mult)}c/kill · bag ${fmt(zone.bag * mult)}c<br>`
+          + `mob HP ${fmt(zone.hp * mult)} · DEF ${fmt(zone.defense * mult)}`
+          + (zone.intPerKill ? `<br>+${fmt(zone.intPerKill * mult)} INT/kill` : ""));
         div.appendChild(btn);
       });
+      // base 1× economics at a glance; lap buttons carry the scaled numbers
+      const drip = intDrip(zone, player);
+      const econ = document.createElement("div");
+      econ.className = "econ";
+      econ.textContent = `≈ ${fmt(zone.copper)}c/kill · bag ${fmt(zone.bag)}c`
+        + (zone.intPerKill ? (drip > 0 ? ` · +${fmt(zone.intPerKill)} INT/kill` : " · INT capped") : "");
+      div.appendChild(econ);
     }
 
     container.appendChild(div);
@@ -459,14 +478,29 @@ export function renderEquipment(player, handlers) {
 
 // handlers: { onSummon(bossId), onToggleAuto() }
 
-// called every frame; rebuilds only when a gate/cooldown/checkbox state changes
+// hover/tap tooltip carrying static html (list rows; command card builds live)
+function attachTip(el, html) {
+  el.addEventListener("mouseenter", ev => showItemTip(html, ev.clientX, ev.clientY));
+  el.addEventListener("mouseleave", hideItemTip);
+  el.addEventListener("touchstart", ev => {
+    const t = ev.touches[0];
+    showItemTip(html, t.clientX, t.clientY);
+    setTimeout(hideItemTip, 1800);
+  }, { passive: true });
+}
+
+// called every frame; rebuilds when a gate/cooldown/checkbox flips, a sprite
+// sheet loads, or damage crosses a triage bucket
 let lastBossKey = "";
-export function renderBossList(state, player, handlers) {
+export function renderBossList(state, player, eff, handlers) {
+  const atk = eff?.atk ?? 0;
+  const intervalS = (eff?.interval ?? 1000) / 1000;
   const key = bosses.map(b => {
     if (!b.reqInt) return "s";
     const cd = Math.max(0, (state.bossCooldowns[b.id] || 0) - state.total_time);
     return `${player.int >= b.reqInt}|${Math.ceil(cd / 1000)}`;
-  }).join(",") + `|${state.autoResummon}`;
+  }).join(",") + `|${state.autoResummon}|${Math.round(Math.log10(atk + 1) * 4)}`
+    + `|${bosses.filter(b => getSheet(b.id)?.img).length}`;
   if (key === lastBossKey) return;
   lastBossKey = key;
 
@@ -474,14 +508,45 @@ export function renderBossList(state, player, handlers) {
   container.innerHTML = "";
 
   bosses.forEach(boss => {
+    // auto-attack-only kill estimate (procs/skills excluded — hence the ~);
+    // regen default mirrors spawnBossMob's 0.5%/s
+    const dps = Math.max(0, atk - boss.defense) / intervalS;
+    const regenPerS = boss.hp * (boss.regenPct ?? 0.005);
+    const wall = dps > 0 && dps <= regenPerS;
+    const ttkS = dps <= 0 || wall ? Infinity : boss.hp / (dps - regenPerS);
+    const dim = dps <= 0 || wall || ttkS > 600;
+
     const div = document.createElement("div");
-    div.className = "bossEntry";
+    div.className = "bossEntry bossCard" + (dim ? " dim" : "");
+
+    const cell = document.createElement("div");
+    cell.className = "invCell bossPortrait";
+    const cv = portraitCanvas(boss.id, 40);
+    if (cv) cell.appendChild(cv);
+    else cell.textContent = boss.name[0];
+    div.appendChild(cell);
+
     const bounty = boss.drops?.bounty ? boss.drops.bounty * 1e9 ** (boss.drops.bountyTier ?? 0) : 0;
+    const info = document.createElement("div");
+    info.className = "bossInfo";
+    info.innerHTML = `<strong>${boss.name}</strong><br><span class="econ">Bounty ${fmt(bounty)}c`
+      + (boss.reqInt ? ` · Respawn ${Math.round(boss.respawnMs / 60000)}m` : "") + `</span>`;
+    div.appendChild(info);
+
+    const ttk = document.createElement("span");
+    ttk.className = "ttk" + (dps <= 0 || wall ? " wall" : "");
+    ttk.textContent = dps <= 0 ? "—" : wall ? "regen wall"
+      : ttkS < 60 ? `~${ttkS < 10 ? ttkS.toFixed(1) : Math.ceil(ttkS)}s` : `~${fmtCountdown(ttkS * 1000)}`;
+    div.appendChild(ttk);
+
+    // full stat block lives in the hover/tap tooltip
     const cost = boss.reqInt
-      ? `Free challenge · Bounty ${fmt(bounty)}c · Respawn ${Math.round(boss.respawnMs / 60000)}m`
-      : `Summon ${fmt(boss.summonCost)}c (refund ${fmt(Math.round(boss.summonCost * INTEREST))}c + bounty ${fmt(bounty)}c)`;
-    div.innerHTML = `<strong>${boss.name}</strong>${boss.reqInt ? ` <em>· requires ${fmt(boss.reqInt)} INT</em>` : ""}<br>
-      HP ${fmt(boss.hp)} · DEF ${fmt(boss.defense)} · ${cost}`;
+      ? `Free challenge · Respawn ${Math.round(boss.respawnMs / 60000)}m<br>requires ${fmt(boss.reqInt)} INT`
+      : `Summon ${fmt(boss.summonCost)}c<br>refund ${fmt(Math.round(boss.summonCost * INTEREST))}c + bounty ${fmt(bounty)}c`;
+    attachTip(div, `<strong>${boss.name}</strong><br>HP ${fmt(boss.hp)} · DEF ${fmt(boss.defense)}`
+      + (boss.regenPct ? `<br>regen ${(boss.regenPct * 100).toFixed(1)}%/s` : "")
+      + `<br>${cost}<br><em>~kill time: auto-attacks only</em>`);
+
     const btn = document.createElement("button");
     if (!boss.reqInt) {
       btn.textContent = "Summon";
