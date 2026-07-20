@@ -725,12 +725,18 @@ function tick() {
     ? { copper: player.copper, level: player.level, kills: killSum() }
     : null;
 
-  if (dt > BATCH_THRESHOLD_MS) simulateBatch(dt);
-  else simulateLive(dt);
+  // Isolate sim errors so the autosave below keeps running (a persistent
+  // throw here would otherwise silently stop all saving).
+  try {
+    if (dt > BATCH_THRESHOLD_MS) simulateBatch(dt);
+    else simulateLive(dt);
 
-  gatherTick(); // while-loop inside digests any gap, live or offline
+    gatherTick(); // while-loop inside digests any gap, live or offline
 
-  if (before) showOfflineModal(dt, before);
+    if (before) showOfflineModal(dt, before);
+  } catch (e) {
+    console.error("[tick sim]", e);
+  }
 
   if (gameState.total_time - gameState.last_save >= 5000) {
     save(gameState);
