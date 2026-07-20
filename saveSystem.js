@@ -20,6 +20,7 @@ export function snapshotChar(c) {
     equipment: c.equipment,
     stash: c.stash,
     specialBag: c.specialBag,
+    souls: c.souls,
     classId: c.classId,
     skills: c.skills,
   };
@@ -70,6 +71,7 @@ function normalizeChar(c) {
   });
   c.int = c.int ?? 0;
   c.copper = c.copper ?? 0;
+  c.souls = { old: 0, brilliant: 0, ...(c.souls || {}) };
   c.lastAttack = 0;
   return c;
 }

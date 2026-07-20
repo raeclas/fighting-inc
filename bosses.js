@@ -165,42 +165,53 @@ export const bosses = [
   },
 
   // ---- INT-gated specials (free challenge, respawn timers) ----
-  // Source drops = enhanced-skill tickets + class weapons (DEFERRED with the
-  // enhanced-skill system) — bounty-only until that lands.
+  // Real source drops (war3map.j dispatch ~L103890, see internal/extract/):
+  // gear pools via itemChance, evolution tickets via `ticket`, souls via `fixed`.
+  // "classWeapon" in a pool resolves to the active class's Abyss weapon.
   {
     id: "bernardo", name: "Bernardo",
     hp: 100_000_000, defense: 20_000, summonCost: 0, xp: 10_000_000,
     reqInt: 100_000, respawnMs: 18 * 60_000, regenPct: 0,
     skillIndex: null,
-    drops: { itemChance: 0, bountyTier: 0, bounty: 50_000_000 },
+    drops: { itemChance: 0.0225, pool: ["bernardo_neck", "bernardo_ring", "classWeapon"],
+             ticket: { chance: 0.01875, tier: "abyss" },
+             bountyTier: 0, bounty: 50_000_000 },
   },
   {
     id: "bernardo2", name: "Transcendence Bernardo",
     hp: 500_000_000, defense: 100_000, summonCost: 0, xp: 60_000_000,
     reqInt: 500_000, respawnMs: 24 * 60_000, regenPct: 0,
     skillIndex: null,
-    drops: { itemChance: 0, bountyTier: 0, bounty: 300_000_000 },
+    drops: { itemChance: 0.0075, pool: ["bernardo2_staff", "bernardo2_ring", "bernardo2_neck"],
+             ticket: { chance: 0.0075, tier: "trans" },
+             bountyTier: 0, bounty: 300_000_000 },
   },
   {
     id: "seria", name: "Seria",
     hp: 1_500_000_000, defense: 300_000, summonCost: 0, xp: 200_000_000,
     reqInt: 1_500_000, respawnMs: 30 * 60_000, regenPct: 0,
     skillIndex: null,
-    drops: { itemChance: 0, bountyTier: 0, bounty: 1_000_000_000 },
+    drops: { itemChance: 0.003, pool: ["seria_weaponav", "seria_auraav", "seria_cloneav"],
+             souls: { kind: "old", count: 6 },
+             bountyTier: 0, bounty: 1_000_000_000 },
   },
   {
     id: "librarykeeper", name: "The Library Keeper of Memory",
     hp: 50_000_000_000_000, defense: 40_000_000, summonCost: 0, xp: 200_000_000_000,
     reqInt: 5_000_000, respawnMs: 25 * 60_000, regenPct: 0,
     skillIndex: null,
-    drops: { itemChance: 0, bountyTier: S, bounty: 250_000, rare: { chance: 0.01, itemId: "talisman" } },
+    drops: { itemChance: 0.001, pool: ["lib_weaponav", "lib_cloneav", "lib_auraav"],
+             souls: { kind: "brilliant", count: 6 },
+             bountyTier: S, bounty: 250_000 },
   },
   {
     id: "trialgiver", name: "The One Who Gives Trials",
     hp: 500_000_000_000_000, defense: 200_000_000, summonCost: 0, xp: 1_000_000_000_000,
     reqInt: 15_000_000, respawnMs: 30 * 60_000, regenPct: 0,
     skillIndex: null,
-    drops: { itemChance: 0, bountyTier: GOLD, bounty: 5, rare: { chance: 0.01, itemId: "transtalisman" } },
+    drops: { itemChance: 0.005, pool: ["trial_staff", "trial_ring", "trial_neck"],
+             ticket: { chance: 0.0015, tier: "awaken" },
+             bountyTier: GOLD, bounty: 5 },
   },
 ];
 

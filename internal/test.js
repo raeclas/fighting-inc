@@ -1,8 +1,9 @@
 // test.js — run with `node test.js`
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
-import { enhanceChance, tryEnhance, tryMerge } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor } from "../items.js";
+import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, SPECIAL_IDS } from "../items.js";
+import { activeSkills } from "../classes.js";
 import { bosses, spawnBossMob } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
 import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES } from "../legion.js";
@@ -280,5 +281,95 @@ assert.equal(mc.equipment[1].itemId, "rafaros");
 assert.deepEqual(mc.stash.map(e => e.itemId), ["luke_dmg"]);
 assert.deepEqual(mc.specialBag.map(e => [e.itemId, e.plus]), [["luke_def", 12], ["talisman", 4]]); // plus preserved
 assert.equal(serialize(st3).characters[0].specialBag.length, 2); // persists
+
+// enhanced skills: 3 per class (abyss/trans/awaken), schema + uniqueness
+for (const cls of classes) {
+  assert.equal(cls.enhanced?.length, 3, `${cls.id} enhanced count`);
+  assert.deepEqual(cls.enhanced.map(e => e.tier), ["abyss", "trans", "awaken"], cls.id);
+  for (const e of cls.enhanced) {
+    assert.ok(!allSkillIds.has(e.id), `duplicate enhanced id ${e.id}`);
+    allSkillIds.add(e.id);
+    if (e.tier === "awaken") {
+      assert.equal(e.key, "M", e.id);
+      assert.equal(e.cooldownMs, 300_000, `${e.id} awaken CD`);
+      assert.ok(!e.replaces, e.id);
+    } else {
+      assert.ok(cls.skills.some(s => s.id === e.replaces), `${e.id} replaces unknown ${e.replaces}`);
+    }
+    assert.ok(e.kind === "cast" || e.kind === "proc", e.id);
+    if (e.kind === "proc" && !e.every) assert.ok(e.procChance > 0, e.id);
+  }
+}
+
+// activeSkills: swaps learned replacements in-slot, appends learned M
+const ovm = classes.find(c => c.id === "overmind");
+assert.equal(activeSkills(ovm, { lanternfire: 3 })[0].id, "lanternfire");   // base
+assert.equal(activeSkills(ovm, { holloween: 1 })[0].id, "holloween");       // evolved (own level)
+assert.equal(activeSkills(ovm, { holloween: 1 }).length, 7);
+const withM = activeSkills(ovm, { cosmiccalamity: 2 });
+assert.equal(withM.length, 8);
+assert.equal(withM[7].key, "M");
+// nenempress trans replaces E (lionroar), not W
+const nen = classes.find(c => c.id === "nenempress");
+assert.equal(activeSkills(nen, { grandroar: 1 })[2].id, "grandroar");
+assert.equal(activeSkills(nen, { grandroar: 1 })[1].id, "doppel");
+
+// skillDamage: intRatioMult scales only the INT term
+assert.equal(skillDamage({ base: 100, mult: 10 }, 2, 1000, 1, 1.5), 2 * (100 + 1000 * 10 * 1.5));
+
+// class-weapon meta-modifiers fold through aggregate (bagged)
+const gWeap = aggregate([], [{ itemId: "bernardo_staff", plus: 20 }, { itemId: "bernardo_ring", plus: 20 }]);
+assert.equal(gWeap.cooldownPct, 22);
+assert.equal(gWeap.procRatePct, 30);
+assert.equal(aggregate([], [{ itemId: "bernardo_gswords", plus: 20 }]).intRatioPct, 38);
+assert.equal(aggregate([], [{ itemId: "bernardo_knuckle", plus: 20 }]).clones, 3);
+const gAv = aggregate([], [{ itemId: "seria_cloneav", plus: 20 }, { itemId: "lib_cloneav", plus: 0 }]);
+assert.equal(gAv.magicCrit.pct, 450); // best-only: 10%×450 beats 10%×30
+// defReduce NECKLACE in the bag keeps its atk/int (aura rule is luke_def-only)
+const gNeck = aggregate([], [{ itemId: "bernardo_neck", plus: 20 }]);
+assert.equal(gNeck.defReduce, 65);
+assert.equal(gNeck.atk, 655000);
+// every class has a weapon and all pool ids resolve
+for (const cls of classes) assert.ok(getItem(CLASS_WEAPON[cls.id]), `${cls.id} class weapon`);
+for (const bid of ["bernardo", "bernardo2", "seria", "librarykeeper", "trialgiver"]) {
+  const b = bosses.find(x => x.id === bid);
+  for (const pid of b.drops.pool) {
+    if (pid !== "classWeapon") assert.ok(getItem(pid), `${bid} pool ${pid}`);
+    assert.ok(pid === "classWeapon" || SPECIAL_IDS.has(pid), `${bid} ${pid} routes to bag`);
+  }
+  if (b.drops.ticket) assert.ok(["abyss", "trans", "awaken"].includes(b.drops.ticket.tier));
+  if (b.drops.souls) assert.ok(["old", "brilliant"].includes(b.drops.souls.kind));
+}
+
+// avatar enhance: bands + soul/copper costs
+assert.equal(avatarChance(0), 1);
+assert.equal(avatarChance(4), 0.24);
+assert.equal(avatarChance(7), 0.09);
+assert.equal(avatarChance(11), 0.012);
+assert.equal(avatarChance(16), 0.003);
+const avDef = getItem("seria_weaponav");
+let avState = { copper: avDef.enhCost * 2, souls: { old: 4, brilliant: 0 } };
+let avEq = { itemId: "seria_weaponav", plus: 0 };
+assert.equal(tryAvatarEnhance(avState, avEq, avDef, "old", 2, () => 0).result, "success");
+assert.equal(avEq.plus, 1);
+assert.equal(avState.souls.old, 2);
+assert.equal(avState.copper, avDef.enhCost);
+assert.equal(tryAvatarEnhance({ copper: 1e30, souls: { old: 1 } }, avEq, avDef, "old", 2).result, "nosouls");
+assert.equal(tryAvatarEnhance({ copper: 0, souls: { old: 9 } }, avEq, avDef, "old", 2).result, "poor");
+
+// save round-trip: souls persist, enhanced skill levels survive normalizeChar
+localStorage.setItem("esrpg_save", JSON.stringify({
+  v: 3, characters: [{
+    classId: "overmind", level: 1, skills: { lanternfire: 3, holloween: 2, cosmiccalamity: 1 },
+    souls: { old: 5, brilliant: 1 },
+    specialBag: [{ itemId: "bernardo_staff", plus: 4 }],
+  }], active: 0, slots: 1,
+}));
+const st4 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: {}, settings: { fullNumbers: false } };
+load(st4);
+assert.deepEqual(st4.characters[0].souls, { old: 5, brilliant: 1 });
+assert.equal(st4.characters[0].skills.holloween, 2);
+assert.equal(st4.characters[0].specialBag[0].itemId, "bernardo_staff");
+assert.deepEqual(serialize(st4).characters[0].souls, { old: 5, brilliant: 1 });
 
 console.log("all checks passed");

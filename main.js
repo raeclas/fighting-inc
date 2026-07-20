@@ -6,9 +6,9 @@ import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
-import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS } from "./items.js";
-import { tryEnhance, tryMerge } from "./enhance.js";
-import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL } from "./classes.js";
+import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, CLASS_WEAPON } from "./items.js";
+import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
+import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills } from "./classes.js";
 import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
@@ -92,10 +92,16 @@ function pickClass(classId) {
 
 const buffActive = id => (gameState.buffs[id]?.until ?? 0) > gameState.total_time;
 
-// active Doppelganger clone count (0 when the buff is down)
-function activeClones() {
+// the 7 slots with learned evolutions swapped in + the M ultimate appended
+function skillsOf() {
+  return activeSkills(getClass(player.classId), player.skills);
+}
+
+// active Doppelganger clone count (0 when the buff is down); `extra` = item
+// clones (Abyssal Knuckle) that join while the summon is up
+function activeClones(extra = 0) {
   const dop = getClass(player.classId)?.skills.find(s => s.buff?.clones);
-  return dop && buffActive(dop.id) ? dop.buff.clones : 0;
+  return dop && buffActive(dop.id) ? dop.buff.clones + extra : 0;
 }
 
 function effectiveStats() {
@@ -138,6 +144,11 @@ function effectiveStats() {
     intProcs: g.intProcs,     // [{chance, mult}] — mult × INT bonus per auto
     cdMult: 1 - g.cooldownPct / 100,
     skillLevelBonus: g.skillLevelBonus,
+    // class-weapon meta-modifiers + avatar magic crit
+    intRatioMult: 1 + g.intRatioPct / 100,   // scales the INT×mult term of skills
+    procRateMult: 1 + g.procRatePct / 100,   // scales proc-skill activation chance
+    magicCrit: g.magicCrit,                  // {chance, pct} | null — skills only
+    clones: g.clones,                        // extra Doppelganger clones
   };
 }
 
@@ -180,7 +191,10 @@ function castSkill(skill) {
   if (skill.armorDebuff) {
     gameState.buffs[`${skill.id}:armor`] = { until: gameState.total_time + skill.armorDebuff.durationMs };
   }
-  const dmg = skillDamage(skill, L, eff.totalInt, eff.skillDmgMult);
+  let dmg = skillDamage(skill, L, eff.totalInt, eff.skillDmgMult, eff.intRatioMult);
+  if (eff.magicCrit && Math.random() < eff.magicCrit.chance) {
+    dmg = Math.round(dmg * (1 + eff.magicCrit.pct / 100)); // avatar magic crit
+  }
   if (dmg > 0) {
     applySkillDamage(skill, dmg, target, radiusOf(skill, L, buffActive("miracle")));
     pushBattleEvent({ type: "skill", dmg });
@@ -190,7 +204,7 @@ function castSkill(skill) {
 window.addEventListener("keydown", e => {
   const cls = getClass(player.classId);
   if (!cls || cls.archetype !== "active" || e.repeat) return;
-  const skill = cls.skills.find(s => s.key === e.key.toUpperCase());
+  const skill = skillsOf().find(s => s.key === e.key.toUpperCase());
   if (skill) castSkill(skill);
 });
 
@@ -247,6 +261,23 @@ function useTicket(boss) {
   }
 }
 
+// Special-boss evolution tickets: 100% success, +1 level, cap 7 (map nwx —
+// unlike the 5% Q..D ladder). Applies immediately on drop.
+function useEvolutionTicket(boss, tier) {
+  const cls = getClass(player.classId);
+  const skill = cls?.enhanced?.find(e => e.tier === tier);
+  if (!skill) return;
+  const level = player.skills[skill.id] || 0;
+  if (level >= MAX_SKILL_LEVEL) {
+    return logLine(`${boss.name} dropped a ${tier} ticket, but ${skill.name} is already Lv${MAX_SKILL_LEVEL}.`);
+  }
+  player.skills[skill.id] = level + 1;
+  logLine(level === 0
+    ? `${tier.toUpperCase()} TICKET: ${skill.replaces ? "skill evolved into" : "learned"} ${skill.name}!`
+    : `${tier.toUpperCase()} TICKET: ${skill.name} Lv${level} → Lv${level + 1} (100%).`, "success");
+  refreshMacro(); // skill bar re-renders on the next tick
+}
+
 function rollBossDrops(boss) {
   const d = boss.drops;
   if (!d) return;
@@ -256,12 +287,22 @@ function rollBossDrops(boss) {
     pushBattleEvent({ type: "bag", copper: paid });
     logLine(`Bounty: +${fmt(paid)}c.`, "success");
   }
+  // guaranteed avatar-enhancement souls (Seria / Library Keeper)
+  if (d.souls) {
+    player.souls[d.souls.kind] = (player.souls[d.souls.kind] || 0) + d.souls.count;
+    logLine(`${boss.name} leaves ${d.souls.count} souls behind.`, "success");
+  }
   // item roll — the skill ticket drops ALONGSIDE a successful roll (source Epx)
   if (Math.random() < d.itemChance) {
-    const pool = poolFor(boss.id);
+    // specials carry an explicit pool; "classWeapon" resolves per active class
+    const pool = d.pool
+      ? d.pool.map(id => id === "classWeapon" ? CLASS_WEAPON[player.classId] : id).filter(Boolean)
+      : poolFor(boss.id);
     if (pool.length) acquireItem(pool[Math.floor(Math.random() * pool.length)], `${boss.name} dropped`);
     if (boss.skillIndex !== null) useTicket(boss);
   }
+  // evolution ticket — independent roll (source dispatch)
+  if (d.ticket && Math.random() < d.ticket.chance) useEvolutionTicket(boss, d.ticket.tier);
   if (d.rare && Math.random() < d.rare.chance) {
     const rp = d.rare.pool ? poolFor(d.rare.pool) : [d.rare.itemId];
     acquireItem(rp[Math.floor(Math.random() * rp.length)], `${boss.name} dropped a RARE find:`);
@@ -307,9 +348,10 @@ function runMacro() {
   m.nextAt = gameState.total_time + intervalMs(m.intervalLevel);
 
   // cast the first ready skill in the sequence, starting after the last cast
+  const avail = skillsOf();
   for (let i = 0; i < m.slots.length; i++) {
     const idx = ((m.ptr || 0) + i) % m.slots.length;
-    const skill = cls.skills.find(s => s.id === m.slots[idx]);
+    const skill = avail.find(s => s.id === m.slots[idx]);
     if (!skill || skill.kind !== "cast" || !player.skills[skill.id]) continue;
     if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) continue;
     castSkill(skill);
@@ -419,10 +461,16 @@ function enhanceBag(bagIdx, times) {
   const eq = player.specialBag[bagIdx];
   if (!eq || MERGE_IDS.has(eq.itemId)) return; // talisman family is merge-only
   const def = getItem(eq.itemId);
+  // avatars: souls + copper per try on their own (softer) odds bands
+  const avatar = AVATAR_IDS.has(eq.itemId);
+  const [soulKind, soulCost] = eq.itemId.startsWith("lib_") ? ["brilliant", 3] : ["old", 2];
   for (let i = 0; i < times; i++) {
-    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs);
+    const { result, chance } = avatar
+      ? tryAvatarEnhance(player, eq, def, soulKind, soulCost)
+      : tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs);
     if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
+    if (result === "nosouls") { logLine(`Need ${soulCost} ${soulKind === "old" ? '"100 years old"' : '"Brilliant Sarah"'} souls per try.`, "fail"); break; }
     const pct = (chance * 100).toFixed(2);
     if (result === "success") {
       logLine(`${def.name} +${eq.plus - 1} → +${eq.plus} SUCCESS (${pct}%)`, "success");
@@ -623,7 +671,7 @@ function resolveKill(mob) {
 // swings. Riders ignore defense (like procs).
 function autoRiderDamage(cls, eff) {
   let d = 0;
-  const clones = activeClones();
+  const clones = activeClones(eff.clones); // item clones (Abyssal Knuckle) join
   for (const s of cls?.skills ?? []) {
     const b = s.buff;
     if (!b || !buffActive(s.id)) continue;
@@ -633,7 +681,7 @@ function autoRiderDamage(cls, eff) {
       if (b.perAttacker) r *= 1 + clones; // Tiger Flash: clones swing it too
       d += r;
     }
-    if (b.cloneRider) d += b.clones * L * (b.cloneRider.base + eff.totalInt * b.cloneRider.mult);
+    if (b.cloneRider && clones) d += clones * L * (b.cloneRider.base + eff.totalInt * b.cloneRider.mult);
   }
   return Math.round(d);
 }
@@ -687,10 +735,24 @@ function simulateLive(dt) {
     // field around the front mob (the farm-vs-boss lever).
     if (cls) {
       const center = frontMob() || target;
-      for (const skill of cls.skills) {
+      for (const skill of skillsOf()) {
         if (skill.kind !== "proc") continue;
         const level = player.skills[skill.id];
-        if (level && Math.random() < skill.procChance) {
+        if (!level) continue;
+        // Limit Break fires every Nth auto (deterministic); others roll chance
+        // × class-weapon activation bonus. Awakened procs carry a real cooldown.
+        let fired;
+        if (skill.every) {
+          const n = (gameState.procCounts[`${skill.id}:n`] = (gameState.procCounts[`${skill.id}:n`] || 0) + 1);
+          fired = n % skill.every === 0;
+        } else {
+          fired = Math.random() < Math.min(1, skill.procChance * eff.procRateMult);
+        }
+        if (fired && skill.cooldownMs) {
+          if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) fired = false;
+          else gameState.cooldowns[skill.id] = gameState.total_time + Math.round(skill.cooldownMs * eff.cdMult);
+        }
+        if (fired) {
           const L = effSkillLevel(level, eff);
           if (skill.buff) { // Overdrive / Wave Eye: proc (re)starts the buff
             gameState.buffs[skill.id] = { until: gameState.total_time + buffDuration(skill, L) };
@@ -698,12 +760,15 @@ function simulateLive(dt) {
           if (skill.armorDebuff) { // Iron Strike armor window
             gameState.buffs[`${skill.id}:armor`] = { until: gameState.total_time + skill.armorDebuff.durationMs };
           }
-          let procDmg = skillDamage(skill, L, totalInt, eff.skillDmgMult);
+          let procDmg = skillDamage(skill, L, totalInt, eff.skillDmgMult, eff.intRatioMult);
           // Death by Revolver triples the revolver; Miracle Vision arms the mastery
           if (skill.id === "revolver" && buffActive("deathrev")) procDmg *= 3;
-          if (skill.id === "heavymastery" && buffActive("miracle")) {
+          if ((skill.id === "heavymastery" || skill.id === "heavymasteryx") && buffActive("miracle")) {
             const mv = cls.skills.find(s => s.id === "miracle");
-            procDmg += skillDamage(mv.buff.masteryRider, effSkillLevel(player.skills.miracle, eff), totalInt, eff.skillDmgMult);
+            procDmg += skillDamage(mv.buff.masteryRider, effSkillLevel(player.skills.miracle, eff), totalInt, eff.skillDmgMult, eff.intRatioMult);
+          }
+          if (procDmg > 0 && eff.magicCrit && Math.random() < eff.magicCrit.chance) {
+            procDmg = Math.round(procDmg * (1 + eff.magicCrit.pct / 100));
           }
           if (procDmg > 0) {
             applySkillDamage(skill, procDmg, center, radiusOf(skill, L, buffActive("miracle")));
@@ -760,11 +825,13 @@ function simulateBatch(dt) {
     * (1 + (crit ? crit.chance * (crit.mult - 1) : 0));
   for (const p of intProcs) fieldDmgPerAttack += p.chance * p.mult * totalInt;
   if (cls) {
-    for (const skill of cls.skills) {
-      if (skill.kind !== "proc") continue;
+    for (const skill of skillsOf()) {
+      if (skill.kind !== "proc" || skill.cooldownMs) continue; // awakened-proc CDs not modeled offline (like buffs)
       const level = player.skills[skill.id];
       if (!level) continue;
-      const per = skill.procChance * skillDamage(skill, effSkillLevel(level, eff), totalInt, eff.skillDmgMult);
+      const chance = skill.every ? 1 / skill.every : Math.min(1, skill.procChance * eff.procRateMult);
+      const per = chance * skillDamage(skill, effSkillLevel(level, eff), totalInt, eff.skillDmgMult, eff.intRatioMult)
+        * (1 + (eff.magicCrit ? eff.magicCrit.chance * eff.magicCrit.pct / 100 : 0));
       fieldDmgPerAttack += per * (skill.aoe ? aoeCoverage(radiusOf(skill, effSkillLevel(level, eff))) : 1);
     }
   }

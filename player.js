@@ -30,6 +30,9 @@ export function newCharacter() {
     // special items (rings/necklaces/talismans/insignia/aura): bag, not the 6 slots
     specialBag: [],
 
+    // avatar-enhancement souls: "100 years old" (Seria) / "Brilliant Sarah" (Library)
+    souls: { old: 0, brilliant: 0 },
+
     // class + known skills (skillId -> level 1..7)
     classId: null,
     skills: {},

@@ -41,6 +41,32 @@ export function tryEnhance(state, eq, def, rng = Math.random, buffs = null) {
   return { result: "fail", chance };
 }
 
+// Avatar reinforcement bands (map eJx/aqx), keyed by level enhanced FROM.
+// Softer than weapons: +0→+3 guaranteed, then 24/9/1.2/0.3.
+export function avatarChance(plus) {
+  if (plus < 4) return 1;
+  if (plus < 7) return 0.24;
+  if (plus < 11) return 0.09;
+  if (plus < 16) return 0.012;
+  return 0.003;
+}
+
+// One avatar attempt: costs `soulCost` souls of `soulKind` + def.enhCost copper
+// (map charges both even on the guaranteed tiers).
+export function tryAvatarEnhance(state, eq, def, soulKind, soulCost, rng = Math.random) {
+  if (eq.plus >= def.tiers.length - 1) return { result: "max", chance: 0 };
+  if ((state.souls?.[soulKind] ?? 0) < soulCost) return { result: "nosouls", chance: 0 };
+  if (state.copper < def.enhCost) return { result: "poor", chance: 0 };
+  state.souls[soulKind] -= soulCost;
+  state.copper -= def.enhCost;
+  const chance = avatarChance(eq.plus);
+  if (rng() < chance) {
+    eq.plus++;
+    return { result: "success", chance };
+  }
+  return { result: "fail", chance };
+}
+
 // Talisman-family upgrade: 2×(+n) → 1×(+n+1). Free, deterministic,
 // cap def.tiers.length - 1 (+6). Mutates bag (removes the partner).
 export function tryMerge(bag, idx, def) {

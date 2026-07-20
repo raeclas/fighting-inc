@@ -3,7 +3,7 @@
 import { zones, VARIANTS, zoneLocked } from "./zones.js";
 import { items, getItem, tierOf, maxPlus, aggregate, MERGE_IDS } from "./items.js";
 import { enhanceChance } from "./enhance.js";
-import { classes, getClass, skillDamage } from "./classes.js";
+import { classes, getClass, skillDamage, activeSkills } from "./classes.js";
 import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
@@ -45,6 +45,12 @@ function updateHud(state, player) {
   document.getElementById("curGold").textContent = fmt(Math.floor(c / 1e18));
   document.getElementById("curSilver").textContent = fmt(Math.floor(c / 1e9) % 1e9);
   document.getElementById("curCopper").textContent = fmt(c % 1e9);
+
+  // avatar souls (special-boss drops) — hidden until the first one drops
+  const souls = player.souls || {};
+  const anySouls = (souls.old || 0) + (souls.brilliant || 0) > 0;
+  document.getElementById("soulsRow").style.display = anySouls ? "" : "none";
+  if (anySouls) document.getElementById("soulsVal").textContent = `${fmt(souls.old || 0)} / ${fmt(souls.brilliant || 0)}`;
 
   // portrait: sprite frame 0 face-crop on a class-colored backdrop, else emoji
   const sheet = player.classId ? getSheet(player.classId) : null;
@@ -254,6 +260,11 @@ function itemLabel(def, plus) {
   if (t.critMult) parts.push(`${t.critChance}% crit ×${fmt(t.critMult)}`);
   if (t.skillLevels) parts.push(`+${t.skillLevels} to all skills`);
   if (t.defReduce) parts.push(`nearby enemies DEF −${t.defReduce}`);
+  if (t.cooldownPct) parts.push(`skill cooldowns −${t.cooldownPct}%`);
+  if (t.intRatioPct) parts.push(`skill INT ratio +${t.intRatioPct}%`);
+  if (t.procRatePct) parts.push(`skill activation +${t.procRatePct}%`);
+  if (t.clones) parts.push(`+${t.clones} clones`);
+  if (t.magicCritPct) parts.push(`${t.magicCritChance}% magic crit +${t.magicCritPct}%`);
   return parts.join(" · ") || "(no stats)";
 }
 
@@ -468,7 +479,7 @@ export function renderSkillBar(state, player, eff, onCast) {
   if (!cls) { container.textContent = ""; return; }
 
   container.innerHTML = "";
-  cls.skills.forEach(skill => {
+  activeSkills(cls, player.skills).forEach(skill => {
     const level = player.skills[skill.id];
 
     if (!level) {
@@ -479,7 +490,9 @@ export function renderSkillBar(state, player, eff, onCast) {
       return;
     }
 
-    const lvLabel = slb > 0 ? `Lv${level}+${slb}` : `Lv${level}`;
+    // evolved/awakened skills carry a tier marker (abyss/trans/awaken tickets)
+    const star = skill.tier ? "★ " : "";
+    const lvLabel = (slb > 0 ? `Lv${level}+${slb}` : `Lv${level}`) + (skill.tier ? ` [${skill.tier}]` : "");
     if (skill.kind === "stat") {
       const div = document.createElement("div");
       div.className = "skillEntry";
@@ -488,7 +501,7 @@ export function renderSkillBar(state, player, eff, onCast) {
       return;
     }
 
-    const dmg = fmt(skillDamage(skill, level + slb, eff.totalInt, eff.skillDmgMult));
+    const dmg = fmt(skillDamage(skill, level + slb, eff.totalInt, eff.skillDmgMult, eff.intRatioMult ?? 1));
     if (skill.kind === "cast") {
       const readyAt = state.cooldowns[skill.id] || 0;
       const remaining = Math.max(0, readyAt - state.total_time);
@@ -498,7 +511,7 @@ export function renderSkillBar(state, player, eff, onCast) {
         : ready ? "READY" : `${(remaining / 1000).toFixed(1)}s`;
       const btn = document.createElement("button");
       btn.className = "skillEntry skillCast" + (ready ? "" : " onCooldown");
-      btn.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel}` +
+      btn.innerHTML = `<strong>${star}[${skill.key}] ${skill.name}</strong> ${lvLabel}` +
         (skill.buff && !skill.mult ? "" : ` — ${dmg} dmg`) + ` — ${status}`;
       btn.disabled = !ready;
       if (onCast) btn.onclick = () => onCast(skill);
@@ -507,7 +520,7 @@ export function renderSkillBar(state, player, eff, onCast) {
       const div = document.createElement("div");
       div.className = "skillEntry";
       const procs = state.procCounts[skill.id] || 0;
-      div.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel} — ${(skill.procChance * 100).toFixed(1)}% per attack — ${dmg} dmg — procs: ${fmt(procs)}`;
+      div.innerHTML = `<strong>${star}[${skill.key}] ${skill.name}</strong> ${lvLabel} — ${(skill.procChance * 100).toFixed(1)}% per attack — ${dmg} dmg — procs: ${fmt(procs)}`;
       container.appendChild(div);
     }
   });
@@ -560,7 +573,7 @@ export function renderMacro(state, player, handlers) {
     none.value = "";
     none.textContent = "—";
     select.appendChild(none);
-    cls.skills.filter(s => s.kind === "cast" && player.skills[s.id]).forEach(s => {
+    activeSkills(cls, player.skills).filter(s => s.kind === "cast" && player.skills[s.id]).forEach(s => {
       const opt = document.createElement("option");
       opt.value = s.id;
       opt.textContent = `[${s.key}] ${s.name}`;

@@ -33,32 +33,29 @@ shifts get a fresh `baseline.json` in the same commit.
   slots), talisman family merge-only 2×(+n)→+(n+1) free (`tryMerge`), aura
   DEF-only from bag (atk/INT suppressed), jewelry keeps copper enhance from
   bag, idempotent v3 sweep migration, fresh baseline (~1-2% earlier).
+- ✅ Enhanced skills + special bosses: 9 classes × 3 enhanced skills
+  (`cls.enhanced`, abyss/trans/awaken + `activeSkills()` swap-in), evolution
+  tickets 100% success from bernardo/bernardo2/trialgiver (real dispatch
+  rates), M ultimate (300s CD), per-class Abyss Fragment weapons + trans/
+  liberation gear + avatars extracted from map (internal/extract/), meta-
+  modifiers live: cooldownPct/intRatioPct/procRatePct/clones/magicCrit,
+  souls ("100 years old"/"Brilliant Sarah") + avatar soul-enhance bands
+  24/9/1.2/0.3. Zero sim drift (specials beyond canonical horizon).
 
 ## Next — remaining source gaps, in build order
 
-### 1. Enhanced skills + special bosses (biggest payoff)
-**Map:** Bernardo (100k) Abyssal ticket EVOLVES Q; Trans-Bernardo (500k) W/E;
-Giver of Trials (5M) True Awakening M ultimate (300s CD, INT×1.7M–12M).
-Class weapons carry meta-modifiers (activation rate +40–60%, skill INT-ratio
-+38–60%, cooldown −22–35%, buff value +32–45%, Geniewiz great-success);
-Seria/Library Keeper drop avatars (incl. MAGIC CRIT) upgraded with Seria
-Coins. All enhanced-skill tables transcribed (scratchpad wiki-classes*.md +
-HEROES.md); item data extractable same as round 1.
-**Us:** skill evolution state per character, M slot, meta-modifier fields in
-effectiveStats, special-boss drop tables, coin currency.
-
-### 2. Consumables/jars
+### 1. Consumables/jars
 Zone-dropped Talisman/Myth/Insignia jars, Ezra/Sirocco pots, Golden Book
 (Reversal Staff amp), INT potions, enhancement-protection tickets. Add after
 merge exists so jars have somewhere to pour. Per-zone jar list in
 GROUND-TRUTH.md zone table.
 
-### 3. Party/lobby multiplier analogue (IV × YJ)
+### 2. Party/lobby multiplier analogue (IV × YJ)
 **Map:** enhance/bag/coin all ×`IV[player]` (elixirs) ×`YJ[party-size]`.
 **Us:** single-player → brewed elixirs granting a global `dropBonus`; reuses
 gathering buff plumbing. Touches enhance.js, zones.js rolls, a buff source.
 
-### 4. Batch-2 heroes + missing boss
+### 3. Batch-2 heroes + missing boss
 Crusader (auto-cast), Majesty (on-hit riders), Divineress (spheres), Geniewiz
 (GS/S/F rolls), Spectre (speed stacks), Hekate/Ashtarte (buffers),
 Necromancer (stance), Dark Knight (borrows skills) — port notes in HEROES.md.
@@ -73,8 +70,8 @@ until you switch (no kick-on-tick). Job-change scroll stays superseded by the
 Legion roster.
 
 ## Guardrails
-- The map file stays gitignored; extraction scripts in scratchpad (offer to
-  check in if useful).
+- The map file stays gitignored; extraction scripts + parsed item dump live in
+  [extract/](extract/) (the decompiled war3map.j itself stays out).
 - Every mechanic keeps the sim honest: model it in [sim.js](sim.js) if it
   affects the passive curve, or note it as an active-only bonus (like field
   bosses) if it doesn't.

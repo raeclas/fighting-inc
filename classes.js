@@ -39,6 +39,12 @@ export const classes = [
       { id: "kihop",    key: "F", name: "Kihop Low Kick",      kind: "cast", base: 0,      mult: 65_000,  cooldownMs: 50_000, aoe: true, radius: 1 }, // range 400
       { id: "climax",   key: "D", name: "Empress's Climactic Fist", kind: "cast", base: 0, mult: 100_000, cooldownMs: 55_000, aoe: true, radius: 1.5 },
     ],
+    enhanced: [
+      // Limit Break: bonus damage every 5th auto (deterministic, procCounts)
+      { tier: "abyss",  replaces: "gloves",  id: "limitbreak", key: "Q", name: "Limit Break", kind: "proc", every: 5, base: 0, mult: 1_000 },
+      { tier: "trans",  replaces: "lowkick", id: "tigerstrike", key: "W", name: "Tiger Strike", kind: "cast", base: 0, mult: 160_000, cooldownMs: 30_000 },
+      { tier: "awaken", id: "slidingslash", key: "M", name: "Neo: Awakened Sliding Slash", kind: "cast", base: 0, mult: 1_700_000, cooldownMs: 300_000, aoe: true, radius: 4 }, // pull 35 — no positions
+    ],
   },
   {
     id: "overmind",
@@ -53,6 +59,11 @@ export const classes = [
       { id: "curtain",     key: "T", name: "Elemental Curtain", kind: "cast", base: 0,      mult: 10_000, cooldownMs: 30_000, aoe: true, radius: 2.5 },
       { id: "gate",        key: "F", name: "The Gate",          kind: "cast", base: 0,      mult: 30_000, cooldownMs: 30_000, aoe: true, radius: 2.5 },
       { id: "sesto",       key: "D", name: "Sesto Elemental",   kind: "cast", base: 0,      mult: 40_000, cooldownMs: 60_000, aoe: true, radius: 2.5, resetsCooldowns: true },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "lanternfire", id: "holloween", key: "Q", name: "Holloween Buster", kind: "cast", base: 0, mult: 40_000, cooldownMs: 55_000 },
+      { tier: "trans",  replaces: "arcticfist",  id: "elemquake", key: "W", name: "Elemental Quake", kind: "cast", base: 0, mult: 65_000, cooldownMs: 60_000, aoe: true, radius: 4 },
+      { tier: "awaken", id: "cosmiccalamity", key: "M", name: "Cosmic Calamity", kind: "cast", base: 0, mult: 2_400_000, cooldownMs: 300_000, aoe: true, radius: 4 },
     ],
   },
   {
@@ -71,6 +82,11 @@ export const classes = [
       { id: "mindsword",   key: "F", name: "Omnislay: Mind's Sword", kind: "proc", procChance: 0.02, base: 0,    mult: 25_000 },
       { id: "tempestslay", key: "D", name: "Ultimate Slay: Tempest", kind: "proc", procChance: 0.012, base: 0,   mult: 50_000 },
     ],
+    enhanced: [
+      { tier: "abyss",  replaces: "lightsword", id: "shootingstar", key: "Q", name: "Shooting Star", kind: "proc", procChance: 0.005, base: 0, mult: 100_000 },
+      { tier: "trans",  replaces: "ironstrike", id: "etherealslash", key: "W", name: "Ethereal Slash", kind: "proc", procChance: 0.005, base: 0, mult: 300_000 },
+      { tier: "awaken", id: "pentastrike", key: "M", name: "Pentastrike", kind: "proc", procChance: 0.05, base: 0, mult: 12_000_000, cooldownMs: 300_000 },
+    ],
   },
   {
     id: "bloodevil",
@@ -85,6 +101,11 @@ export const classes = [
       { id: "outrage",    key: "T", name: "Outrage Break",    kind: "proc", procChance: 0.01,  base: 10_000, mult: 5_000,  aoe: true, radius: 2.5 },
       { id: "overkill",   key: "F", name: "Extreme Overkill", kind: "proc", procChance: 0.006, base: 14_000, mult: 7_000,  aoe: true, radius: 4 },
       { id: "bloodriven", key: "D", name: "Blood Riven",      kind: "proc", procChance: 0.005, base: 20_000, mult: 20_000, aoe: true, radius: 4 },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "gorecross",  id: "enrage", key: "Q", name: "Enrage", kind: "proc", procChance: 0.005, base: 0, mult: 35_000, aoe: true, radius: 4 },
+      { tier: "trans",  replaces: "ragingfury", id: "bloodsnatch", key: "W", name: "Blood Snatch", kind: "proc", procChance: 0.005, base: 0, mult: 65_000, aoe: true, radius: 4 },
+      { tier: "awaken", id: "bloodmajin", key: "M", name: "Blood Majin Strike", kind: "proc", procChance: 0.05, base: 0, mult: 2_000_000, cooldownMs: 300_000, aoe: true, radius: 4 },
     ],
   },
   {
@@ -102,6 +123,11 @@ export const classes = [
         buff: { durationMs: 9_000, autoRider: { base: 0, mult: 3_000 }, riderChance: 0.10 } },
       { id: "thundergod", key: "D", name: "Thunder God",        kind: "proc", procChance: 0.005, base: 12_000, mult: 12_000, aoe: true, radius: 2.5 },
     ],
+    enhanced: [
+      { tier: "abyss",  replaces: "wavewheel", id: "groundquaker", key: "Q", name: "Ground Quaker", kind: "proc", procChance: 0.006, base: 0, mult: 75_000 },
+      { tier: "trans",  replaces: "waverad",   id: "murderouswave", key: "W", name: "Murderous Wave", kind: "proc", procChance: 0.006, base: 0, mult: 40_000, aoe: true, radius: 2.5 }, // 5s lingering field — no substrate
+      { tier: "awaken", id: "heaventhunder", key: "M", name: "Heaven's Thunder", kind: "proc", procChance: 0.05, base: 0, mult: 2_000_000, cooldownMs: 300_000, aoe: true, radius: 4 },
+    ],
   },
   {
     id: "vagabond",
@@ -116,6 +142,11 @@ export const classes = [
       { id: "blastpalm",  key: "T", name: "Blasting Palm",       kind: "proc", procChance: 0.01,  base: 5_000,  mult: 5_000,  aoe: true, radius: 2.5 },
       { id: "verdant",    key: "F", name: "Verdant Blast",       kind: "proc", procChance: 0.01,  base: 0,      mult: 30_000 },
       { id: "moondance",  key: "D", name: "Moonlight Dance",     kind: "proc", procChance: 0.005, base: 0,      mult: 45_000 },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "soaring", id: "lotusdance", key: "Q", name: "Lotus Dance", kind: "proc", procChance: 0.005, base: 0, mult: 25_000, aoe: true, radius: 2.5 },
+      { tier: "trans",  replaces: "oppress", id: "lotusflash", key: "W", name: "Lotus Flash", kind: "proc", procChance: 0.005, base: 0, mult: 180_000 },
+      { tier: "awaken", id: "moondancex", key: "M", name: "Moonlight Dance -Awakened-", kind: "proc", procChance: 0.05, base: 0, mult: 12_000_000, cooldownMs: 300_000 },
     ],
   },
   {
@@ -134,6 +165,11 @@ export const classes = [
       { id: "seventh",   key: "D", name: "Seventh Flow",         kind: "cast", base: 0,       mult: 40_000, cooldownMs: 50_000, aoe: true, radius: 2.5,
         armorDebuff: { perLevel: 8, durationMs: 10_000 } },
     ],
+    enhanced: [
+      { tier: "abyss",  replaces: "windmill", id: "suppressive", key: "Q", name: "Suppressive Barrage", kind: "cast", base: 0, mult: 25_000, cooldownMs: 30_000 },
+      { tier: "trans",  replaces: "headshot", id: "wipeout", key: "W", name: "Wipeout", kind: "cast", base: 0, mult: 55_000, cooldownMs: 30_000, aoe: true, radius: 2.5 },
+      { tier: "awaken", id: "deathcrisis", key: "M", name: "Death Crisis", kind: "cast", base: 0, mult: 4_000_000, cooldownMs: 300_000, aoe: true, radius: 2.5 },
+    ],
   },
   {
     id: "stormtrooper",
@@ -150,6 +186,12 @@ export const classes = [
         buff: { durationMs: 30_000, masteryRider: { base: 0, mult: 550 }, skillDmgPctPerLevel: 7 } },
       { id: "agenttrig",  key: "F", name: "Agent Trigger",   kind: "cast", base: 0,      mult: 10_000, cooldownMs: 30_000, aoe: true, radius: 4 },
       { id: "opraids",    key: "D", name: "Operation Raids", kind: "cast", base: 0,      mult: 32_000, cooldownMs: 65_000, aoe: true, radius: 4 },
+    ],
+    enhanced: [
+      // fixed r750 (no level growth); Miracle Vision rider still applies via id match in main.js
+      { tier: "abyss",  replaces: "heavymastery", id: "heavymasteryx", key: "Q", name: "Heavy Weapon Mastery -Enhanced-", kind: "proc", procChance: 0.17, base: 0, mult: 250, aoe: true, radius: 1.5 },
+      { tier: "trans",  replaces: "flamethrow", id: "pt15", key: "W", name: "PT-15 Prototype", kind: "cast", base: 0, mult: 110_000, cooldownMs: 70_000, aoe: true, radius: 4 },
+      { tier: "awaken", id: "decisive", key: "M", name: "Decisive Battle", kind: "cast", base: 0, mult: 2_000_000, cooldownMs: 300_000 },
     ],
   },
   {
@@ -171,6 +213,12 @@ export const classes = [
       { id: "nenflower",    key: "F", name: "Nen Flower",     kind: "cast", base: 0, mult: 27_000, cooldownMs: 40_000, aoe: true, radius: 4 },
       { id: "brilliant",    key: "D", name: "Brilliant Nen",  kind: "cast", base: 0, mult: 65_000, cooldownMs: 60_000, aoe: true, radius: 4 },
     ],
+    enhanced: [
+      { tier: "abyss",  replaces: "khai",     id: "nenshot", key: "Q", name: "Nen Shot", kind: "cast", base: 0, mult: 22_000, cooldownMs: 8_000 },
+      // source: trans ticket changes E for Nen Empress, not W
+      { tier: "trans",  replaces: "lionroar", id: "grandroar", key: "E", name: "Lion's Grand Roar", kind: "cast", base: 0, mult: 40_000, cooldownMs: 20_000, aoe: true, radius: 4 },
+      { tier: "awaken", id: "nendragons", key: "M", name: "Nen Dragons", kind: "cast", base: 0, mult: 3_000_000, cooldownMs: 300_000 },
+    ],
   },
 ];
 
@@ -178,10 +226,26 @@ export const getClass = id => classes.find(c => c.id === id);
 
 export const MAX_SKILL_LEVEL = 7;
 
+// The 7 slots with learned enhanced replacements swapped in (abyss/trans
+// tickets REPLACE the base skill — source behavior), plus the M ultimate
+// appended once learned. `skills` is the per-char skillId→level map; an
+// enhanced skill is active iff its own id has a level there.
+export function activeSkills(cls, skills) {
+  if (!cls) return [];
+  const out = cls.skills.map(s => {
+    const rep = cls.enhanced?.find(e => e.replaces === s.id);
+    return rep && skills[rep.id] ? rep : s;
+  });
+  const awaken = cls.enhanced?.find(e => e.tier === "awaken");
+  if (awaken && skills[awaken.id]) out.push(awaken);
+  return out;
+}
+
 // Source formula: damage = skillLevel × (base + INT × mult).
-// skillDmgMult (1 + skill-damage %s) folds in here.
-export function skillDamage(skill, level, totalInt, skillDmgMult = 1) {
-  return Math.round(level * ((skill.base ?? 0) + totalInt * skill.mult) * skillDmgMult);
+// skillDmgMult (1 + skill-damage %s) folds in here; intRatioMult scales only
+// the INT term (class weapons: "skill's intelligence ratio increases by N%").
+export function skillDamage(skill, level, totalInt, skillDmgMult = 1, intRatioMult = 1) {
+  return Math.round(level * ((skill.base ?? 0) + totalInt * skill.mult * intRatioMult) * skillDmgMult);
 }
 
 // Always-on stat-skill bonuses for a character (kind "stat" skills, by level).

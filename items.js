@@ -38,10 +38,29 @@ const SHOP = {
 
 // merge-only 7-tier family: no copper enhance, 2×(+n) → +(n+1)
 export const MERGE_IDS = new Set(["talisman", "transtalisman", "brtalisman", "insignia"]);
-// everything living in the special bag (merge family + aura + jewelry) —
-// source: rings/necklaces/talismans/insignia don't eat the 6 weapon slots
+// true auras: from the bag only their aura effect applies (atk/int suppressed)
+export const AURA_IDS = new Set(["luke_def"]);
+// avatars enhance with souls + copper on their own odds bands (enhance.js)
+export const AVATAR_IDS = new Set(["seria_weaponav", "seria_auraav", "seria_cloneav",
+  "lib_weaponav", "lib_cloneav", "lib_auraav"]);
+// special-boss gear (map: "Can be used in special part item slots")
+export const SPECIAL_GEAR_IDS = new Set([
+  "bernardo_neck", "bernardo_ring", "bernardo_staff", "bernardo_gsword", "bernardo_gswords",
+  "bernardo_handcannon", "bernardo_revolver", "bernardo_knuckle",
+  "bernardo2_staff", "bernardo2_ring", "bernardo2_neck",
+  "trial_staff", "trial_ring", "trial_neck", ...AVATAR_IDS,
+]);
+// everything living in the special bag (merge family + aura + jewelry + boss gear) —
+// source: these don't eat the 6 weapon slots
 export const SPECIAL_IDS = new Set([...MERGE_IDS, "luke_def",
-  "hellparty_dmg", "harlem_dmg", "fiendwar_add", "abysswalker_intp", "luton_add"]);
+  "hellparty_dmg", "harlem_dmg", "fiendwar_add", "abysswalker_intp", "luton_add",
+  ...SPECIAL_GEAR_IDS]);
+// active class -> its Abyss Fragment weapon (bernardo "classWeapon" pool slot)
+export const CLASS_WEAPON = {
+  overmind: "bernardo_staff", stormtrooper: "bernardo_handcannon", desperado: "bernardo_revolver",
+  striker: "bernardo_gswords", nenempress: "bernardo_knuckle",
+  omniblade: "bernardo_gsword", bloodevil: "bernardo_gsword", indra: "bernardo_gsword", vagabond: "bernardo_gsword",
+};
 
 export const items = Object.entries(ITEM_DATA).map(([id, d]) => ({
   id,
@@ -49,7 +68,8 @@ export const items = Object.entries(ITEM_DATA).map(([id, d]) => ({
   boss: d.boss,                        // null for shop/talismans
   shop: id in SHOP,
   cost: SHOP[id]?.cost ?? 0,
-  enhCost: SHOP[id]?.enhCost ?? ENH_COST[d.boss] ?? 1 * S,
+  enhCost: d.enhCost ?? SHOP[id]?.enhCost ?? ENH_COST[d.boss] ?? 1 * S,
+  classOnly: d.classOnly ?? null,      // special-boss class weapons
   tiers: d.tiers,
 }));
 
@@ -82,7 +102,11 @@ export function aggregate(equipment, specialBag = []) {
     itemIntPct: 0,      // stacks
     skillLevelBonus: 0, // talismans stack
     defReduce: 0,       // armor auras (Lumen Basilium) — stacks
-    cooldownPct: 0,     // no source item grants this yet (class weapons later)
+    cooldownPct: 0,     // class weapons (Abyss Fragment Staff/Hand Cannon)
+    intRatioPct: 0,     // "skill's intelligence ratio increases" — class weapons
+    procRatePct: 0,     // "skill activation probability increased" — class weapons/rings
+    clones: 0,          // Abyssal Knuckle: extra Doppelganger clones
+    magicCrit: null,    // best single {chance, pct} — Clone Rare avatars, skill crits
     crit: null,         // best single crit item
     intProcs: [],       // all apply
   };
@@ -91,7 +115,9 @@ export function aggregate(equipment, specialBag = []) {
     const def = byId.get(eq.itemId);
     if (!def) return;
     const t = tierOf(def, eq.plus);
-    if (bagged && t.defReduce) { out.defReduce += t.defReduce; return; } // aura: DEF only, no atk/int
+    // Lumen-style aura: DEF only from the bag, atk/int suppressed. Applies to
+    // true auras only — defReduce NECKLACES/avatars keep their stats (source).
+    if (bagged && AURA_IDS.has(eq.itemId)) { out.defReduce += t.defReduce ?? 0; return; }
     out.atk += t.atk ?? 0;
     out.int += t.int ?? 0;
     if (t.spdPct) out.spdPct = Math.max(out.spdPct, t.spdPct);
@@ -101,6 +127,14 @@ export function aggregate(equipment, specialBag = []) {
     if (t.intPct) out.itemIntPct += t.intPct;
     if (t.skillLevels) out.skillLevelBonus += t.skillLevels;
     if (t.defReduce) out.defReduce += t.defReduce;
+    if (t.cooldownPct) out.cooldownPct += t.cooldownPct;
+    if (t.intRatioPct) out.intRatioPct += t.intRatioPct;
+    if (t.procRatePct) out.procRatePct += t.procRatePct;
+    if (t.clones) out.clones += t.clones;
+    if (t.magicCritPct && (!out.magicCrit || t.magicCritChance * t.magicCritPct >
+        out.magicCrit.chance * 100 * out.magicCrit.pct)) {
+      out.magicCrit = { chance: t.magicCritChance / 100, pct: t.magicCritPct };
+    }
     if (t.procMult) out.intProcs.push({ chance: t.procChance / 100, mult: t.procMult });
     if (t.critMult) {
       const ev = (t.critChance / 100) * (t.critMult - 1);
