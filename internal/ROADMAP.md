@@ -53,12 +53,13 @@ shifts get a fresh `baseline.json` in the same commit.
 
 ## Next — remaining source gaps, in build order
 
-### 1. Party/lobby multiplier analogue (IV × YJ)
-**Map:** enhance/bag/coin all ×`IV[player]` (elixirs) ×`YJ[party-size]`.
-**Us:** single-player → brewed elixirs granting a global `dropBonus`; reuses
-gathering buff plumbing. Touches enhance.js, zones.js rolls, a buff source.
+### SHELVED — Party/lobby multiplier analogue (IV × YJ)
+Shelved by user decision (2026-07-20). `ivMult()` in consumables.js already
+carries the IV plumbing (probability potion feeds it); elixir sources can plug
+in whenever this revives. **Map:** enhance/bag/coin all ×`IV[player]` (elixirs)
+×`YJ[party-size]`.
 
-### 2. Batch-2 heroes + missing boss
+### 1. Batch-2 heroes + missing boss
 Crusader (auto-cast), Majesty (on-hit riders), Divineress (spheres), Geniewiz
 (GS/S/F rolls), Spectre (speed stacks), Hekate/Ashtarte (buffers),
 Necromancer (stance), Dark Knight (borrows skills) — port notes in HEROES.md.
