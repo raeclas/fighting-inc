@@ -2,8 +2,10 @@
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, SPECIAL_IDS } from "../items.js";
-import { activeSkills } from "../classes.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS } from "../items.js";
+import { activeSkills, matchesSkill } from "../classes.js";
+import { fmt, bindFormatSettings } from "../format.js";
+import { snapshotChar } from "../saveSystem.js";
 import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
 import { bosses, spawnBossMob } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
@@ -435,5 +437,50 @@ assert.deepEqual(st5.characters[0].potions, { int: 1, prob: 0 });
 assert.deepEqual(st5.characters[0].potionUntil, { int: 0, prob: 12345 });
 assert.deepEqual(st5.gathering.buffs, { doubleChance: 3, freeAttempts: 1, okTickets: 0 });
 assert.equal(serialize(st5).characters[0].jars.sirocco, 2.75);
+
+// decoupling round: buff targets declared on data, no dead keys, generic matcher
+const drev = classes.find(c => c.id === "desperado").skills.find(s => s.id === "deathrev");
+assert.deepEqual(drev.buff.procBoost, { target: "revolver", mult: 3 });
+const mir = classes.find(c => c.id === "stormtrooper").skills.find(s => s.id === "miracle");
+assert.deepEqual(mir.buff.procRider, { target: "heavymastery", base: 0, mult: 550 });
+for (const cls of classes) for (const s of [...cls.skills, ...cls.enhanced]) {
+  assert.ok(!s.buff?.revolverMult && !s.buff?.masteryRider, `${s.id} dead buff key`);
+}
+assert.ok(matchesSkill({ id: "revolver" }, "revolver"));
+assert.ok(matchesSkill({ id: "heavymasteryx", replaces: "heavymastery" }, "heavymastery"));
+assert.ok(!matchesSkill({ id: "lowkick" }, "revolver"));
+// procRider is skillDamage-shaped: lvl × (base + INT×mult)
+assert.equal(skillDamage(mir.buff.procRider, 2, 1000, 1), 2 * 1000 * 550);
+
+// snapshotChar: strips ONLY the transient; every factory field persists
+const snapC = snapshotChar({ ...newCharacter(), lastAttack: 123 });
+assert.ok(!("lastAttack" in snapC));
+for (const k of Object.keys(newCharacter())) {
+  if (k !== "lastAttack") assert.ok(k in snapC, `snapshot lost ${k}`);
+}
+
+// normalizeChar: a minimal char round-trips with full factory defaults
+localStorage.setItem("esrpg_save", JSON.stringify({
+  v: 3, characters: [{ classId: "indra", level: 9, souls: { old: 5 } }], active: 0, slots: 1,
+}));
+const st6 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: {} }, settings: { fullNumbers: false } };
+load(st6);
+const minC = st6.characters[0];
+assert.equal(minC.level, 9);
+assert.deepEqual(minC.equipment, [null, null, null, null, null, null]);
+assert.deepEqual(minC.souls, { old: 5, brilliant: 0 }); // partial nested keeps new sub-fields
+assert.deepEqual(minC.potions, { int: 0, prob: 0 });
+assert.equal(minC.xpToNext, 150);
+
+// avatar soul map covers every avatar id
+for (const id of AVATAR_IDS) assert.ok(AVATAR_SOULS[id], `no soul cost for ${id}`);
+
+// fmt respects the injected settings getter
+const fakeSettings = { fullNumbers: false };
+bindFormatSettings(() => fakeSettings);
+assert.equal(fmt(1_234_567), "1.23M");
+fakeSettings.fullNumbers = true;
+assert.equal(fmt(1_234_567), "1,234,567");
+fakeSettings.fullNumbers = false;
 
 console.log("all checks passed");

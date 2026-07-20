@@ -3,7 +3,7 @@
 // many attacks per tick); this layer aggregates them into representative
 // animation — hero lunge, mob flash/shake, floating damage numbers, HP bar.
 import { getSheet } from "./sprites.js";
-import { fmt as fmtNum } from "./ui.js";
+import { fmt as fmtNum } from "./format.js";
 
 const W = 560, H = 280;
 // bigger tap-targets on touch devices

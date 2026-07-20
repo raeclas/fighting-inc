@@ -17,8 +17,11 @@
 //   durationMs (+ perLevelMs), autoRider {base,mult} = lvl×(base+INT×mult)
 //   added to every auto while active, riderChance = rider rolls per auto,
 //   perAttacker = rider also swings for each active clone, clones+cloneRider =
-//   Doppelganger, revolverMult = Revolver Enhancement proc ×N,
-//   masteryRider/skillDmgPctPerLevel = Miracle Vision, atkSpdPctPerLevel = Khai.
+//   Doppelganger, atkSpdPctPerLevel = Khai, skillDmgPctPerLevel = Miracle.
+//   procBoost {target, mult} = while active, the target proc's damage ×mult
+//   (Death by Revolver). procRider {target, base, mult} = while active, the
+//   target proc gains a rider hit lvl×(base+INT×mult) (Miracle Vision).
+//   Targets match by skill id OR by `replaces` (evolved skills inherit).
 // armorDebuff { perLevel, durationMs }: timed enemy armor strip (autos only).
 // Non-exact leftovers (engine has no substrate): One Inch Punch's
 // "on attacked enemies" (mobs don't attack), Rising Knuckle's pull (no
@@ -160,7 +163,7 @@ export const classes = [
       { id: "revolver",  key: "E", name: "Revolver Enhancement", kind: "proc", procChance: 0.15, base: 50_000, mult: 1_750 },
       { id: "wildshot",  key: "R", name: "Wild Shot",            kind: "cast", base: 0,       mult: 4_000,  cooldownMs: 36_000, aoe: true, radius: 2.5 },
       { id: "deathrev",  key: "T", name: "Death by Revolver",    kind: "cast", base: 0, mult: 0, cooldownMs: 75_000,
-        buff: { durationMs: 28_000, perLevelMs: 2_000, revolverMult: 3 } },
+        buff: { durationMs: 28_000, perLevelMs: 2_000, procBoost: { target: "revolver", mult: 3 } } },
       { id: "scud",      key: "F", name: "Scud Genoside",        kind: "cast", base: 0,       mult: 15_000, cooldownMs: 50_000, aoe: true, radius: 2.5 },
       { id: "seventh",   key: "D", name: "Seventh Flow",         kind: "cast", base: 0,       mult: 40_000, cooldownMs: 50_000, aoe: true, radius: 2.5,
         armorDebuff: { perLevel: 8, durationMs: 10_000 } },
@@ -183,7 +186,7 @@ export const classes = [
       { id: "laser",      key: "E", name: "Laser Rifle",     kind: "cast", base: 0,      mult: 2_500,  cooldownMs: 20_000, aoe: true, radius: 2.5 },
       { id: "quantum",    key: "R", name: "Quantum Bomb",    kind: "cast", base: 0,      mult: 5_000,  cooldownMs: 28_000, aoe: true, radius: 4 },
       { id: "miracle",    key: "T", name: "Miracle Vision",  kind: "cast", base: 0,      mult: 0,      cooldownMs: 70_000,
-        buff: { durationMs: 30_000, masteryRider: { base: 0, mult: 550 }, skillDmgPctPerLevel: 7 } },
+        buff: { durationMs: 30_000, procRider: { target: "heavymastery", base: 0, mult: 550 }, skillDmgPctPerLevel: 7 } },
       { id: "agenttrig",  key: "F", name: "Agent Trigger",   kind: "cast", base: 0,      mult: 10_000, cooldownMs: 30_000, aoe: true, radius: 4 },
       { id: "opraids",    key: "D", name: "Operation Raids", kind: "cast", base: 0,      mult: 32_000, cooldownMs: 65_000, aoe: true, radius: 4 },
     ],
@@ -223,6 +226,10 @@ export const classes = [
 ];
 
 export const getClass = id => classes.find(c => c.id === id);
+
+// Does `skill` answer to `id`? Evolved replacements answer to the base id
+// they replaced (procBoost/procRider targets keep working post-evolution).
+export const matchesSkill = (skill, id) => skill.id === id || skill.replaces === id;
 
 export const MAX_SKILL_LEVEL = 7;
 

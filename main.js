@@ -2,14 +2,15 @@
 // Entry point. Loads the save, wires UI, runs the update/render loop.
 import { gameState } from "./state.js";
 import { save, load, wipe } from "./saveSystem.js";
+import { bindFormatSettings } from "./format.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
-import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, CLASS_WEAPON } from "./items.js";
+import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
-import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills } from "./classes.js";
+import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill } from "./classes.js";
 import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
@@ -22,6 +23,7 @@ import { getBoss, spawnBossMob, TICKET_SUCCESS } from "./bosses.js";
 import { poolFor } from "./items.js";
 
 ///// LOAD SAVE /////
+bindFormatSettings(() => gameState.settings); // before any render uses fmt
 const savedGame = load(gameState);
 if (gameState.characters.length === 0) gameState.characters.push(newCharacter());
 // The active character. Rebound when the roster switches (Legion step 4);
@@ -521,7 +523,7 @@ function enhanceBag(bagIdx, times) {
   const def = getItem(eq.itemId);
   // avatars: souls + copper per try on their own (softer) odds bands
   const avatar = AVATAR_IDS.has(eq.itemId);
-  const [soulKind, soulCost] = eq.itemId.startsWith("lib_") ? ["brilliant", 3] : ["old", 2];
+  const [soulKind, soulCost] = AVATAR_SOULS[eq.itemId] ?? ["old", 2];
   for (let i = 0; i < times; i++) {
     const iv = ivMult(player, gameState.total_time);
     const { result, chance } = avatar
@@ -738,7 +740,7 @@ function resolveKill(mob) {
 function autoRiderDamage(cls, eff) {
   let d = 0;
   const clones = activeClones(eff.clones); // item clones (Abyssal Knuckle) join
-  for (const s of cls?.skills ?? []) {
+  for (const s of skillsOf()) {
     const b = s.buff;
     if (!b || !buffActive(s.id)) continue;
     const L = effSkillLevel(player.skills[s.id], eff);
@@ -827,11 +829,14 @@ function simulateLive(dt) {
             gameState.buffs[`${skill.id}:armor`] = { until: gameState.total_time + skill.armorDebuff.durationMs };
           }
           let procDmg = skillDamage(skill, L, totalInt, eff.skillDmgMult, eff.intRatioMult);
-          // Death by Revolver triples the revolver; Miracle Vision arms the mastery
-          if (skill.id === "revolver" && buffActive("deathrev")) procDmg *= 3;
-          if ((skill.id === "heavymastery" || skill.id === "heavymasteryx") && buffActive("miracle")) {
-            const mv = cls.skills.find(s => s.id === "miracle");
-            procDmg += skillDamage(mv.buff.masteryRider, effSkillLevel(player.skills.miracle, eff), totalInt, eff.skillDmgMult, eff.intRatioMult);
+          // active buffs that target this proc (Death by Revolver ×3,
+          // Miracle Vision's mastery rider) — declared on the buff data
+          for (const b of cls.skills) {
+            if (!b.buff || !buffActive(b.id)) continue;
+            const bL = effSkillLevel(player.skills[b.id], eff);
+            if (b.buff.procBoost && matchesSkill(skill, b.buff.procBoost.target)) procDmg *= b.buff.procBoost.mult;
+            if (b.buff.procRider && matchesSkill(skill, b.buff.procRider.target))
+              procDmg += skillDamage(b.buff.procRider, bL, totalInt, eff.skillDmgMult, eff.intRatioMult);
           }
           if (procDmg > 0 && eff.magicCrit && Math.random() < eff.magicCrit.chance) {
             procDmg = Math.round(procDmg * (1 + eff.magicCrit.pct / 100));

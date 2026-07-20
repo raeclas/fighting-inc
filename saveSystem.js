@@ -4,29 +4,14 @@
 // state.characters; snapshotChar strips transients (lastAttack).
 const KEY = "esrpg_save";
 import { getItem, SPECIAL_IDS } from "./items.js";
+import { newCharacter } from "./player.js";
+import { defaultGathering } from "./gathering.js";
 
-// The persisted fields of one character.
+// The persisted character = everything except transients. New fields persist
+// automatically — no allowlist to forget.
 export function snapshotChar(c) {
-  return {
-    health: c.health,
-    maxHealth: c.maxHealth,
-    attack: c.attack,
-    attackSpeed: c.attackSpeed,
-    level: c.level,
-    xp: c.xp,
-    xpToNext: c.xpToNext,
-    int: c.int,
-    copper: c.copper,
-    equipment: c.equipment,
-    stash: c.stash,
-    specialBag: c.specialBag,
-    souls: c.souls,
-    jars: c.jars,
-    potions: c.potions,
-    potionUntil: c.potionUntil,
-    classId: c.classId,
-    skills: c.skills,
-  };
+  const { lastAttack, ...rest } = c;
+  return rest;
 }
 
 export function serialize(state) {
@@ -54,6 +39,8 @@ export function save(state) {
 }
 
 function normalizeChar(c) {
+  // factory defaults fill any missing top-level field (one source of truth)
+  c = { ...newCharacter(), ...c };
   if (!Array.isArray(c.equipment)) c.equipment = [null, null, null, null, null, null];
   if (!Array.isArray(c.stash)) c.stash = [];
   // quarantine item ids this build doesn't know (save from a newer/older
@@ -72,10 +59,8 @@ function normalizeChar(c) {
     if (SPECIAL_IDS.has(eq.itemId)) { c.specialBag.push(eq); return false; }
     return true;
   });
-  c.int = c.int ?? 0;
-  c.copper = c.copper ?? 0;
+  // nested objects: the shallow spread can't backfill sub-fields of partials
   c.souls = { old: 0, brilliant: 0, ...(c.souls || {}) };
-  c.jars = c.jars || {};
   c.potions = { int: 0, prob: 0, ...(c.potions || {}) };
   c.potionUntil = { int: 0, prob: 0, ...(c.potionUntil || {}) };
   c.lastAttack = 0;
@@ -102,8 +87,8 @@ export function load(state) {
   state.bossCooldowns = s.bossCooldowns ?? {};
   if (s.macro) state.macro = { ...state.macro, ...s.macro };
   if (s.gathering) state.gathering = { ...state.gathering, ...s.gathering };
-  // old saves' buffs object lacks newer fields — re-default additively
-  state.gathering.buffs = { doubleChance: 0, freeAttempts: 0, okTickets: 0, ...(state.gathering.buffs || {}) };
+  // old saves' buffs object lacks newer fields — re-default from the factory
+  state.gathering.buffs = { ...defaultGathering().buffs, ...(state.gathering.buffs || {}) };
   if (s.settings) state.settings = { ...state.settings, ...s.settings };
 
   state.characters = (s.characters ?? []).map(normalizeChar);

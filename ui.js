@@ -1,7 +1,7 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS, zoneLocked } from "./zones.js";
-import { items, getItem, tierOf, maxPlus, aggregate, MERGE_IDS } from "./items.js";
+import { items, getItem, tierOf, maxPlus, MERGE_IDS } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills } from "./classes.js";
 import { JARS, potionActive } from "./consumables.js";
@@ -11,16 +11,10 @@ import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgrade
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST } from "./gathering.js";
 import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
 import { getSheet, SHEETS } from "./sprites.js";
-import { gameState } from "./state.js";
 
-// 1234567 -> "1.23M" (or "1,234,567" with the full-numbers setting, up to 1e15)
-export function fmt(n) {
-  if (n < 1e4) return Math.floor(n).toString();
-  if (gameState.settings.fullNumbers && n < 1e15) return Math.floor(n).toLocaleString("en-US");
-  const units = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
-  const tier = Math.min(units.length - 1, Math.floor(Math.log10(n) / 3));
-  return (n / 10 ** (tier * 3)).toFixed(2) + units[tier];
-}
+// formatting lives in format.js (leaf); re-export keeps existing importers working
+export { fmt, fmtCountdown } from "./format.js";
+import { fmt, fmtCountdown } from "./format.js";
 
 // ---- HUD (portrait / plate / HP / currency / inventory) ----
 let hudPortraitKey = "", hudInvKey = "";
@@ -439,10 +433,6 @@ export function renderEquipment(player, handlers) {
 }
 
 // handlers: { onSummon(bossId), onToggleAuto() }
-function fmtCountdown(ms) {
-  const s = Math.ceil(ms / 1000);
-  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-}
 
 // called every frame; rebuilds only when a gate/cooldown/checkbox state changes
 let lastBossKey = "";
