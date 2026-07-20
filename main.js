@@ -1,25 +1,28 @@
 // main.js
 // Entry point. Loads the save, wires UI, runs the update/render loop.
 import { gameState } from "./state.js";
-import { save, load, wipe } from "./saveSystem.js";
+import { save, load, wipe, exportSave, importSave } from "./saveSystem.js";
 import { bindFormatSettings } from "./format.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
-import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
+import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
 import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderAchievements, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
+import { evalAchievements, achievementBonus, ACHIEVEMENT_BONUS } from "./achievements.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
-import { legionBonuses, unlockedSlots } from "./legion.js";
+import { legionBonuses, unlockedSlots, intTutorMult } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
-import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST } from "./gathering.js";
-import { getBoss, spawnBossMob, TICKET_SUCCESS } from "./bosses.js";
+import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
+import { getBoss, spawnBossMob, TICKET_SUCCESS, FIRST_KILL_BONUS, firstKillBonuses } from "./bosses.js";
+
+const FIRST_KILL_MULT = 10; // first-kill trophy bounty multiplier
 import { poolFor } from "./items.js";
 
 ///// LOAD SAVE /////
@@ -47,7 +50,7 @@ function replaceInField(oldMob, newMob) {
 function selectZone(zoneId, variantIndex) {
   const zone = getZone(zoneId);
   if (!zone) return;
-  const locked = zoneLocked(zone, player);
+  const locked = zoneLocked(zone, player, variantIndex);
   if (locked) return logLine(`${zone.name}: ${locked}.`, "fail");
   gameState.currentZoneId = zoneId;
   gameState.currentVariant = variantIndex;
@@ -112,7 +115,7 @@ function activeClones(extra = 0) {
 }
 
 function effectiveStats() {
-  const g = aggregate(player.equipment, player.specialBag);
+  const g = aggregate(player.equipment, player.specialBag, player.mastery);
   const leg = legionBonuses(gameState);
   const cls = getClass(player.classId);
   const statSk = classStatBonuses(cls, player.skills, g.skillLevelBonus);
@@ -143,8 +146,9 @@ function effectiveStats() {
   // dmgInc ("Increase attack power by N%") stacks additively with the other
   // percent bonuses; addDmg ("Additional damage", best item only) multiplies
   // on top — matches the source tooltips' two separate multiplier families.
-  const bonus = 1 + bestiaryBonus(gameState) + statSk.atkPct / 100
-    + leg.dmgPct / 100 + g.dmgIncPct / 100 + buffAtkPct / 100;
+  const bonus = 1 + bestiaryBonus(gameState) + firstKillBonuses(gameState.kills).dmg
+    + achievementBonus(gameState)
+    + statSk.atkPct / 100 + leg.dmgPct / 100 + g.dmgIncPct / 100 + buffAtkPct / 100;
   // INT (character + item) is flat 1:1 damage, added before the % multipliers.
   // INT potion multiplies PURE (character) INT only — item INT untouched (map).
   const pureMult = potionActive(player, "int", gameState.total_time) ? INT_POTION_MULT : 1;
@@ -308,6 +312,11 @@ function acquireItem(itemId, sourceLabel) {
   if (slot !== -1) {
     player.equipment[slot] = { itemId, plus: 0 };
     logLine(`${sourceLabel} ${def.name}!`, "success");
+  } else if (player.stash.some(e => e.itemId === itemId)) {
+    // stash holds at most one spare per item; further dupes feed mastery
+    // (otherwise AFK boss farming floods the stash forever)
+    player.mastery[itemId] = (player.mastery[itemId] || 0) + 1;
+    logLine(`${sourceLabel} ${def.name} — absorbed into mastery (${player.mastery[itemId]}).`, "success");
   } else {
     player.stash.push({ itemId, plus: 0 });
     logLine(`${sourceLabel} ${def.name} — slots full, sent to stash.`, "success");
@@ -350,6 +359,14 @@ function useEvolutionTicket(boss, tier) {
   refreshMacro(); // skill bar re-renders on the next tick
 }
 
+// IV per roll family: potions/elixir (ivMult) + permanent first-kill trophies
+function dropIv() {
+  return ivMult(player, gameState.total_time) + firstKillBonuses(gameState.kills).drop;
+}
+function enhIv() {
+  return ivMult(player, gameState.total_time) + firstKillBonuses(gameState.kills).enh;
+}
+
 function rollBossDrops(boss, dropMult = 1) {
   const d = boss.drops;
   if (!d) return;
@@ -365,8 +382,8 @@ function rollBossDrops(boss, dropMult = 1) {
     logLine(`${boss.name} leaves ${d.souls.count} souls behind.`, "success");
   }
   // all boss drop rolls scale with the source IV multiplier (probability
-  // potion) and the elite twin's 3× (Formless Sirocco)
-  const iv = ivMult(player, gameState.total_time) * dropMult;
+  // potion / elixir / first-kill trophies) and the elite twin's 3× (Formless Sirocco)
+  const iv = dropIv() * dropMult;
   // item roll — the skill ticket drops ALONGSIDE a successful roll (source Epx)
   if (Math.random() < Math.min(1, d.itemChance * iv)) {
     // specials carry an explicit pool; "classWeapon" resolves per active class
@@ -378,6 +395,16 @@ function rollBossDrops(boss, dropMult = 1) {
   }
   // evolution ticket — independent roll (source dispatch)
   if (d.ticket && Math.random() < Math.min(1, d.ticket.chance * iv)) useEvolutionTicket(boss, d.ticket.tier);
+  // Elixir of Strength — potion count, not an item, so it skips acquireItem
+  if (d.elixir && Math.random() < Math.min(1, d.elixir * iv)) {
+    player.potions.elixir++;
+    logLine(`${boss.name} dropped an Elixir of Strength!`, "success");
+  }
+  // INT bounty (specials): flat chunk per kill — the INT-era heartbeat
+  if (d.intBounty) {
+    player.int += d.intBounty;
+    logLine(`${boss.name} yields +${fmt(d.intBounty)} INT.`, "success");
+  }
   if (d.rare && Math.random() < Math.min(1, d.rare.chance * iv)) {
     const rp = d.rare.pool ? poolFor(d.rare.pool) : [d.rare.itemId];
     acquireItem(rp[Math.floor(Math.random() * rp.length)], `${boss.name} dropped a RARE find:`);
@@ -515,6 +542,15 @@ const gatheringHandlers = {
     g.buffs.okTickets++;
     refreshGathering();
   },
+  onCraftElixir() {
+    const g = gameState.gathering;
+    if (g.resources.ore < ELIXIR_COST.ore || g.resources.fish < ELIXIR_COST.fish)
+      return logLine("Elixir of Strength needs 50 ore + 50 fish.", "fail");
+    g.resources.ore -= ELIXIR_COST.ore;
+    g.resources.fish -= ELIXIR_COST.fish;
+    player.potions.elixir++;
+    refreshGathering();
+  },
 };
 
 function refreshGathering() {
@@ -543,14 +579,14 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
 
 // Open jars: each is a gacha roll (map ORx) — openChance × IV, consumed either way.
 function openJar(jarId, times) {
   const jar = JARS[jarId];
   if (!jar) return;
   let opened = 0, hits = 0;
-  const iv = ivMult(player, gameState.total_time);
+  const iv = dropIv();
   while (opened < times && (player.jars[jarId] || 0) >= 1) {
     player.jars[jarId]--;
     opened++;
@@ -566,12 +602,17 @@ function openJar(jarId, times) {
 
 function usePotion(kind) {
   if ((player.potions[kind] || 0) < 1) return;
+  // source tip: "Duplicate use is not possible." — elixir only; int/prob stack-extend
+  if (kind === "elixir" && potionActive(player, "elixir", gameState.total_time))
+    return logLine("Elixir of Strength: duplicate use is not possible.", "fail");
   player.potions[kind]--;
   // stacking uses extend the timer (map: fixed 30min per potion)
   player.potionUntil[kind] = Math.max(gameState.total_time, player.potionUntil[kind] || 0) + POTION_MS;
-  logLine(kind === "int"
-    ? "Intelligence Potion: pure INT +120% for 30 minutes."
-    : "Probability Potion: all drop & enhance rates +25% for 30 minutes.", "success");
+  logLine({
+    int: "Intelligence Potion: pure INT +120% for 30 minutes.",
+    prob: "Probability Potion: all drop & enhance rates +25% for 30 minutes.",
+    elixir: "Elixir of Strength: all drop & enhance rates +60% for 30 minutes.",
+  }[kind], "success");
   renderEquipment(player, equipHandlers);
 }
 
@@ -594,7 +635,7 @@ function enhanceBag(bagIdx, times) {
   const avatar = AVATAR_IDS.has(eq.itemId);
   const [soulKind, soulCost] = AVATAR_SOULS[eq.itemId] ?? ["old", 2];
   for (let i = 0; i < times; i++) {
-    const iv = ivMult(player, gameState.total_time);
+    const iv = enhIv();
     const { result, chance } = avatar
       ? tryAvatarEnhance(player, eq, def, soulKind, soulCost, Math.random, gameState.gathering.buffs, iv)
       : tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, iv);
@@ -651,6 +692,19 @@ function discardStash(stashIdx) {
   renderEquipment(player, equipHandlers);
 }
 
+// Absorb a stash item into mastery: worth 1 + its plus level (a +20 = 21).
+function absorbStash(stashIdx) {
+  const eq = player.stash[stashIdx];
+  if (!eq) return;
+  const def = getItem(eq.itemId);
+  const worth = 1 + eq.plus;
+  if (!confirm(`Absorb ${def.name} +${eq.plus} into mastery (+${worth})? The item is consumed.`)) return;
+  player.stash.splice(stashIdx, 1);
+  player.mastery[eq.itemId] = (player.mastery[eq.itemId] || 0) + worth;
+  logLine(`Absorbed ${def.name} +${eq.plus} — ${def.name} mastery ${player.mastery[eq.itemId]}.`, "success");
+  renderEquipment(player, equipHandlers);
+}
+
 function buy(itemId) {
   const def = getItem(itemId);
   const slot = player.equipment.indexOf(null);
@@ -668,7 +722,7 @@ function enhance(slotIdx, times) {
   const def = getItem(eq.itemId);
 
   for (let i = 0; i < times; i++) {
-    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, ivMult(player, gameState.total_time));
+    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, enhIv());
     if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
     const pct = (chance * 100).toFixed(2);
@@ -725,14 +779,24 @@ function tick() {
     ? { copper: player.copper, level: player.level, kills: killSum() }
     : null;
 
-  if (dt > BATCH_THRESHOLD_MS) simulateBatch(dt);
-  else simulateLive(dt);
+  // Isolate sim errors so the autosave below keeps running (a persistent
+  // throw here would otherwise silently stop all saving).
+  try {
+    if (dt > BATCH_THRESHOLD_MS) simulateBatch(dt);
+    else simulateLive(dt);
 
-  gatherTick(); // while-loop inside digests any gap, live or offline
+    gatherTick(); // while-loop inside digests any gap, live or offline
 
-  if (before) showOfflineModal(dt, before);
+    if (before) showOfflineModal(dt, before);
+  } catch (e) {
+    console.error("[tick sim]", e);
+  }
 
   if (gameState.total_time - gameState.last_save >= 5000) {
+    // achievements ride the 5s cadence — ~18 cheap boolean checks
+    for (const a of evalAchievements(gameState)) {
+      logLine(`Achievement unlocked: ${a.name} — ${a.desc}! (+${ACHIEVEMENT_BONUS * 100}% damage)`, "success");
+    }
     save(gameState);
     gameState.last_save = gameState.total_time;
   }
@@ -758,6 +822,18 @@ function resolveKill(mob) {
     gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
     const boss = getBoss(mob.bossId);
     logLine(`${boss.name} defeated! ${boss.respawnMs ? "Bounty" : "Refund"} ${fmt(mob.copper)}c.`, "success");
+    // first-kill trophy: 10× bounty burst + permanent account bonus
+    if (gameState.kills[mob.bossId] === 1) {
+      const d = boss.drops;
+      const base = d?.bounty ? d.bounty * 1e9 ** (d.bountyTier ?? 0) : mob.copper;
+      const paid = earnCopper(base * FIRST_KILL_MULT);
+      pushBattleEvent({ type: "bag", copper: paid });
+      const fb = FIRST_KILL_BONUS[mob.bossId];
+      const fbLabel = fb
+        ? { dmg: `+${fb[1] * 100}% damage`, drop: `+${fb[1] * 100}% drop rates`, enh: `+${fb[1] * 100}% enhance rates` }[fb[0]]
+        : null;
+      logLine(`FIRST KILL: ${boss.name}! Trophy bounty +${fmt(paid)}c${fbLabel ? ` and ${fbLabel} forever` : ""}.`, "success");
+    }
     rollBossDrops(boss, mob.elite ? (boss.eliteDropMult ?? 1) : 1);
     if (boss.respawnMs) gameState.bossCooldowns[boss.id] = gameState.total_time + boss.respawnMs;
     if (gameState.autoResummon && !boss.respawnMs && player.copper >= boss.summonCost) {
@@ -775,16 +851,19 @@ function resolveKill(mob) {
     const bag = earnCopper(mob.bag); // guaranteed bag (map: 100% drop)
     pushBattleEvent({ type: "bag", copper: bag });
     gameState.fieldKills[mob.zoneId] = (gameState.fieldKills[mob.zoneId] || 0) + 1;
-    logLine(`${mob.name} felled! Bag: +${fmt(bag)}c.`, "success");
+    // INT spike: 100× the zone drip (tutored) — variance on the INT-era grind
+    const fbInt = Math.round(intDrip(getZone(mob.zoneId), player) * FIELD_BOSS_INT_MULT * intTutorMult(gameState));
+    if (fbInt) player.int += fbInt;
+    logLine(`${mob.name} felled! Bag: +${fmt(bag)}c${fbInt ? ` · +${fmt(fbInt)} INT` : ""}.`, "success");
     if (gameState.field.length === 1) selectZone(mob.zoneId, mob.variant); // solo hunt → back to field
     else replaceInField(mob, spawnMob(getZone(mob.zoneId), mob.variant));   // elite in the ranks → regular
     return;
   }
 
   // regular field mob: INT, rare bag roll, refill the slot — or a field boss joins the ranks
-  if (mob.intPerKill) player.int += intDrip(getZone(mob.zoneId), player); // "No INT after X" cap
+  if (mob.intPerKill) player.int += intDrip(getZone(mob.zoneId), player) * intTutorMult(gameState); // capped drip × legion tutoring
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
-  const iv = ivMult(player, gameState.total_time);
+  const iv = dropIv();
   if (Math.random() < BAG_CHANCE * iv) {
     pushBattleEvent({ type: "bag", copper: earnCopper(mob.bag) });
   }
@@ -1033,8 +1112,9 @@ function simulateBatch(dt) {
   if (kills <= 0) return;
 
   const copper = earnCopper(Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag)));
-  // int drip respects the zone's cap; coarse (whole batch at pre-batch int)
-  player.int += kills * intDrip(getZone(mob.zoneId), player);
+  // int drip respects the zone's cap; coarse (whole batch at pre-batch int).
+  // Tutoring applies; field-boss spikes don't (not modeled in batch).
+  player.int += kills * intDrip(getZone(mob.zoneId), player) * intTutorMult(gameState);
   // jar EV (float counts; no IV offline — buffs aren't modeled in batch)
   const jarEV = jarFor(mob.zoneId, mob.variant);
   if (jarEV) player.jars[jarEV[0]] = (player.jars[jarEV[0]] || 0) + kills * jarEV[1];
@@ -1060,6 +1140,7 @@ function render() {
   renderSkillBar(gameState, player, eff, castSkill);
   renderZoneList(player, selectZone); // key-cached; re-renders when a gate flips
   renderBestiary(gameState);
+  renderAchievements(gameState);
   renderLegion(gameState, rosterHandlers);
   renderBossList(gameState, player, eff, bossHandlers);
 }
@@ -1099,6 +1180,34 @@ document.getElementById("resetGame").onclick = () => {
   resetting = true;
   wipe();
   location.reload();
+};
+
+document.getElementById("exportSave").onclick = () => {
+  const blob = new Blob([exportSave(gameState)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "esrpg_save.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  logLine("Save exported.");
+};
+
+const importFile = document.getElementById("importFile");
+document.getElementById("importSave").onclick = () => importFile.click();
+importFile.onchange = () => {
+  const f = importFile.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (importSave(reader.result)) {
+      resetting = true; // beforeunload must not overwrite the imported save
+      location.reload();
+    } else {
+      logLine("Invalid save file.", "fail");
+      importFile.value = "";
+    }
+  };
+  reader.readAsText(f);
 };
 
 ///// START /////

@@ -30,14 +30,18 @@ export function newCharacter() {
     // special items (rings/necklaces/talismans/insignia/aura): bag, not the 6 slots
     specialBag: [],
 
+    // item mastery: itemId -> absorbed duplicate count. Duplicates beyond the
+    // one stash spare feed this instead of flooding the stash.
+    mastery: {},
+
     // avatar-enhancement souls: "100 years old" (Seria) / "Brilliant Sarah" (Library)
     souls: { old: 0, brilliant: 0 },
 
     // zone-jar inventory (FLOAT counts: live kills +1, offline EV +kills×chance;
     // UI floors, opening needs ≥1) + potion counts and active-buff expiries
     jars: {},
-    potions: { int: 0, prob: 0 },
-    potionUntil: { int: 0, prob: 0 }, // absolute total_time — survives reload
+    potions: { int: 0, prob: 0, elixir: 0 },
+    potionUntil: { int: 0, prob: 0, elixir: 0 }, // absolute total_time — survives reload
 
     // class + known skills (skillId -> level 1..7)
     classId: null,

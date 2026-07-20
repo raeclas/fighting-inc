@@ -21,6 +21,7 @@ export function serialize(state) {
     total_time: state.total_time,
     kills: state.kills,
     fieldKills: state.fieldKills,
+    achievements: state.achievements,
     currentZoneId: state.currentZoneId,
     currentVariant: state.currentVariant,
     autoResummon: state.autoResummon,
@@ -35,7 +36,38 @@ export function serialize(state) {
 }
 
 export function save(state) {
-  localStorage.setItem(KEY, JSON.stringify(serialize(state)));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(serialize(state)));
+  } catch (e) {
+    console.error("[save]", e); // quota / private mode — keep the game running
+  }
+}
+
+// Pure shape check shared by load() and importSave(). v<3 saves are invalid:
+// the source-fidelity pass rebased the whole economy.
+export function validSave(s) {
+  return !!s && typeof s === "object" && (s.v ?? 1) >= 3;
+}
+
+function parseSave(raw) {
+  if (!raw) return null;
+  try {
+    const s = JSON.parse(raw);
+    return validSave(s) ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+export function exportSave(state) {
+  save(state); // export what's live, not a stale blob
+  return localStorage.getItem(KEY);
+}
+
+export function importSave(text) {
+  if (!parseSave(text)) return false;
+  localStorage.setItem(KEY, text);
+  return true;
 }
 
 function normalizeChar(c) {
@@ -61,8 +93,8 @@ function normalizeChar(c) {
   });
   // nested objects: the shallow spread can't backfill sub-fields of partials
   c.souls = { old: 0, brilliant: 0, ...(c.souls || {}) };
-  c.potions = { int: 0, prob: 0, ...(c.potions || {}) };
-  c.potionUntil = { int: 0, prob: 0, ...(c.potionUntil || {}) };
+  c.potions = { int: 0, prob: 0, elixir: 0, ...(c.potions || {}) };
+  c.potionUntil = { int: 0, prob: 0, elixir: 0, ...(c.potionUntil || {}) };
   c.lastAttack = 0;
   return c;
 }
@@ -72,15 +104,24 @@ function normalizeChar(c) {
 // v<3 saves are DISCARDED: the source-fidelity pass rebased the whole economy
 // (items, skills, level growth) — old progress is incoherent on the new curve.
 export function load(state) {
-  const raw = localStorage.getItem(KEY);
-  if (!raw) return null;
-  let s;
-  try { s = JSON.parse(raw); } catch { return null; }
-  if ((s.v ?? 1) < 3) return null;
+  let raw = localStorage.getItem(KEY);
+  let s = parseSave(raw);
+  if (raw && !s) {
+    // corrupt/unusable primary: preserve it for manual rescue (previously the
+    // next autosave silently destroyed it), then fall back to last-known-good
+    try { localStorage.setItem(KEY + "_corrupt", raw); } catch {}
+    raw = localStorage.getItem(KEY + "_bak");
+    s = parseSave(raw);
+  }
+  if (!s) return null;
+  // last-known-good backup: one write at startup, so the 5s autosave can
+  // never clobber it with a bad state mid-session
+  try { localStorage.setItem(KEY + "_bak", raw); } catch {}
 
   state.total_time = s.total_time ?? 0;
   state.kills = s.kills ?? {};
   state.fieldKills = s.fieldKills ?? {};
+  state.achievements = s.achievements ?? {};
   state.currentZoneId = s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;
   state.autoResummon = s.autoResummon ?? false;
@@ -99,4 +140,6 @@ export function load(state) {
 
 export function wipe() {
   localStorage.removeItem(KEY);
+  localStorage.removeItem(KEY + "_bak");     // reset must not resurrect
+  localStorage.removeItem(KEY + "_corrupt");
 }

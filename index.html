@@ -97,6 +97,7 @@
       </div>
       <div class="tabPanel" data-panel="bestiary">
         <div class="panel"><h3>Bestiary</h3><div class="bestiaryList"></div></div>
+        <div class="panel"><h3>Achievements</h3><div class="achievementList"></div></div>
       </div>
       <div class="tabPanel" data-panel="legion">
         <div class="panel"><h3>Legion</h3><div class="legionPanel"></div></div>
@@ -107,6 +108,9 @@
     <div class="dangerZone">
       <em>Danger zone — this wipes your save.</em>
       <button id="resetGame">Reset Game</button>
+      <button id="exportSave">Export Save</button>
+      <button id="importSave">Import Save</button>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none">
     </div>
   </div>
 

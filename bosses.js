@@ -14,6 +14,39 @@
 export const INTEREST = 1.5;        // kill refund = summonCost * INTEREST
 export const TICKET_SUCCESS = 0.05; // ticket level-up success (100% if unknown)
 
+// First-kill trophies (OUR design, not source): the first kill of each boss
+// grants a permanent account bonus. kind: dmg = +global damage fraction,
+// drop = +IV on drop rolls, enh = +IV on enhance rolls.
+export const FIRST_KILL_BONUS = {
+  hellparty: ["dmg", 0.005],  anton: ["drop", 0.01],
+  luke: ["dmg", 0.005],       harlem: ["drop", 0.01],
+  abysswalker: ["dmg", 0.005], sirocco: ["drop", 0.01],
+  taibers: ["dmg", 0.005],    fiendwar: ["drop", 0.01],
+  ozma: ["dmg", 0.005],       berias: ["drop", 0.01],
+  prey: ["dmg", 0.005],       tiamat: ["drop", 0.01],
+  hyunfindwar: ["dmg", 0.005], queendestroyer: ["drop", 0.01],
+  astaroth: ["dmg", 0.005],   astaroth2: ["drop", 0.01],
+  spirazzi: ["dmg", 0.005],   ezra: ["drop", 0.01],
+  luton: ["dmg", 0.005],      transfrey: ["drop", 0.01],
+  baekhwa: ["dmg", 0.005],    ezraabyss: ["drop", 0.01],
+  hisma: ["dmg", 0.005],      abyssirocco: ["drop", 0.01],
+  skasa: ["dmg", 0.005],
+  bernardo: ["enh", 0.02], bernardo2: ["enh", 0.02], seria: ["enh", 0.02],
+  librarykeeper: ["enh", 0.02], trialgiver: ["enh", 0.02],
+};
+
+// kills map -> summed { dmg, enh, drop } over bosses killed at least once
+export function firstKillBonuses(kills) {
+  const out = { dmg: 0, enh: 0, drop: 0 };
+  for (const id in FIRST_KILL_BONUS) {
+    if ((kills[id] ?? 0) >= 1) {
+      const [kind, amt] = FIRST_KILL_BONUS[id];
+      out[kind] += amt;
+    }
+  }
+  return out;
+}
+
 const S = 1, GOLD = 2; // bounty tiers (0 = copper)
 
 export const bosses = [
@@ -184,7 +217,8 @@ export const bosses = [
     reqInt: 100_000, respawnMs: 18 * 60_000, regenPct: 0,
     skillIndex: null,
     drops: { itemChance: 0.0225, pool: ["bernardo_neck", "bernardo_ring", "classWeapon"],
-             ticket: { chance: 0.01875, tier: "abyss" },
+             ticket: { chance: 0.01875, tier: "abyss" }, elixir: 0.02,
+             intBounty: 1_500, // ~1.5% of reqInt per kill — INT-era heartbeat (OUR design)
              bountyTier: 0, bounty: 50_000_000 },
   },
   {
@@ -193,7 +227,8 @@ export const bosses = [
     reqInt: 500_000, respawnMs: 24 * 60_000, regenPct: 0,
     skillIndex: null,
     drops: { itemChance: 0.0075, pool: ["bernardo2_staff", "bernardo2_ring", "bernardo2_neck"],
-             ticket: { chance: 0.0075, tier: "trans" },
+             ticket: { chance: 0.0075, tier: "trans" }, elixir: 0.02,
+             intBounty: 7_500,
              bountyTier: 0, bounty: 300_000_000 },
   },
   {
@@ -202,7 +237,8 @@ export const bosses = [
     reqInt: 1_500_000, respawnMs: 30 * 60_000, regenPct: 0,
     skillIndex: null,
     drops: { itemChance: 0.003, pool: ["seria_weaponav", "seria_auraav", "seria_cloneav"],
-             souls: { kind: "old", count: 6 },
+             souls: { kind: "old", count: 6 }, elixir: 0.02,
+             intBounty: 20_000,
              bountyTier: 0, bounty: 1_000_000_000 },
   },
   {
@@ -211,7 +247,8 @@ export const bosses = [
     reqInt: 5_000_000, respawnMs: 25 * 60_000, regenPct: 0,
     skillIndex: null,
     drops: { itemChance: 0.001, pool: ["lib_weaponav", "lib_cloneav", "lib_auraav"],
-             souls: { kind: "brilliant", count: 6 },
+             souls: { kind: "brilliant", count: 6 }, elixir: 0.02,
+             intBounty: 75_000,
              bountyTier: S, bounty: 250_000 },
   },
   {
@@ -220,7 +257,8 @@ export const bosses = [
     reqInt: 15_000_000, respawnMs: 30 * 60_000, regenPct: 0,
     skillIndex: null,
     drops: { itemChance: 0.005, pool: ["trial_staff", "trial_ring", "trial_neck"],
-             ticket: { chance: 0.0015, tier: "awaken" },
+             ticket: { chance: 0.0015, tier: "awaken" }, elixir: 0.02,
+             intBounty: 200_000,
              bountyTier: GOLD, bounty: 5 },
   },
 ];

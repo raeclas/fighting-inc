@@ -99,10 +99,20 @@ export function tierOf(def, plus) {
 export const statValue = (def, plus) => tierOf(def, plus).atk ?? 0;
 export const intValue = (def, plus) => tierOf(def, plus).int ?? 0;
 
+// item mastery: absorbed-duplicate milestones -> flat atk/int bonus on that
+// item. Percent stats untouched (best-only/stacking rules stay intact).
+export const MASTERY_MILESTONES = [1, 10, 100, 1000];
+export const MASTERY_BONUS = 0.02; // +2% atk & int per milestone, max +8%
+export function masteryMult(count) {
+  let n = 0;
+  for (const m of MASTERY_MILESTONES) if (count >= m) n++;
+  return 1 + n * MASTERY_BONUS;
+}
+
 // equipment: array of ({itemId, plus} | null) -> folded stat bundle.
 // specialBag: rings/necklaces/talismans/insignia/auras — folded the same,
 // except aura items (defReduce) contribute DEF only (source special-slot rule).
-export function aggregate(equipment, specialBag = []) {
+export function aggregate(equipment, specialBag = [], mastery = {}) {
   const out = {
     atk: 0, int: 0,
     spdPct: 0,          // best only
@@ -131,8 +141,9 @@ export function aggregate(equipment, specialBag = []) {
     // Lumen-style aura: DEF only from the bag, atk/int suppressed. Applies to
     // true auras only — defReduce NECKLACES/avatars keep their stats (source).
     if (bagged && AURA_IDS.has(eq.itemId)) { out.defReduce += t.defReduce ?? 0; return; }
-    out.atk += t.atk ?? 0;
-    out.int += t.int ?? 0;
+    const mm = masteryMult(mastery[eq.itemId] || 0);
+    out.atk += (t.atk ?? 0) * mm;
+    out.int += (t.int ?? 0) * mm;
     if (t.spdPct) out.spdPct = Math.max(out.spdPct, t.spdPct);
     if (t.dmgInc) out.dmgIncPct += t.dmgInc;
     if (t.addDmg) out.addDmgPct = Math.max(out.addDmgPct, t.addDmg);
@@ -161,6 +172,7 @@ export function aggregate(equipment, specialBag = []) {
   };
   for (const eq of equipment) fold(eq, false);
   for (const eq of specialBag) fold(eq, true);
+  out.atk = Math.round(out.atk); // mastery mult can leave fractions
   out.int = Math.round(out.int * (1 + out.itemIntPct / 100));
   return out;
 }

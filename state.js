@@ -18,6 +18,7 @@ export const gameState = {
 
   kills: {},            // zoneId/bossId -> lifetime kill count (feeds bestiary)
   fieldKills: {},       // zoneId -> field-boss kill count
+  achievements: {},     // achievementId -> true (earned; feeds damage bonus)
 
   currentZoneId: null,
   currentVariant: 0,

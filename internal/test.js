@@ -2,18 +2,19 @@
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS } from "../items.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryMult } from "../items.js";
 import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js";
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
 import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
-import { bosses, spawnBossMob } from "../bosses.js";
+import { bosses, spawnBossMob, FIRST_KILL_BONUS, firstKillBonuses } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
-import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES } from "../legion.js";
-import { load, serialize } from "../saveSystem.js";
+import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES, intTutorMult } from "../legion.js";
+import { load, serialize, validSave, importSave } from "../saveSystem.js";
 import { classes, skillDamage, classStatBonuses, radiusOf, buffDuration } from "../classes.js";
 import { newCharacter, gainXP, agiSpeedPct } from "../player.js";
 import { zones, zoneLocked, intDrip } from "../zones.js";
+import { ACHIEVEMENTS, ACHIEVEMENT_BONUS, achievementBonus, evalAchievements } from "../achievements.js";
 
 // field: 16 mobs on a 4×4 grid, AoE radius → coverage
 const field = spawnField(getZone("kiln"), 0);
@@ -195,6 +196,25 @@ assert.ok(zoneLocked(zones.find(z => z.id === "aurum"), { level: 5000, int: 1e6 
 const warpit = zones.find(z => z.id === "warpit");
 assert.equal(intDrip(warpit, { int: 1e6 }), warpit.intPerKill);
 assert.equal(intDrip(warpit, { int: 2e6 }), 0);                 // No INT after 2M
+
+// per-variant gates (source teleport items): Luke 20x = "100 times" bridge
+const spire = zones.find(z => z.id === "spire");
+assert.ok(zoneLocked(spire, { level: 5000, int: 300_000 }, 0));           // 1x locked past 250k
+assert.equal(zoneLocked(spire, { level: 5000, int: 300_000 }, 2), null);  // 20x open to 510k
+assert.ok(zoneLocked(spire, { level: 5000, int: 510_000 }, 2));           // 20x locks at 510k
+assert.equal(zoneLocked(spire, { level: 5000, int: 300_000 }), null);     // zone open if any variant is
+assert.ok(zoneLocked(warpit, { level: 5000, int: 450_000 }, 2));          // 10x-analog needs 500k
+assert.equal(zoneLocked(warpit, { level: 5000, int: 450_000 }, 0), null); // 1x open at 400k
+const sorrow = zones.find(z => z.id === "sorrow");
+assert.equal(zoneLocked(sorrow, { level: 5000, int: 2.5e6 }, 0), null);   // (Q) opens 2.2M
+assert.ok(zoneLocked(sorrow, { level: 5000, int: 2.5e6 }, 1));            // (W 5x) needs 4M
+// no INT dead zone anywhere: every INT value has at least one INT-yielding zone
+for (let int = 5_000; int <= 20e6; int = Math.round(int * 1.05)) {
+  const p = { level: 5000, int };
+  const ok = zones.some(z => intDrip(z, p) > 0 &&
+    [0, 1, 2].some(v => !zoneLocked(z, p, v)));
+  assert.ok(ok, `INT dead zone at ${int}`);
+}
 assert.equal(kiln.name, "Fallen Temple");                       // source names
 
 // boss schema: sane numbers, resolvable pools/rares, regen math, ticket ladder
@@ -439,8 +459,8 @@ localStorage.setItem("esrpg_save", JSON.stringify({
 const st5 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: { doubleChance: 0, freeAttempts: 0, okTickets: 0 } }, settings: { fullNumbers: false } };
 load(st5);
 assert.equal(st5.characters[0].jars.sirocco, 2.75);
-assert.deepEqual(st5.characters[0].potions, { int: 1, prob: 0 });
-assert.deepEqual(st5.characters[0].potionUntil, { int: 0, prob: 12345 });
+assert.deepEqual(st5.characters[0].potions, { int: 1, prob: 0, elixir: 0 });
+assert.deepEqual(st5.characters[0].potionUntil, { int: 0, prob: 12345, elixir: 0 });
 assert.deepEqual(st5.gathering.buffs, { doubleChance: 3, freeAttempts: 1, okTickets: 0 });
 assert.equal(serialize(st5).characters[0].jars.sirocco, 2.75);
 
@@ -475,7 +495,7 @@ const minC = st6.characters[0];
 assert.equal(minC.level, 9);
 assert.deepEqual(minC.equipment, [null, null, null, null, null, null]);
 assert.deepEqual(minC.souls, { old: 5, brilliant: 0 }); // partial nested keeps new sub-fields
-assert.deepEqual(minC.potions, { int: 0, prob: 0 });
+assert.deepEqual(minC.potions, { int: 0, prob: 0, elixir: 0 });
 assert.equal(minC.xpToNext, 150);
 
 // avatar soul map covers every avatar id
@@ -529,5 +549,95 @@ assert.equal(aggregate([{ itemId: "fusion_garb", plus: 20 }]).dmgIncPct, 13000);
 const fs = bosses.find(b => b.id === "abyssirocco");
 assert.ok(fs && fs.eliteChance === 0.2 && fs.eliteDropMult === 3);
 assert.equal(poolFor("abyssirocco").length, 5);
+
+// item mastery: milestone mult + aggregate wiring (default arg = zero drift)
+{
+  assert.equal(masteryMult(0), 1);
+  assert.equal(masteryMult(1), 1.02);
+  assert.equal(masteryMult(10), 1.04);
+  assert.equal(masteryMult(999), 1.06);
+  assert.equal(masteryMult(1000), 1.08);
+  const eqp = [{ itemId: "luke_dmg", plus: 20 }];
+  const plain = aggregate(eqp);
+  const mastered = aggregate(eqp, [], { luke_dmg: 10 });
+  assert.equal(mastered.atk, Math.round(plain.atk * 1.04));
+  assert.equal(mastered.int, Math.round(tierOf(getItem("luke_dmg"), 20).int * 1.04));
+  assert.deepEqual(aggregate(eqp, [], {}), plain); // no mastery = identical
+}
+
+// Elixir of Strength: +60% IV, additive with prob potion, backfilled on load
+{
+  const c = { potionUntil: { elixir: 1000 } };
+  assert.equal(ivMult(c, 500), 1.6);
+  assert.equal(ivMult(c, 1500), 1);
+  const both = { potionUntil: { prob: 1000, elixir: 1000 } };
+  assert.equal(Math.round(ivMult(both, 500) * 100), 185);
+  // special bosses carry the elixir drop field
+  for (const id of ["bernardo", "bernardo2", "seria", "librarykeeper", "trialgiver"])
+    assert.equal(bosses.find(b => b.id === id).drops.elixir, 0.02);
+}
+
+// first-kill trophies: every table id is a real boss, every boss has a trophy
+{
+  const ids = new Set(bosses.map(b => b.id));
+  for (const id in FIRST_KILL_BONUS) assert.ok(ids.has(id), `unknown boss ${id}`);
+  for (const b of bosses) assert.ok(FIRST_KILL_BONUS[b.id], `no trophy for ${b.id}`);
+  assert.deepEqual(firstKillBonuses({}), { dmg: 0, enh: 0, drop: 0 });
+  const some = firstKillBonuses({ hellparty: 5, anton: 1, bernardo: 1, kiln: 99 });
+  assert.equal(some.dmg, 0.005);
+  assert.equal(some.drop, 0.01);
+  assert.equal(some.enh, 0.02);
+}
+
+// achievements: none on empty state, fire on synthetic, bonus math, no re-earn
+{
+  const empty = { achievements: {}, kills: {}, fieldKills: {}, characters: [], gathering: { level: { mining: 1, fishing: 1 } } };
+  assert.equal(evalAchievements(empty).length, 0);
+  assert.equal(achievementBonus(empty), 0);
+  const rich = {
+    achievements: {}, kills: { kiln: 600, hellparty: 1 }, fieldKills: { kiln: 400 },
+    characters: [
+      { int: 1_000_000, level: 100, copper: 1e9, equipment: [{ itemId: "rafaros", plus: 20 }], stash: [], specialBag: [{ itemId: "talisman", plus: 1 }], mastery: { rafaros: 3 } },
+      { int: 0, level: 1, copper: 0, equipment: [], stash: [], specialBag: [], mastery: {} },
+    ],
+    gathering: { level: { mining: 10, fishing: 10 } },
+  };
+  const earned = evalAchievements(rich);
+  const ids = earned.map(a => a.id).sort();
+  assert.deepEqual(ids, ["bossfirst", "fieldboss", "gather10", "int100k", "int1m", "kills1k", "lvl100", "mastery1", "merged", "plus10", "plus15", "plus20", "roster2", "silver"]);
+  assert.equal(achievementBonus(rich), ids.length * ACHIEVEMENT_BONUS);
+  assert.equal(evalAchievements(rich).length, 0); // already earned — no repeats
+}
+
+// INT-era speedups: boss INT bounties on the 5 specials, legion tutoring
+{
+  const expected = { bernardo: 1500, bernardo2: 7500, seria: 20000, librarykeeper: 75000, trialgiver: 200000 };
+  for (const [id, amt] of Object.entries(expected))
+    assert.equal(bosses.find(b => b.id === id).drops.intBounty, amt);
+  assert.equal(intTutorMult({ active: 0, characters: [{ int: 5e5 }] }), 1);            // solo
+  assert.equal(intTutorMult({ active: 0, characters: [{ int: 5e5 }, { int: 2000 }] }), 1.1);  // 1 benched past gate
+  assert.equal(intTutorMult({ active: 0, characters: [{ int: 5e5 }, { int: 500 }] }), 1);     // benched below gate
+  assert.equal(intTutorMult({ active: 1, characters: [{ int: 5e5 }, { int: 2000 }] }), 1.1);  // active char never counts itself
+}
+
+// save durability: validSave gate, corrupt primary preserved + backup restored
+{
+  assert.equal(validSave(null), false);
+  assert.equal(validSave("nope"), false);
+  assert.equal(validSave({ v: 2 }), false);
+  assert.equal(validSave({ v: 3 }), true);
+  const good = JSON.stringify({ v: 3, characters: [{ classId: "indra", level: 4 }], active: 0, slots: 1 });
+  localStorage.setItem("esrpg_save", good);
+  const stA = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: {} }, settings: { fullNumbers: false } };
+  assert.ok(load(stA));
+  assert.equal(localStorage.getItem("esrpg_save_bak"), good); // last-known-good written
+  localStorage.setItem("esrpg_save", "{corrupt garbage");
+  const stB = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: {} }, settings: { fullNumbers: false } };
+  assert.ok(load(stB)); // falls back to _bak
+  assert.equal(stB.characters[0].level, 4);
+  assert.equal(localStorage.getItem("esrpg_save_corrupt"), "{corrupt garbage"); // rescue copy kept
+  assert.equal(importSave("{also garbage"), false);
+  assert.equal(importSave(good), true);
+}
 
 console.log("all checks passed");

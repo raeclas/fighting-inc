@@ -76,3 +76,11 @@ Fallen Temple 10c/kill (bag 150c) … Harlem 5,999,999c (+1 INT), Harlem-R
 599,999,936c (+2 INT), Harlem-D 179s (+3), Stormy 5,399s (+15), Aiolite 80,999s
 (+4), Ore of Despair 1.62M s (+20; 20x: 32.4M s, +10), Best 599,999,936s (+10).
 Entry gates + "No Entry after INT X" lockouts listed per zone (roadmap item 1).
+
+### Per-variant gates (war3map.j teleport dispatch ~72352; each lap count = own shop item)
+Luke (R) 75k..250k · **Luke (A) [100x] 150k..510k — the bridge past Luke's
+lockout to Fiend War** · Findwar (S)/(D 5x) 400k+, (F 10x) 500k+ · Storm (Z)
+550k+, Abyss Storm (X) 700k+ · Despair (Q) 2.2M+, (W 5x) 4M+, (E 20x) 15M+
+(no INT cap) · Beryl (R)/(A 5x) 15.5M+. Gates check `GetHeroInt(u,false)` =
+BASE int only (items/potions do NOT count). Implemented as `variantGates`
+arrays in zones.js (our 20x = highest source variant analog).

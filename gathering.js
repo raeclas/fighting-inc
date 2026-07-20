@@ -13,6 +13,7 @@ export const OFFERING_FISH_COST = 5;   // 1 Greasy Offering: next enhance costs 
 export const INT_POTION_FISH_COST = 10;   // 1 INT potion: +120% pure INT, 30min
 export const PROB_POTION_ORE_COST = 10;   // 1 Probability potion: IV +25%, 30min
 export const OK_TICKET_COST = { ore: 25, fish: 25 }; // guaranteed enhance at any band
+export const ELIXIR_COST = { ore: 50, fish: 50 };    // Elixir of Strength: IV +60%, 30min, no restack
 
 export function tickIntervalMs(level) {
   return Math.round(5000 * 0.97 ** (level - 1));

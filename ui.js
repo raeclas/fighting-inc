@@ -1,15 +1,16 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS, zoneLocked, intDrip } from "./zones.js";
-import { items, getItem, tierOf, maxPlus, MERGE_IDS } from "./items.js";
+import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryMult, MASTERY_MILESTONES } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills } from "./classes.js";
 import { JARS, potionActive } from "./consumables.js";
 import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
+import { ACHIEVEMENTS, achievementBonus } from "./achievements.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
-import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST } from "./gathering.js";
-import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
+import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
+import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt, intTutorMult } from "./legion.js";
 import { getSheet, SHEETS } from "./sprites.js";
 
 // formatting lives in format.js (leaf); re-export keeps existing importers working
@@ -86,6 +87,7 @@ function updateHud(state, player) {
   const potParts = [];
   if (potionActive(player, "int", now)) potParts.push(`INT ${fmtCountdown(player.potionUntil.int - now)}`);
   if (potionActive(player, "prob", now)) potParts.push(`IV ${fmtCountdown(player.potionUntil.prob - now)}`);
+  if (potionActive(player, "elixir", now)) potParts.push(`ELIXIR ${fmtCountdown(player.potionUntil.elixir - now)}`);
   document.getElementById("potionRow").style.display = potParts.length ? "" : "none";
   if (potParts.length) document.getElementById("potionVal").textContent = potParts.join(" · ");
 
@@ -224,7 +226,8 @@ export function updateUI(state, player, eff) {
 // Called every frame; rebuilds when a gate opens/closes or an INT drip caps out.
 let lastZoneKey = "";
 export function renderZoneList(player, onSelect, force = false) {
-  const key = zones.map(z => `${zoneLocked(z, player) ?? ""}:${intDrip(z, player)}`).join("|");
+  const key = zones.map(z =>
+    `${VARIANTS.map((_, i) => zoneLocked(z, player, i) ?? "").join(",")}:${intDrip(z, player)}`).join("|");
   if (!force && key === lastZoneKey) return;
   lastZoneKey = key;
 
@@ -248,8 +251,12 @@ export function renderZoneList(player, onSelect, force = false) {
       VARIANTS.forEach((mult, i) => {
         const btn = document.createElement("button");
         btn.textContent = `${mult} laps`;
+        // per-variant gates (source: each lap count is its own teleport item)
+        const vLocked = zoneLocked(zone, player, i);
+        btn.disabled = !!vLocked;
         btn.onclick = () => onSelect(zone.id, i);
         attachTip(btn, `<strong>${mult} laps of ${zone.name}</strong><br>`
+          + (vLocked ? `<em>${vLocked}</em><br>` : "")
           + `${fmt(zone.copper * mult)}c/kill · bag ${fmt(zone.bag * mult)}c<br>`
           + `mob HP ${fmt(zone.hp * mult)} · DEF ${fmt(zone.defense * mult)}`
           + (zone.intPerKill ? `<br>+${fmt(zone.intPerKill * mult)} INT/kill` : ""));
@@ -348,8 +355,10 @@ export function renderEquipment(player, handlers) {
       const next = eq.plus >= maxPlus(def)
         ? "MAX"
         : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
+      const mCount = player.mastery?.[eq.itemId] || 0;
+      const mStars = mCount ? ` <span title="Mastery ${mCount}: +${Math.round((masteryMult(mCount) - 1) * 100)}% atk & INT">${"★".repeat(MASTERY_MILESTONES.filter(m => mCount >= m).length)}</span>` : "";
       const info = document.createElement("div");
-      info.innerHTML = `<strong>${def.name} +${eq.plus}</strong><br>${itemLabel(def, eq.plus)} — ${next}`;
+      info.innerHTML = `<strong>${def.name} +${eq.plus}</strong>${mStars}<br>${itemLabel(def, eq.plus)} — ${next}`;
       div.appendChild(info);
       [1, 10, 30].forEach(times => {
         const btn = document.createElement("button");
@@ -388,6 +397,12 @@ export function renderEquipment(player, handlers) {
       equip.disabled = !player.equipment.includes(null);
       equip.onclick = () => handlers.onEquipStash(i);
       div.appendChild(equip);
+
+      const absorb = document.createElement("button");
+      absorb.textContent = "Absorb";
+      absorb.title = `Consume for +${1 + eq.plus} mastery (milestones grant +2% atk & INT on this item)`;
+      absorb.onclick = () => handlers.onAbsorbStash(i);
+      div.appendChild(absorb);
 
       const discard = document.createElement("button");
       discard.textContent = "Discard";
@@ -470,7 +485,7 @@ export function renderEquipment(player, handlers) {
       container.appendChild(div);
     }
 
-    const POT_LABELS = { int: "Intelligence Potion — pure INT +120%, 30min", prob: "Probability Potion — drops & enhances +25%, 30min" };
+    const POT_LABELS = { int: "Intelligence Potion — pure INT +120%, 30min", prob: "Probability Potion — drops & enhances +25%, 30min", elixir: "Elixir of Strength — drops & enhances +60%, 30min, no restack" };
     for (const [kind, count] of pots) {
       const div = document.createElement("div");
       div.className = "equipSlot";
@@ -538,6 +553,7 @@ export function renderBossList(state, player, eff, handlers) {
     const info = document.createElement("div");
     info.className = "bossInfo";
     info.innerHTML = `<strong>${boss.name}</strong><br><span class="econ">Bounty ${fmt(bounty)}c`
+      + (boss.drops?.intBounty ? ` · +${fmt(boss.drops.intBounty)} INT` : "")
       + (boss.reqInt ? ` · Respawn ${Math.round(boss.respawnMs / 60000)}m` : "") + `</span>`;
     div.appendChild(info);
 
@@ -805,9 +821,14 @@ export function renderGathering(state, player, handlers) {
   ticket.onclick = handlers.onCraftTicket;
   crafts.appendChild(ticket);
 
+  const elixir = document.createElement("button");
+  elixir.textContent = `Elixir of Strength (${ELIXIR_COST.ore} ore + ${ELIXIR_COST.fish} fish): drops & enhances +60%, 30min`;
+  elixir.onclick = handlers.onCraftElixir;
+  crafts.appendChild(elixir);
+
   const buffs = document.createElement("div");
   buffs.textContent = `Prepared: ${g.buffs.doubleChance} boosted, ${g.buffs.freeAttempts} free attempts, `
-    + `${g.buffs.okTickets ?? 0} guaranteed · Potions held: ${player.potions?.int ?? 0} INT, ${player.potions?.prob ?? 0} probability (use from Gear tab)`;
+    + `${g.buffs.okTickets ?? 0} guaranteed · Potions held: ${player.potions?.int ?? 0} INT, ${player.potions?.prob ?? 0} probability, ${player.potions?.elixir ?? 0} elixir (use from Gear tab)`;
   crafts.appendChild(buffs);
 
   container.appendChild(crafts);
@@ -833,6 +854,24 @@ export function renderBestiary(state) {
   container.innerHTML = html;
 }
 
+let lastAchKey = "";
+export function renderAchievements(state) {
+  // called every frame; rebuild only when the earned count changes
+  const key = Object.keys(state.achievements ?? {}).length;
+  if (key === lastAchKey) return;
+  lastAchKey = key;
+  const container = document.querySelector(".achievementList");
+  const bonus = achievementBonus(state);
+  let html = `<div>Earned: <strong>${key}/${ACHIEVEMENTS.length}</strong> — <strong>+${(bonus * 100).toFixed(1)}% damage</strong></div>`;
+  for (const a of ACHIEVEMENTS) {
+    const earned = !!state.achievements?.[a.id];
+    html += `<div class="bestiaryEntry${earned ? "" : " locked"}">
+      ${earned ? "★" : "☆"} ${earned ? a.name : "???"} — ${a.desc}
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+
 let lastLegionKey = "";
 export function renderLegion(state, handlers) {
   // called every frame; only rebuild when roster numbers change
@@ -849,6 +888,8 @@ export function renderLegion(state, handlers) {
     .join(", ") || "<strong>none yet</strong>";
   let html = `<div>Legion board — every character boosts the whole account, scaled by its INT.</div>`;
   html += `<div>Total: ${totals}</div>`;
+  const tutor = intTutorMult(state);
+  if (tutor > 1) html += `<div>Tutoring: benched characters speed the active one's INT drip <strong>×${tutor.toFixed(1)}</strong>.</div>`;
 
   state.characters.forEach((c, i) => {
     const cls = getClass(c.classId);
