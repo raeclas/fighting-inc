@@ -5,6 +5,7 @@ import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryStars, masteryStarsO
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills, classStatBonuses } from "./classes.js";
 import { potionActive, ivMult, PROB_POTION_IV, ELIXIR_IV, INT_POTION_MULT } from "./consumables.js";
+import { rivalRows, accountBest } from "./rivals.js";
 import { bosses, INTEREST, TICKET_SUCCESS, EVOLUTION } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES, BONUS_PER_MILESTONE } from "./bestiary.js";
 import { FEATS, featCount, featBonus, firstKillFeats, starFeats, FEAT_DMG, FEAT_LUCK } from "./feats.js";
@@ -248,6 +249,27 @@ export function updateUI(state, player, eff) {
   const fk = state.currentZoneId ? (state.fieldKills[state.currentZoneId] || 0) : 0;
   document.getElementById("fieldKills").textContent =
     state.currentZoneId ? ` Field bosses felled here: ${fmt(fk)}` : "";
+}
+
+// Lobby ranking board: simulated rivals + the player, sorted by INT.
+// Called every frame; rebuilds only when the player's benchmarks move a band.
+let lastLobbyKey = "";
+export function renderLobby(state, player) {
+  const best = accountBest(state);
+  const key = `${Math.round(Math.log10(best.int + 10) * 8)}|${best.plus}|${player.classId}`;
+  if (key === lastLobbyKey) return;
+  lastLobbyKey = key;
+  const cls = getClass(player.classId);
+  const rows = [
+    ...rivalRows(state),
+    { name: "You", classId: null, int: Math.round(best.int), topPlus: best.plus, me: true },
+  ].sort((a, b) => b.int - a.int);
+  document.querySelector(".lobbyBoard").innerHTML =
+    `<div class="econ">8 slaves grinding. Rankings by INT — the only number anyone respects.</div>`
+    + rows.map((r, i) =>
+      `<div class="bestiaryEntry${r.me ? "" : " locked"}">#${i + 1} <strong>${r.name}</strong>`
+      + ` — ${getClass(r.classId)?.name ?? cls?.name ?? "Slave"} · ${fmt(r.int)} INT · best +${r.topPlus}</div>`
+    ).join("");
 }
 
 // Called every frame; rebuilds when a gate opens/closes or an INT drip caps out.
@@ -1164,7 +1186,7 @@ export function initTabs() {
 // Force cached renderers (chips/bosses/legion) to rebuild — e.g. after the
 // number-format toggle changes how every number prints.
 export function bustRenderCaches() {
-  lastChipKey = lastBossKey = lastLegionKey = lastBestiaryKey = lastMasteryKey = skillBarKey = "";
+  lastChipKey = lastBossKey = lastLegionKey = lastBestiaryKey = lastMasteryKey = skillBarKey = lastLobbyKey = "";
 }
 
 // Feed filter chips: the buttons just swap a class on #feed; CSS hides the rest.

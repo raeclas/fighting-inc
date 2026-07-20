@@ -2,6 +2,7 @@
 // Game-wide state that is not specific to the player.
 import { defaultMacro } from "./macro.js";
 import { defaultGathering } from "./gathering.js";
+import { defaultRivalState } from "./rivals.js";
 
 export const gameState = {
   macro: defaultMacro(),
@@ -20,6 +21,7 @@ export const gameState = {
   fieldKills: {},       // zoneId -> field-boss kill count
   achievements: {},     // featId -> true (earned named feats; legacy key name)
   tabsSeen: {},         // tabId -> true (progressive tab reveal, toast once)
+  rivals: defaultRivalState(), // fake-lobby announcement timer (saved)
 
   currentZoneId: null,
   currentVariant: 0,

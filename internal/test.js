@@ -501,6 +501,28 @@ assert.deepEqual(minC.equipment, [null, null, null, null, null, null]);
 assert.deepEqual(minC.potions, { int: 0, prob: 0, elixir: 0 });
 assert.equal(minC.xpToNext, 150);
 
+// rivals: derived board scales off account best, announcements deterministic
+{
+  const { rivalRows, accountBest, rollAnnouncement, RIVAL_ROSTER } = await import("../rivals.js");
+  const st = { characters: [
+    { int: 100_000, equipment: [{ itemId: "rafaros", plus: 14 }], specialBag: [] },
+    { int: 5_000, equipment: [], specialBag: [{ itemId: "talisman", plus: 3 }] },
+  ] };
+  assert.deepEqual(accountBest(st), { int: 100_000, plus: 14 });
+  const rows = rivalRows(st);
+  assert.equal(rows.length, RIVAL_ROSTER.length);
+  assert.equal(rows[0].int, Math.round(100_000 * RIVAL_ROSTER[0].talent));
+  assert.equal(rows[0].topPlus, Math.min(20, 14 + RIVAL_ROSTER[0].plusOff));
+  for (const r of rows) assert.ok(r.topPlus >= 0 && r.topPlus <= 20 && r.int >= 10);
+  // empty account: floors hold
+  for (const r of rivalRows({ characters: [] })) assert.ok(r.int >= 10 && r.topPlus >= 0);
+  // deterministic rolls: fail branch, fanfare branch
+  const fail = rollAnnouncement(st, () => 0.1);
+  assert.ok(fail.kind === "plain" && fail.text.includes("FAILED"));
+  const fan = rollAnnouncement(st, () => 0.95);
+  assert.ok(fan.kind === "fanfare" && fan.text.includes("★"));
+}
+
 // fmt respects the injected settings getter
 const fakeSettings = { fullNumbers: false };
 bindFormatSettings(() => fakeSettings);

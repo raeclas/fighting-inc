@@ -23,6 +23,7 @@ export function serialize(state) {
     fieldKills: state.fieldKills,
     achievements: state.achievements,
     tabsSeen: state.tabsSeen,
+    rivals: state.rivals,
     currentZoneId: state.currentZoneId,
     currentVariant: state.currentVariant,
     autoResummon: state.autoResummon,
@@ -123,6 +124,7 @@ export function load(state) {
   state.fieldKills = s.fieldKills ?? {};
   state.achievements = s.achievements ?? {};
   state.tabsSeen = s.tabsSeen ?? {};
+  state.rivals = { nextAnnounceAt: 0, ...(s.rivals || {}) };
   state.currentZoneId = s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;
   state.autoResummon = s.autoResummon ?? false;

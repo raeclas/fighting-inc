@@ -11,9 +11,10 @@ import { getItem, aggregate, absorbDupes, bagDupeCount, SPECIAL_IDS, MERGE_IDS, 
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderMasteryItems, renderFeats, renderStatsPanel, renderCodex, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderMasteryItems, renderFeats, renderLobby, renderStatsPanel, renderCodex, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { evalFeats, featBonus, FEAT_DMG, FEAT_LUCK } from "./feats.js";
+import { rollAnnouncement, scheduleNext } from "./rivals.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
@@ -833,6 +834,14 @@ function tick() {
     for (const a of evalFeats(gameState)) {
       logLine(`Feat earned: ${a.name} — ${a.desc}! (+${FEAT_DMG * 100}% damage, +${FEAT_LUCK * 100}% Luck)`, "success");
     }
+    // fake-lobby announcement (flavor only; never touches the economy)
+    if (gameState.total_time >= (gameState.rivals.nextAnnounceAt || 0)) {
+      if (gameState.rivals.nextAnnounceAt) {
+        const a = rollAnnouncement(gameState);
+        logLine(a.text, a.kind === "fanfare" ? "success" : "");
+      }
+      gameState.rivals.nextAnnounceAt = scheduleNext(gameState.total_time);
+    }
     save(gameState);
     gameState.last_save = gameState.total_time;
   }
@@ -1183,6 +1192,7 @@ function render() {
   renderBattle(gameState, player);
   renderSkillBar(gameState, player, eff, castSkill);
   renderZoneList(player, selectZone); // key-cached; re-renders when a gate flips
+  renderLobby(gameState, player);     // key-cached; moves when your benchmarks move
   renderBestiary(gameState);
   renderMasteryItems(gameState, player);
   renderFeats(gameState);
