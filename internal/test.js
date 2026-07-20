@@ -14,6 +14,7 @@ import { load, serialize, validSave, importSave } from "../saveSystem.js";
 import { classes, skillDamage, classStatBonuses, radiusOf, buffDuration } from "../classes.js";
 import { newCharacter, gainXP, agiSpeedPct } from "../player.js";
 import { zones, zoneLocked, intDrip } from "../zones.js";
+import { ACHIEVEMENTS, ACHIEVEMENT_BONUS, achievementBonus, evalAchievements } from "../achievements.js";
 
 // field: 16 mobs on a 4×4 grid, AoE radius → coverage
 const field = spawnField(getZone("kiln"), 0);
@@ -567,6 +568,26 @@ assert.equal(poolFor("abyssirocco").length, 5);
   assert.equal(some.dmg, 0.005);
   assert.equal(some.drop, 0.01);
   assert.equal(some.enh, 0.02);
+}
+
+// achievements: none on empty state, fire on synthetic, bonus math, no re-earn
+{
+  const empty = { achievements: {}, kills: {}, fieldKills: {}, characters: [], gathering: { level: { mining: 1, fishing: 1 } } };
+  assert.equal(evalAchievements(empty).length, 0);
+  assert.equal(achievementBonus(empty), 0);
+  const rich = {
+    achievements: {}, kills: { kiln: 600, hellparty: 1 }, fieldKills: { kiln: 400 },
+    characters: [
+      { int: 1_000_000, level: 100, copper: 1e9, equipment: [{ itemId: "rafaros", plus: 20 }], stash: [], specialBag: [{ itemId: "talisman", plus: 1 }], mastery: { rafaros: 3 } },
+      { int: 0, level: 1, copper: 0, equipment: [], stash: [], specialBag: [], mastery: {} },
+    ],
+    gathering: { level: { mining: 10, fishing: 10 } },
+  };
+  const earned = evalAchievements(rich);
+  const ids = earned.map(a => a.id).sort();
+  assert.deepEqual(ids, ["bossfirst", "fieldboss", "gather10", "int100k", "int1m", "kills1k", "lvl100", "mastery1", "merged", "plus10", "plus15", "plus20", "roster2", "silver"]);
+  assert.equal(achievementBonus(rich), ids.length * ACHIEVEMENT_BONUS);
+  assert.equal(evalAchievements(rich).length, 0); // already earned — no repeats
 }
 
 // save durability: validSave gate, corrupt primary preserved + backup restored

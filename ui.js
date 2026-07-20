@@ -7,6 +7,7 @@ import { classes, getClass, skillDamage, activeSkills } from "./classes.js";
 import { JARS, potionActive } from "./consumables.js";
 import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
+import { ACHIEVEMENTS, achievementBonus } from "./achievements.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
 import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
@@ -842,6 +843,24 @@ export function renderBestiary(state) {
     const stars = MILESTONES.map(m => (e.kills >= m ? "★" : "☆")).join("");
     html += `<div class="bestiaryEntry${known ? "" : " locked"}">
       ${stars} ${known ? e.name : "???"}${e.boss ? " [BOSS]" : ""} — ${fmt(e.kills)} kills
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+
+let lastAchKey = "";
+export function renderAchievements(state) {
+  // called every frame; rebuild only when the earned count changes
+  const key = Object.keys(state.achievements ?? {}).length;
+  if (key === lastAchKey) return;
+  lastAchKey = key;
+  const container = document.querySelector(".achievementList");
+  const bonus = achievementBonus(state);
+  let html = `<div>Earned: <strong>${key}/${ACHIEVEMENTS.length}</strong> — <strong>+${(bonus * 100).toFixed(1)}% damage</strong></div>`;
+  for (const a of ACHIEVEMENTS) {
+    const earned = !!state.achievements?.[a.id];
+    html += `<div class="bestiaryEntry${earned ? "" : " locked"}">
+      ${earned ? "★" : "☆"} ${earned ? a.name : "???"} — ${a.desc}
     </div>`;
   }
   container.innerHTML = html;

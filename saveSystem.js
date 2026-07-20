@@ -21,6 +21,7 @@ export function serialize(state) {
     total_time: state.total_time,
     kills: state.kills,
     fieldKills: state.fieldKills,
+    achievements: state.achievements,
     currentZoneId: state.currentZoneId,
     currentVariant: state.currentVariant,
     autoResummon: state.autoResummon,
@@ -120,6 +121,7 @@ export function load(state) {
   state.total_time = s.total_time ?? 0;
   state.kills = s.kills ?? {};
   state.fieldKills = s.fieldKills ?? {};
+  state.achievements = s.achievements ?? {};
   state.currentZoneId = s.currentZoneId ?? null;
   state.currentVariant = s.currentVariant ?? 0;
   state.autoResummon = s.autoResummon ?? false;

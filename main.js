@@ -11,8 +11,9 @@ import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, C
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
-import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
+import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderAchievements, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
+import { evalAchievements, achievementBonus, ACHIEVEMENT_BONUS } from "./achievements.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
@@ -146,6 +147,7 @@ function effectiveStats() {
   // percent bonuses; addDmg ("Additional damage", best item only) multiplies
   // on top — matches the source tooltips' two separate multiplier families.
   const bonus = 1 + bestiaryBonus(gameState) + firstKillBonuses(gameState.kills).dmg
+    + achievementBonus(gameState)
     + statSk.atkPct / 100 + leg.dmgPct / 100 + g.dmgIncPct / 100 + buffAtkPct / 100;
   // INT (character + item) is flat 1:1 damage, added before the % multipliers.
   // INT potion multiplies PURE (character) INT only — item INT untouched (map).
@@ -786,6 +788,10 @@ function tick() {
   }
 
   if (gameState.total_time - gameState.last_save >= 5000) {
+    // achievements ride the 5s cadence — ~18 cheap boolean checks
+    for (const a of evalAchievements(gameState)) {
+      logLine(`Achievement unlocked: ${a.name} — ${a.desc}! (+${ACHIEVEMENT_BONUS * 100}% damage)`, "success");
+    }
     save(gameState);
     gameState.last_save = gameState.total_time;
   }
@@ -1125,6 +1131,7 @@ function render() {
   renderSkillBar(gameState, player, eff, castSkill);
   renderZoneList(player, selectZone); // key-cached; re-renders when a gate flips
   renderBestiary(gameState);
+  renderAchievements(gameState);
   renderLegion(gameState, rosterHandlers);
   renderBossList(gameState, player, eff, bossHandlers);
 }
