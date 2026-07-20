@@ -7,7 +7,7 @@ import { defaultRivalState } from "./rivals.js";
 export const gameState = {
   macro: defaultMacro(),
   gathering: defaultGathering(),
-  settings: { fullNumbers: false }, // display prefs (saved)
+  settings: { fullNumbers: false, autoAbsorb: false }, // prefs (saved); autoAbsorb: owned dupes -> mastery directly
   total_time: 0,
   last_save: 0,
 

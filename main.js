@@ -333,6 +333,16 @@ function acquireItem(itemId, sourceLabel) {
     renderEquipment(player, equipHandlers);
     return;
   }
+  // auto-absorb (opt-in): once you own any copy, further drops feed mastery
+  // directly — no stash spare, no squatting in an empty gear slot. OFF while
+  // gearing (multiple copies of one weapon stack), ON once a table is farmed.
+  if (gameState.settings.autoAbsorb
+      && (player.equipment.some(e => e && e.itemId === itemId) || player.stash.some(e => e.itemId === itemId))) {
+    player.mastery[itemId] = (player.mastery[itemId] || 0) + 1;
+    logLine(`${sourceLabel} ${def.name} — auto-absorbed (${player.mastery[itemId]}).`, "success");
+    renderEquipment(player, equipHandlers);
+    return;
+  }
   const slot = player.equipment.indexOf(null);
   if (slot !== -1) {
     player.equipment[slot] = { itemId, plus: 0 };
@@ -601,7 +611,7 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbAll: absorbStashAll, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onUsePotion: usePotion };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbAll: absorbStashAll, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onUsePotion: usePotion, getAutoAbsorb: () => gameState.settings.autoAbsorb, onToggleAutoAbsorb: v => { gameState.settings.autoAbsorb = v; } };
 
 function usePotion(kind) {
   if ((player.potions[kind] || 0) < 1) return;

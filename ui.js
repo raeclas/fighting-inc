@@ -431,6 +431,21 @@ export function renderEquipment(player, handlers) {
     container.appendChild(div);
   }
 
+  // auto-absorb toggle: owned dupes skip the stash and feed Mastery directly
+  {
+    const auto = document.createElement("label");
+    auto.className = "econ";
+    auto.style.display = "block";
+    auto.title = "OFF while gearing (copies of one weapon stack in your 6 slots); ON once a drop table is farmed out";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = !!handlers.getAutoAbsorb?.();
+    chk.onchange = () => handlers.onToggleAutoAbsorb?.(chk.checked);
+    auto.appendChild(chk);
+    auto.append(" Auto-absorb duplicates — drops you already own go straight to Mastery");
+    container.appendChild(auto);
+  }
+
   // Stash: overflow drops waiting for a free slot.
   const stash = player.stash || [];
   if (stash.length) {
@@ -1144,7 +1159,7 @@ export function renderCodex() {
       `★Abyss★ elite twin: 20% of summons, 3× drop rolls`,
     ]))
     + sec("Items, Stash & Mastery", li([
-      `6 equipment slots; overflow goes to the Stash (one spare per item — further copies become Mastery)`,
+      `6 equipment slots; overflow goes to the Stash (one spare per item — further copies become Mastery). Auto-absorb (Gear tab) skips the spare entirely for items you already own`,
       `Item Mastery: absorbed copies are worth 1 + plus each; milestones ${MASTERY_MILESTONES.join("/")} earn STARS — every star is a feat (all characters count)`,
       `Special Bag items are always active and never eat the 6 slots; one copy per special — duplicates become Mastery`,
       `Best-only stats: Additional Damage, crit, and attack speed count only the best item; Increased Damage and Skill Damage stack`,
