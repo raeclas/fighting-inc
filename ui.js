@@ -4,10 +4,11 @@ import { zones, VARIANTS, zoneLocked } from "./zones.js";
 import { items, getItem, tierOf, maxPlus, aggregate, MERGE_IDS } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills } from "./classes.js";
+import { JARS, potionActive } from "./consumables.js";
 import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
-import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
+import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST } from "./gathering.js";
 import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
 import { getSheet, SHEETS } from "./sprites.js";
 import { gameState } from "./state.js";
@@ -51,6 +52,14 @@ function updateHud(state, player) {
   const anySouls = (souls.old || 0) + (souls.brilliant || 0) > 0;
   document.getElementById("soulsRow").style.display = anySouls ? "" : "none";
   if (anySouls) document.getElementById("soulsVal").textContent = `${fmt(souls.old || 0)} / ${fmt(souls.brilliant || 0)}`;
+
+  // active potion countdowns — hidden when none running
+  const now = state.total_time;
+  const potParts = [];
+  if (potionActive(player, "int", now)) potParts.push(`INT ${fmtCountdown(player.potionUntil.int - now)}`);
+  if (potionActive(player, "prob", now)) potParts.push(`IV ${fmtCountdown(player.potionUntil.prob - now)}`);
+  document.getElementById("potionRow").style.display = potParts.length ? "" : "none";
+  if (potParts.length) document.getElementById("potionVal").textContent = potParts.join(" · ");
 
   // portrait: sprite frame 0 face-crop on a class-colored backdrop, else emoji
   const sheet = player.classId ? getSheet(player.classId) : null;
@@ -389,6 +398,44 @@ export function renderEquipment(player, handlers) {
       container.appendChild(div);
     });
   }
+
+  // Consumables: zone jars (gacha opens) + potions. Jar counts are floats
+  // (offline EV) — display floors; opening needs ≥1.
+  const jars = Object.entries(player.jars || {}).filter(([, n]) => n >= 1);
+  const pots = Object.entries(player.potions || {}).filter(([, n]) => n >= 1);
+  if (jars.length || pots.length) {
+    const header = document.createElement("div");
+    header.innerHTML = `<strong>Consumables</strong>`;
+    header.style.marginTop = "8px";
+    container.appendChild(header);
+
+    for (const [jarId, count] of jars) {
+      const jar = JARS[jarId];
+      if (!jar) continue;
+      const div = document.createElement("div");
+      div.className = "equipSlot";
+      div.innerHTML = `<span><strong>${jar.name}</strong> ×${Math.floor(count)} — ${(jar.openChance * 100).toFixed(2)}% for ${getItem(jar.yields)?.name ?? jar.yields}</span> `;
+      for (const [label, times] of [["Open", 1], ["×10", 10], ["×all", Infinity]]) {
+        const btn = document.createElement("button");
+        btn.textContent = label;
+        btn.onclick = () => handlers.onOpenJar(jarId, times);
+        div.appendChild(btn);
+      }
+      container.appendChild(div);
+    }
+
+    const POT_LABELS = { int: "Intelligence Potion — pure INT +120%, 30min", prob: "Probability Potion — drops & enhances +25%, 30min" };
+    for (const [kind, count] of pots) {
+      const div = document.createElement("div");
+      div.className = "equipSlot";
+      div.innerHTML = `<span><strong>${POT_LABELS[kind]}</strong> ×${Math.floor(count)}</span> `;
+      const btn = document.createElement("button");
+      btn.textContent = "Use";
+      btn.onclick = () => handlers.onUsePotion(kind);
+      div.appendChild(btn);
+      container.appendChild(div);
+    }
+  }
 }
 
 // handlers: { onSummon(bossId), onToggleAuto() }
@@ -594,7 +641,7 @@ export function renderMacro(state, player, handlers) {
 }
 
 // handlers: { onSetActivity(name|null), onCraftHammer, onCraftOffering }
-export function renderGathering(state, handlers) {
+export function renderGathering(state, player, handlers) {
   const container = document.querySelector(".gatheringPanel");
   const g = state.gathering;
   container.innerHTML = "";
@@ -624,8 +671,24 @@ export function renderGathering(state, handlers) {
   offering.onclick = handlers.onCraftOffering;
   crafts.appendChild(offering);
 
+  const intPot = document.createElement("button");
+  intPot.textContent = `Intelligence Potion (${INT_POTION_FISH_COST} fish): pure INT +120%, 30min`;
+  intPot.onclick = handlers.onCraftIntPotion;
+  crafts.appendChild(intPot);
+
+  const probPot = document.createElement("button");
+  probPot.textContent = `Probability Potion (${PROB_POTION_ORE_COST} ore): drops & enhances +25%, 30min`;
+  probPot.onclick = handlers.onCraftProbPotion;
+  crafts.appendChild(probPot);
+
+  const ticket = document.createElement("button");
+  ticket.textContent = `Confirmation Ticket (${OK_TICKET_COST.ore} ore + ${OK_TICKET_COST.fish} fish): next enhance 100%`;
+  ticket.onclick = handlers.onCraftTicket;
+  crafts.appendChild(ticket);
+
   const buffs = document.createElement("div");
-  buffs.textContent = `Prepared: ${g.buffs.doubleChance} boosted, ${g.buffs.freeAttempts} free attempts`;
+  buffs.textContent = `Prepared: ${g.buffs.doubleChance} boosted, ${g.buffs.freeAttempts} free attempts, `
+    + `${g.buffs.okTickets ?? 0} guaranteed · Potions held: ${player.potions?.int ?? 0} INT, ${player.potions?.prob ?? 0} probability (use from Gear tab)`;
   crafts.appendChild(buffs);
 
   container.appendChild(crafts);

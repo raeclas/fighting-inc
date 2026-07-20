@@ -14,9 +14,11 @@ export function enhanceChance(plus) {
 }
 
 // One attempt. Mutates state.copper, eq.plus, and (if provided) buffs.
-// buffs: { doubleChance: n, freeAttempts: n } — crafted enhancement aids.
+// buffs: { doubleChance, freeAttempts, okTickets } — crafted enhancement aids.
+// okTickets = confirmation ticket: 100% success, ticket consumed, copper still
+// paid (map OK-item behavior). mult = the IV drop/enhance multiplier.
 // Returns { result: "success" | "fail" | "max" | "poor", chance }
-export function tryEnhance(state, eq, def, rng = Math.random, buffs = null) {
+export function tryEnhance(state, eq, def, rng = Math.random, buffs = null, mult = 1) {
   // per-item cap: equipment +20, talismans/insignia +6 (tier table length)
   const cap = def.tiers ? def.tiers.length - 1 : MAX_PLUS;
   if (eq.plus >= cap) return { result: "max", chance: 0 };
@@ -28,10 +30,17 @@ export function tryEnhance(state, eq, def, rng = Math.random, buffs = null) {
   if (free) buffs.freeAttempts--;
   state.copper -= cost;
 
-  let chance = enhanceChance(eq.plus);
-  if (buffs?.doubleChance > 0) {
-    chance = Math.min(1, chance * 2);
-    buffs.doubleChance--;
+  let chance;
+  if (buffs?.okTickets > 0) {
+    buffs.okTickets--;
+    chance = 1; // doubleChance untouched — ticket wins outright
+  } else {
+    chance = enhanceChance(eq.plus);
+    if (buffs?.doubleChance > 0) {
+      chance = Math.min(1, chance * 2);
+      buffs.doubleChance--;
+    }
+    chance = Math.min(1, chance * mult);
   }
 
   if (rng() < chance) {
@@ -52,14 +61,21 @@ export function avatarChance(plus) {
 }
 
 // One avatar attempt: costs `soulCost` souls of `soulKind` + def.enhCost copper
-// (map charges both even on the guaranteed tiers).
-export function tryAvatarEnhance(state, eq, def, soulKind, soulCost, rng = Math.random) {
+// (map charges both even on the guaranteed tiers). Confirmation ticket + IV
+// mult apply here too (map checks the OK item in the avatar path as well).
+export function tryAvatarEnhance(state, eq, def, soulKind, soulCost, rng = Math.random, buffs = null, mult = 1) {
   if (eq.plus >= def.tiers.length - 1) return { result: "max", chance: 0 };
   if ((state.souls?.[soulKind] ?? 0) < soulCost) return { result: "nosouls", chance: 0 };
   if (state.copper < def.enhCost) return { result: "poor", chance: 0 };
   state.souls[soulKind] -= soulCost;
   state.copper -= def.enhCost;
-  const chance = avatarChance(eq.plus);
+  let chance;
+  if (buffs?.okTickets > 0) {
+    buffs.okTickets--;
+    chance = 1;
+  } else {
+    chance = Math.min(1, avatarChance(eq.plus) * mult);
+  }
   if (rng() < chance) {
     eq.plus++;
     return { result: "success", chance };

@@ -8,6 +8,7 @@ import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, in
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
 import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
+import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills } from "./classes.js";
 import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
@@ -16,7 +17,7 @@ import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } fro
 import { renderGathering, renderLegion } from "./ui.js";
 import { legionBonuses, unlockedSlots } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
-import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST } from "./gathering.js";
+import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST } from "./gathering.js";
 import { getBoss, spawnBossMob, TICKET_SUCCESS } from "./bosses.js";
 import { poolFor } from "./items.js";
 
@@ -128,7 +129,9 @@ function effectiveStats() {
   const bonus = 1 + bestiaryBonus(gameState) + statSk.atkPct / 100
     + leg.dmgPct / 100 + g.dmgIncPct / 100;
   // INT (character + item) is flat 1:1 damage, added before the % multipliers.
-  const totalInt = player.int + g.int;
+  // INT potion multiplies PURE (character) INT only — item INT untouched (map).
+  const pureMult = potionActive(player, "int", gameState.total_time) ? INT_POTION_MULT : 1;
+  const totalInt = Math.round(player.int * pureMult) + g.int;
   const atkTotal = Math.round((player.attack + g.atk + totalInt) * bonus * (1 + g.addDmgPct / 100));
   // WC3 caps the total attack-speed bonus at +400% (AGI alone gets there by lv9)
   const spdPct = Math.min(400, agiSpeedPct(player) + g.spdPct + leg.atkSpeedPct + statSk.atkSpdPct + buffSpdPct);
@@ -292,8 +295,10 @@ function rollBossDrops(boss) {
     player.souls[d.souls.kind] = (player.souls[d.souls.kind] || 0) + d.souls.count;
     logLine(`${boss.name} leaves ${d.souls.count} souls behind.`, "success");
   }
+  // all boss drop rolls scale with the source IV multiplier (probability potion)
+  const iv = ivMult(player, gameState.total_time);
   // item roll — the skill ticket drops ALONGSIDE a successful roll (source Epx)
-  if (Math.random() < d.itemChance) {
+  if (Math.random() < Math.min(1, d.itemChance * iv)) {
     // specials carry an explicit pool; "classWeapon" resolves per active class
     const pool = d.pool
       ? d.pool.map(id => id === "classWeapon" ? CLASS_WEAPON[player.classId] : id).filter(Boolean)
@@ -302,8 +307,8 @@ function rollBossDrops(boss) {
     if (boss.skillIndex !== null) useTicket(boss);
   }
   // evolution ticket — independent roll (source dispatch)
-  if (d.ticket && Math.random() < d.ticket.chance) useEvolutionTicket(boss, d.ticket.tier);
-  if (d.rare && Math.random() < d.rare.chance) {
+  if (d.ticket && Math.random() < Math.min(1, d.ticket.chance * iv)) useEvolutionTicket(boss, d.ticket.tier);
+  if (d.rare && Math.random() < Math.min(1, d.rare.chance * iv)) {
     const rp = d.rare.pool ? poolFor(d.rare.pool) : [d.rare.itemId];
     acquireItem(rp[Math.floor(Math.random() * rp.length)], `${boss.name} dropped a RARE find:`);
   }
@@ -416,10 +421,33 @@ const gatheringHandlers = {
     g.buffs.freeAttempts++;
     refreshGathering();
   },
+  onCraftIntPotion() {
+    const g = gameState.gathering;
+    if (g.resources.fish < INT_POTION_FISH_COST) return logLine("Not enough fish.", "fail");
+    g.resources.fish -= INT_POTION_FISH_COST;
+    player.potions.int++;
+    refreshGathering();
+  },
+  onCraftProbPotion() {
+    const g = gameState.gathering;
+    if (g.resources.ore < PROB_POTION_ORE_COST) return logLine("Not enough ore.", "fail");
+    g.resources.ore -= PROB_POTION_ORE_COST;
+    player.potions.prob++;
+    refreshGathering();
+  },
+  onCraftTicket() {
+    const g = gameState.gathering;
+    if (g.resources.ore < OK_TICKET_COST.ore || g.resources.fish < OK_TICKET_COST.fish)
+      return logLine("Confirmation ticket needs 25 ore + 25 fish.", "fail");
+    g.resources.ore -= OK_TICKET_COST.ore;
+    g.resources.fish -= OK_TICKET_COST.fish;
+    g.buffs.okTickets++;
+    refreshGathering();
+  },
 };
 
 function refreshGathering() {
-  renderGathering(gameState, gatheringHandlers);
+  renderGathering(gameState, player, gatheringHandlers);
 }
 
 function gatherTick() {
@@ -444,7 +472,37 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
+
+// Open jars: each is a gacha roll (map ORx) — openChance × IV, consumed either way.
+function openJar(jarId, times) {
+  const jar = JARS[jarId];
+  if (!jar) return;
+  let opened = 0, hits = 0;
+  const iv = ivMult(player, gameState.total_time);
+  while (opened < times && (player.jars[jarId] || 0) >= 1) {
+    player.jars[jarId]--;
+    opened++;
+    if (Math.random() < Math.min(1, jar.openChance * iv)) {
+      hits++;
+      acquireItem(jar.yields, `${jar.name} yields`);
+    }
+  }
+  if (!opened) return;
+  if (!hits) logLine(`Opened ${opened}× ${jar.name} — nothing but dust (${(jar.openChance * iv * 100).toFixed(2)}% each).`, "fail");
+  renderEquipment(player, equipHandlers);
+}
+
+function usePotion(kind) {
+  if ((player.potions[kind] || 0) < 1) return;
+  player.potions[kind]--;
+  // stacking uses extend the timer (map: fixed 30min per potion)
+  player.potionUntil[kind] = Math.max(gameState.total_time, player.potionUntil[kind] || 0) + POTION_MS;
+  logLine(kind === "int"
+    ? "Intelligence Potion: pure INT +120% for 30 minutes."
+    : "Probability Potion: all drop & enhance rates +25% for 30 minutes.", "success");
+  renderEquipment(player, equipHandlers);
+}
 
 function mergeBag(bagIdx) {
   const eq = player.specialBag[bagIdx];
@@ -465,9 +523,10 @@ function enhanceBag(bagIdx, times) {
   const avatar = AVATAR_IDS.has(eq.itemId);
   const [soulKind, soulCost] = eq.itemId.startsWith("lib_") ? ["brilliant", 3] : ["old", 2];
   for (let i = 0; i < times; i++) {
+    const iv = ivMult(player, gameState.total_time);
     const { result, chance } = avatar
-      ? tryAvatarEnhance(player, eq, def, soulKind, soulCost)
-      : tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs);
+      ? tryAvatarEnhance(player, eq, def, soulKind, soulCost, Math.random, gameState.gathering.buffs, iv)
+      : tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, iv);
     if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
     if (result === "nosouls") { logLine(`Need ${soulCost} ${soulKind === "old" ? '"100 years old"' : '"Brilliant Sarah"'} souls per try.`, "fail"); break; }
@@ -538,7 +597,7 @@ function enhance(slotIdx, times) {
   const def = getItem(eq.itemId);
 
   for (let i = 0; i < times; i++) {
-    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs);
+    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs, ivMult(player, gameState.total_time));
     if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
     if (result === "poor") { logLine("Out of copper.", "fail"); break; }
     const pct = (chance * 100).toFixed(2);
@@ -654,8 +713,15 @@ function resolveKill(mob) {
   // regular field mob: INT, rare bag roll, refill the slot — or a field boss joins the ranks
   if (mob.intPerKill) player.int += intDrip(getZone(mob.zoneId), player); // "No INT after X" cap
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
-  if (Math.random() < BAG_CHANCE) {
+  const iv = ivMult(player, gameState.total_time);
+  if (Math.random() < BAG_CHANCE * iv) {
     pushBattleEvent({ type: "bag", copper: earnCopper(mob.bag) });
+  }
+  // zone jar roll (map rates × IV) — field bosses keep their guaranteed-bag identity
+  const jarRoll = jarFor(mob.zoneId, mob.variant);
+  if (jarRoll && Math.random() < Math.min(1, jarRoll[1] * iv)) {
+    player.jars[jarRoll[0]] = (player.jars[jarRoll[0]] || 0) + 1;
+    logLine(`A ${JARS[jarRoll[0]].name} drops!`, "success");
   }
   const zone = getZone(mob.zoneId);
   if (Math.random() < FIELD_BOSS_SPAWN_CHANCE) {
@@ -843,6 +909,9 @@ function simulateBatch(dt) {
   const copper = earnCopper(Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag)));
   // int drip respects the zone's cap; coarse (whole batch at pre-batch int)
   player.int += kills * intDrip(getZone(mob.zoneId), player);
+  // jar EV (float counts; no IV offline — buffs aren't modeled in batch)
+  const jarEV = jarFor(mob.zoneId, mob.variant);
+  if (jarEV) player.jars[jarEV[0]] = (player.jars[jarEV[0]] || 0) + kills * jarEV[1];
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + kills;
   gainXP(player, kills * mob.xp);
 

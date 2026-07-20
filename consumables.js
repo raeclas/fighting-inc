@@ -1,0 +1,37 @@
+// consumables.js — zone jars, potions, and the source IV drop/enhance
+// multiplier. Drop + open rates are map-extracted (war3map.j zone dispatch +
+// ORx use handlers, see internal/extract/); never invented. Acquisition of
+// potions/tickets is adapted (gathering crafts) — effect magnitudes stay source.
+
+export const JARS = {
+  hyun:     { name: "-Hyun- Find War Talisman Jar",      openChance: 0.0020, yields: "talisman" },
+  frey:     { name: "-Transcendence- Frey Talisman Jar", openChance: 0.0020, yields: "talisman" },
+  ezra:     { name: "Ezra's Jar",                        openChance: 0.0024, yields: "transtalisman" },
+  sirocco:  { name: "Sirocco Talisman Jar",              openChance: 0.0040, yields: "transtalisman" },
+  splendid: { name: "Splendid Talisman Jar",             openChance: 0.0010, yields: "brtalisman" },
+  insignia: { name: "Shining Insignia Jar",              openChance: 0.0010, yields: "insignia" },
+  // source also promises a Brilliant Talisman branch — undecodable, insignia only
+  mixed:    { name: "A Jar of Mixed Colors",             openChance: 0.0420, yields: "insignia" },
+};
+
+// zoneId -> per-variant (1/5/20 laps) [jarId, dropChance] | null — map rates.
+// Baekhwa Myth Jar (tempest 1/5-lap) deferred: open weights undecoded.
+export const ZONE_JARS = {
+  prism:   [["sirocco", 0.00246], ["sirocco", 0.0126], ["sirocco", 0.0544]],
+  warpit:  [["hyun", 0.0020], ["hyun", 0.0066], ["frey", 0.00339]], // map 10-lap → our 20-lap
+  aurum:   [["splendid", 0.003], ["splendid", 0.012], null],        // no 20-lap source rate exists
+  tempest: [null, null, ["ezra", 0.0024]],  // "The Abyss's Storm Route" analog = 20-lap
+  sorrow:  [["insignia", 0.0028], ["insignia", 0.014], ["mixed", 0.001]],
+};
+export const jarFor = (zoneId, variant) => ZONE_JARS[zoneId]?.[variant] ?? null;
+
+// Both potions run 30 real-time minutes (map tips).
+export const POTION_MS = 30 * 60 * 1000;
+export const INT_POTION_MULT = 2.2;   // "intelligence increases by 1.2x your pure intelligence"
+export const PROB_POTION_IV = 0.25;   // "all reinforcement probabilities and drop rates +25%"
+
+export const potionActive = (char, kind, now) => (char.potionUntil?.[kind] ?? 0) > now;
+
+// The source's IV multiplier on every drop/enhance roll.
+// Roadmap item 2 (party/elixir analogue) plugs additional terms in here.
+export const ivMult = (char, now) => 1 + (potionActive(char, "prob", now) ? PROB_POTION_IV : 0);

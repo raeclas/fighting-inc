@@ -21,6 +21,9 @@ export function snapshotChar(c) {
     stash: c.stash,
     specialBag: c.specialBag,
     souls: c.souls,
+    jars: c.jars,
+    potions: c.potions,
+    potionUntil: c.potionUntil,
     classId: c.classId,
     skills: c.skills,
   };
@@ -72,6 +75,9 @@ function normalizeChar(c) {
   c.int = c.int ?? 0;
   c.copper = c.copper ?? 0;
   c.souls = { old: 0, brilliant: 0, ...(c.souls || {}) };
+  c.jars = c.jars || {};
+  c.potions = { int: 0, prob: 0, ...(c.potions || {}) };
+  c.potionUntil = { int: 0, prob: 0, ...(c.potionUntil || {}) };
   c.lastAttack = 0;
   return c;
 }
@@ -96,6 +102,8 @@ export function load(state) {
   state.bossCooldowns = s.bossCooldowns ?? {};
   if (s.macro) state.macro = { ...state.macro, ...s.macro };
   if (s.gathering) state.gathering = { ...state.gathering, ...s.gathering };
+  // old saves' buffs object lacks newer fields — re-default additively
+  state.gathering.buffs = { doubleChance: 0, freeAttempts: 0, okTickets: 0, ...(state.gathering.buffs || {}) };
   if (s.settings) state.settings = { ...state.settings, ...s.settings };
 
   state.characters = (s.characters ?? []).map(normalizeChar);

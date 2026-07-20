@@ -41,21 +41,24 @@ shifts get a fresh `baseline.json` in the same commit.
   modifiers live: cooldownPct/intRatioPct/procRatePct/clones/magicCrit,
   souls ("100 years old"/"Brilliant Sarah") + avatar soul-enhance bands
   24/9/1.2/0.3. Zero sim drift (specials beyond canonical horizon).
+- ✅ Consumables/jars: zone-jar gacha loop (consumables.js — per-zone/variant
+  map rates, drop beside the bag roll, offline EV as float counts, Open =
+  source ORx roll into specialBag), INT potion (+120% pure INT 30min) +
+  Probability potion (source IV +25% on every drop/enhance roll — `ivMult()`
+  is the item-2 elixir plug point), enhancement confirmation ticket (3rd
+  gathering buff, 100% next enhance, copper still paid, avatar path too).
+  Zero sim drift. NOT in map (never invented): Golden Book/Reversal Staff,
+  Myth-jar open weights, mixed-jar brtalisman branch, Beryl 20-lap rate,
+  protection-rights wiring.
 
 ## Next — remaining source gaps, in build order
 
-### 1. Consumables/jars
-Zone-dropped Talisman/Myth/Insignia jars, Ezra/Sirocco pots, Golden Book
-(Reversal Staff amp), INT potions, enhancement-protection tickets. Add after
-merge exists so jars have somewhere to pour. Per-zone jar list in
-GROUND-TRUTH.md zone table.
-
-### 2. Party/lobby multiplier analogue (IV × YJ)
+### 1. Party/lobby multiplier analogue (IV × YJ)
 **Map:** enhance/bag/coin all ×`IV[player]` (elixirs) ×`YJ[party-size]`.
 **Us:** single-player → brewed elixirs granting a global `dropBonus`; reuses
 gathering buff plumbing. Touches enhance.js, zones.js rolls, a buff source.
 
-### 3. Batch-2 heroes + missing boss
+### 2. Batch-2 heroes + missing boss
 Crusader (auto-cast), Majesty (on-hit riders), Divineress (spheres), Geniewiz
 (GS/S/F rolls), Spectre (speed stacks), Hekate/Ashtarte (buffers),
 Necromancer (stance), Dark Knight (borrows skills) — port notes in HEROES.md.

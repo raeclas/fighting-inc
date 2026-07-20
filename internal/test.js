@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
 import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, SPECIAL_IDS } from "../items.js";
 import { activeSkills } from "../classes.js";
+import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
 import { bosses, spawnBossMob } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
 import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES } from "../legion.js";
@@ -371,5 +372,68 @@ assert.deepEqual(st4.characters[0].souls, { old: 5, brilliant: 1 });
 assert.equal(st4.characters[0].skills.holloween, 2);
 assert.equal(st4.characters[0].specialBag[0].itemId, "bernardo_staff");
 assert.deepEqual(serialize(st4).characters[0].souls, { old: 5, brilliant: 1 });
+
+// jars: yields are bag-routed items, zone table sane
+for (const [id, jar] of Object.entries(JARS)) {
+  assert.ok(SPECIAL_IDS.has(jar.yields), `${id} yields routes to bag`);
+  assert.ok(jar.openChance > 0 && jar.openChance < 1, id);
+}
+for (const [zid, variants] of Object.entries(ZONE_JARS)) {
+  assert.ok(zones.find(z => z.id === zid), `unknown zone ${zid}`);
+  for (const v of variants) if (v) assert.ok(JARS[v[0]] && v[1] > 0 && v[1] < 1, `${zid} ${v}`);
+}
+assert.equal(jarFor("prism", 2)[1], 0.0544);
+assert.equal(jarFor("aurum", 2), null);     // no source rate — no jar
+assert.equal(jarFor("kiln", 0), null);
+
+// potions: expiry + IV multiplier
+assert.equal(potionActive({ potionUntil: { prob: 100 } }, "prob", 99), true);
+assert.equal(potionActive({ potionUntil: { prob: 100 } }, "prob", 100), false);
+assert.equal(ivMult({ potionUntil: { prob: 100 } }, 50), 1 + PROB_POTION_IV);
+assert.equal(ivMult({ potionUntil: { prob: 0 } }, 50), 1);
+
+// confirmation ticket: forces success, consumes only itself, copper still paid;
+// IV mult scales bands and caps at 1
+const tDef = getItem("rafaros");
+let tState = { copper: 1e9 };
+let tEq = { itemId: "rafaros", plus: 16 }; // 0.45% band
+let tBuffs = { doubleChance: 1, freeAttempts: 0, okTickets: 1 };
+let r = tryEnhance(tState, tEq, tDef, () => 0.999, tBuffs);
+assert.equal(r.result, "success");
+assert.equal(r.chance, 1);
+assert.equal(tEq.plus, 17);
+assert.equal(tBuffs.okTickets, 0);
+assert.equal(tBuffs.doubleChance, 1);           // untouched — ticket wins
+assert.equal(tState.copper, 1e9 - tDef.enhCost); // copper still paid
+assert.equal(tryEnhance({ copper: 0 }, { itemId: "rafaros", plus: 5 }, tDef, Math.random, { okTickets: 1 }).result, "poor");
+assert.equal(tryEnhance({ copper: 0 }, { itemId: "rafaros", plus: 5 }, tDef, Math.random, { okTickets: 1 }).result, "poor"); // guard didn't consume
+r = tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: 11 }, tDef, () => 0.9, null, 1.25);
+assert.equal(r.chance, 0.018 * 1.25);            // IV scales the band
+r = tryEnhance({ copper: 1e9 }, { itemId: "rafaros", plus: 0 }, tDef, () => 0.9, null, 1.25);
+assert.equal(r.chance, 1);                        // guaranteed band caps at 1
+// avatar path honors ticket + mult too
+const avDef2 = getItem("seria_weaponav");
+let avB = { okTickets: 1 };
+r = tryAvatarEnhance({ copper: 1e30, souls: { old: 9 } }, { itemId: "seria_weaponav", plus: 16 }, avDef2, "old", 2, () => 0.999, avB);
+assert.equal(r.result, "success");
+assert.equal(avB.okTickets, 0);
+r = tryAvatarEnhance({ copper: 1e30, souls: { old: 9 } }, { itemId: "seria_weaponav", plus: 4 }, avDef2, "old", 2, () => 0.9, null, 1.25);
+assert.equal(r.chance, 0.24 * 1.25);
+
+// save round-trip: float jars, potions, potionUntil; old gathering buffs get okTickets
+localStorage.setItem("esrpg_save", JSON.stringify({
+  v: 3, characters: [{
+    classId: "striker", level: 1,
+    jars: { sirocco: 2.75 }, potions: { int: 1 }, potionUntil: { prob: 12345 },
+  }], active: 0, slots: 1,
+  gathering: { buffs: { doubleChance: 3, freeAttempts: 1 } },
+}));
+const st5 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: { doubleChance: 0, freeAttempts: 0, okTickets: 0 } }, settings: { fullNumbers: false } };
+load(st5);
+assert.equal(st5.characters[0].jars.sirocco, 2.75);
+assert.deepEqual(st5.characters[0].potions, { int: 1, prob: 0 });
+assert.deepEqual(st5.characters[0].potionUntil, { int: 0, prob: 12345 });
+assert.deepEqual(st5.gathering.buffs, { doubleChance: 3, freeAttempts: 1, okTickets: 0 });
+assert.equal(serialize(st5).characters[0].jars.sirocco, 2.75);
 
 console.log("all checks passed");
