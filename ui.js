@@ -388,8 +388,8 @@ export function renderEquipment(player, handlers) {
     const dupes = stash.length - new Set(stash.map(e => e.itemId)).size;
     if (dupes) {
       const btn = document.createElement("button");
-      btn.textContent = `Absorb duplicates (${dupes})`;
-      btn.title = "Keeps the best copy of each item; the rest become mastery (1 + plus each)";
+      btn.textContent = `Dupes → Mastery (${dupes})`;
+      btn.title = "Keeps the best copy of each item; the rest go to Item Mastery below (1 + plus each)";
       btn.onclick = () => handlers.onAbsorbDupes();
       header.appendChild(btn);
     }
@@ -408,8 +408,8 @@ export function renderEquipment(player, handlers) {
       div.appendChild(equip);
 
       const absorb = document.createElement("button");
-      absorb.textContent = "Absorb";
-      absorb.title = `Consume for +${1 + eq.plus} mastery (milestones grant +2% atk & INT on this item)`;
+      absorb.textContent = "→ Mastery";
+      absorb.title = `Move into Item Mastery for +${1 + eq.plus} (milestones grant +2% atk & INT on this item)`;
       absorb.onclick = () => handlers.onAbsorbStash(i);
       div.appendChild(absorb);
 
@@ -433,8 +433,8 @@ export function renderEquipment(player, handlers) {
     const bagDupes = bagDupeCount(bag);
     if (bagDupes) {
       const btn = document.createElement("button");
-      btn.textContent = `Absorb duplicates (${bagDupes})`;
-      btn.title = "Keeps the best copy of each special; the rest become mastery (1 + plus each). Talismans never touched.";
+      btn.textContent = `Dupes → Mastery (${bagDupes})`;
+      btn.title = "Keeps the best copy of each special; the rest go to Item Mastery below (1 + plus each). Talismans never touched.";
       btn.onclick = () => handlers.onAbsorbBagDupes();
       header.appendChild(btn);
     }
@@ -476,6 +476,32 @@ export function renderEquipment(player, handlers) {
 
       container.appendChild(div);
     });
+  }
+
+  // Item Mastery: the dedicated home of absorbed items. Every absorbed copy
+  // is accounted for here — nothing is "lost", it becomes a permanent bonus.
+  const mastered = Object.entries(player.mastery || {})
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1]);
+  if (mastered.length) {
+    const header = document.createElement("div");
+    header.innerHTML = `<strong>Item Mastery (${mastered.length})</strong> — absorbed items live here as permanent bonuses`;
+    header.style.marginTop = "8px";
+    container.appendChild(header);
+
+    for (const [itemId, count] of mastered) {
+      const def = getItem(itemId);
+      if (!def) continue;
+      const stars = MASTERY_MILESTONES.map(m => (count >= m ? "★" : "☆")).join("");
+      const bonusPct = Math.round((masteryMult(count) - 1) * 100);
+      const nextM = MASTERY_MILESTONES.find(m => count < m);
+      const div = document.createElement("div");
+      div.className = "equipSlot";
+      div.innerHTML = `<span>${stars} <strong>${def.name}</strong> — ${fmt(count)} absorbed · `
+        + (bonusPct ? `+${bonusPct}% atk & INT` : "no bonus yet")
+        + (nextM ? ` · next ★ at ${fmt(nextM)}` : " · MAX") + `</span>`;
+      container.appendChild(div);
+    }
   }
 
   // Consumables: zone jars (gacha opens) + potions. Jar counts are floats
