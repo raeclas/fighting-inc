@@ -382,8 +382,17 @@ export function renderEquipment(player, handlers) {
   const stash = player.stash || [];
   if (stash.length) {
     const header = document.createElement("div");
-    header.innerHTML = `<strong>Stash (${stash.length})</strong> — free a slot, then Equip`;
+    header.innerHTML = `<strong>Stash (${stash.length})</strong> — free a slot, then Equip `;
     header.style.marginTop = "8px";
+    // pre-mastery saves arrive with flooded stashes — one-click cleanup
+    const dupes = stash.length - new Set(stash.map(e => e.itemId)).size;
+    if (dupes) {
+      const btn = document.createElement("button");
+      btn.textContent = `Absorb duplicates (${dupes})`;
+      btn.title = "Keeps the best copy of each item; the rest become mastery (1 + plus each)";
+      btn.onclick = () => handlers.onAbsorbDupes();
+      header.appendChild(btn);
+    }
     container.appendChild(header);
 
     stash.forEach((eq, i) => {

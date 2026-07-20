@@ -109,6 +109,27 @@ export function masteryMult(count) {
   return 1 + n * MASTERY_BONUS;
 }
 
+// Batch-absorb stash duplicates into mastery: keeps the highest-plus copy of
+// each item, absorbs the rest at (1 + plus) each — what a player would do by
+// hand. Mutates both args; returns how many items were absorbed.
+export function absorbDupes(stash, mastery) {
+  stash.sort((a, b) => b.plus - a.plus); // best copy first, so it survives
+  const seen = new Set();
+  let absorbed = 0;
+  for (let i = 0; i < stash.length; ) {
+    const eq = stash[i];
+    if (seen.has(eq.itemId)) {
+      mastery[eq.itemId] = (mastery[eq.itemId] || 0) + 1 + eq.plus;
+      stash.splice(i, 1);
+      absorbed++;
+    } else {
+      seen.add(eq.itemId);
+      i++;
+    }
+  }
+  return absorbed;
+}
+
 // equipment: array of ({itemId, plus} | null) -> folded stat bundle.
 // specialBag: rings/necklaces/talismans/insignia/auras — folded the same,
 // except aura items (defReduce) contribute DEF only (source special-slot rule).
