@@ -142,8 +142,8 @@ function timeToKill(mob) {
 function bestZoneRate(metric = "copperPerSec") {
   let best = null;
   for (const z of zones) {
-    if (zoneLocked(z, { level: P.level, int: P.int })) continue; // gates + lockouts
     for (let v = 0; v < VARIANTS.length; v++) {
+      if (zoneLocked(z, { level: P.level, int: P.int }, v)) continue; // per-variant gates
       const mob = spawnMob(z, v);
       const kps = fieldKillsPerSec(mob);
       if (kps <= 0) continue;

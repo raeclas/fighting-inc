@@ -50,7 +50,7 @@ function replaceInField(oldMob, newMob) {
 function selectZone(zoneId, variantIndex) {
   const zone = getZone(zoneId);
   if (!zone) return;
-  const locked = zoneLocked(zone, player);
+  const locked = zoneLocked(zone, player, variantIndex);
   if (locked) return logLine(`${zone.name}: ${locked}.`, "fail");
   gameState.currentZoneId = zoneId;
   gameState.currentVariant = variantIndex;

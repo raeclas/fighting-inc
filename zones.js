@@ -36,11 +36,20 @@ export const zones = [
   mk("loam",    "Terranium",      179_999,       5e6,         40_000_000, 50,  0),
   // past here the map clamps hp at 1e9; extrapolate hp ≈ copper × 666, def from map
   mk("market",  "Harlem Dungeon", 1_199_999,     28e6,        8e8,        90,  1,  { reqLevel: 2_750, lockAfterInt: 200_000 }),
-  mk("spire",   "Luke Raid",      119_999_992,   2e9,         8e10,       160, 2,  { reqInt: 75_000, lockAfterInt: 250_000 }),
-  mk("warpit",  "Fiend War",      35e9,          300e9,       23e12,      600, 3,  { reqInt: 400_000, intCapAt: 2e6 }),
-  mk("tempest", "Stormy Route",   1_079e9,       9_000e9,     720e12,     720, 15, { reqInt: 700_000, intCapAt: 2e6 }),
+  // variantGates: per-lap INT gates from the source zone-teleport items
+  // (war3map.j dispatch ~72352) — each lap count is its own shop item with its
+  // own req/lockout. Our 20x stands in for the highest source variant:
+  // "Luke is awesome (A) [100 times]" 150k..510k is the bridge past Luke's
+  // 250k lockout to Fiend War's 400k entry (no INT dead zone in the source).
+  mk("spire",   "Luke Raid",      119_999_992,   2e9,         8e10,       160, 2,  { reqInt: 75_000, lockAfterInt: 250_000,
+      variantGates: [{ reqInt: 75_000, lockAfterInt: 250_000 }, { reqInt: 75_000, lockAfterInt: 250_000 }, { reqInt: 150_000, lockAfterInt: 510_000 }] }),
+  mk("warpit",  "Fiend War",      35e9,          300e9,       23e12,      600, 3,  { reqInt: 400_000, intCapAt: 2e6,
+      variantGates: [{ reqInt: 400_000 }, { reqInt: 400_000 }, { reqInt: 500_000 }] }), // (S)/(D 5x)/(F 10x)
+  mk("tempest", "Stormy Route",   1_079e9,       9_000e9,     720e12,     720, 15, { reqInt: 550_000, intCapAt: 2e6,
+      variantGates: [{ reqInt: 550_000 }, { reqInt: 550_000 }, { reqInt: 700_000 }] }), // (Z)/(Z)/(X abyss)
   mk("prism",   "Aiolite",        16_199e9,      135_000e9,   10.8e15,    800, 4,  { reqInt: 1.6e6, intCapAt: 15e6 }),
-  mk("sorrow",  "Ore of Despair", 1_619_999e9,   13.5e15,     1.08e18,    800, 20, { reqInt: 4e6, intCapAt: 15e6 }),
+  mk("sorrow",  "Ore of Despair", 1_619_999e9,   13.5e15,     1.08e18,    800, 20, { reqInt: 2.2e6, intCapAt: 15e6,
+      variantGates: [{ reqInt: 2.2e6 }, { reqInt: 4e6 }, { reqInt: 15e6 }] }), // (Q)/(W 5x)/(E 20x)
   mk("aurum",   "Golden Beryl",   119_999_992e9, 1e18,        80e18,      800, 10, { reqInt: 15.5e6, intCapAt: 75e6 }),
 ];
 
@@ -50,11 +59,26 @@ export function getZone(zoneId) {
 
 // One gate check shared by UI, selectZone, and the sim.
 // Returns a reason string when locked, else null.
-export function zoneLocked(zone, player) {
+// With a variant index, per-variant INT gates apply (source: each lap-count
+// teleport item has its own req/lockout). Without one, the zone counts as
+// open if ANY variant is enterable.
+export function zoneLocked(zone, player, variant) {
+  if (variant === undefined && zone.variantGates) {
+    let first = null;
+    for (let i = 0; i < zone.variantGates.length; i++) {
+      const r = zoneLocked(zone, player, i);
+      if (!r) return null;
+      first ??= r;
+    }
+    return first;
+  }
+  const vg = variant !== undefined ? zone.variantGates?.[variant] : null;
+  const reqInt = vg?.reqInt ?? zone.reqInt;
+  const lockAfterInt = vg ? vg.lockAfterInt : zone.lockAfterInt;
   if (zone.reqLevel && player.level < zone.reqLevel) return `requires level ${zone.reqLevel}`;
-  if (zone.reqInt && player.int < zone.reqInt) return `requires ${zone.reqInt.toLocaleString("en-US")} INT`;
+  if (reqInt && player.int < reqInt) return `requires ${reqInt.toLocaleString("en-US")} INT`;
   if (zone.lockAfterLevel && player.level > zone.lockAfterLevel) return `No Entry after level ${zone.lockAfterLevel}`;
-  if (zone.lockAfterInt && player.int >= zone.lockAfterInt) return `No Entry after ${zone.lockAfterInt.toLocaleString("en-US")} INT`;
+  if (lockAfterInt && player.int >= lockAfterInt) return `No Entry after ${lockAfterInt.toLocaleString("en-US")} INT`;
   return null;
 }
 

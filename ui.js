@@ -226,7 +226,8 @@ export function updateUI(state, player, eff) {
 // Called every frame; rebuilds when a gate opens/closes or an INT drip caps out.
 let lastZoneKey = "";
 export function renderZoneList(player, onSelect, force = false) {
-  const key = zones.map(z => `${zoneLocked(z, player) ?? ""}:${intDrip(z, player)}`).join("|");
+  const key = zones.map(z =>
+    `${VARIANTS.map((_, i) => zoneLocked(z, player, i) ?? "").join(",")}:${intDrip(z, player)}`).join("|");
   if (!force && key === lastZoneKey) return;
   lastZoneKey = key;
 
@@ -250,8 +251,12 @@ export function renderZoneList(player, onSelect, force = false) {
       VARIANTS.forEach((mult, i) => {
         const btn = document.createElement("button");
         btn.textContent = `${mult} laps`;
+        // per-variant gates (source: each lap count is its own teleport item)
+        const vLocked = zoneLocked(zone, player, i);
+        btn.disabled = !!vLocked;
         btn.onclick = () => onSelect(zone.id, i);
         attachTip(btn, `<strong>${mult} laps of ${zone.name}</strong><br>`
+          + (vLocked ? `<em>${vLocked}</em><br>` : "")
           + `${fmt(zone.copper * mult)}c/kill · bag ${fmt(zone.bag * mult)}c<br>`
           + `mob HP ${fmt(zone.hp * mult)} · DEF ${fmt(zone.defense * mult)}`
           + (zone.intPerKill ? `<br>+${fmt(zone.intPerKill * mult)} INT/kill` : ""));

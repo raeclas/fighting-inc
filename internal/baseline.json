@@ -189,10 +189,34 @@
   },
   {
     "t": 902875,
-    "desc": "STUCK: no INT-yielding zone at 251.77k INT"
+    "desc": "INT farm spot: 20 laps of Luke Raid (0.03 INT/s)"
   },
   {
-    "t": 902875,
-    "desc": "END: level 5000, 3.03T copper banked"
+    "t": 5943714,
+    "desc": "INT 400k — Fiend War opens"
+  },
+  {
+    "t": 5943758,
+    "desc": "learned Extreme Overkill (ticket EV)"
+  },
+  {
+    "t": 5943758,
+    "desc": "got Wisdom of Futuresight from Fiend War (E[250] kills)"
+  },
+  {
+    "t": 5943758,
+    "desc": "Wisdom of Futuresight +20 (E[cost] 1.21T)"
+  },
+  {
+    "t": 7786958,
+    "desc": "INT farm spot: 1 laps of Fiend War (0.01 INT/s)"
+  },
+  {
+    "t": 31536158,
+    "desc": "STUCK: exceeded 1 simulated year at 674.40k INT"
+  },
+  {
+    "t": 31536158,
+    "desc": "END: level 5000, 2.26Qa copper banked"
   }
 ]

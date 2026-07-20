@@ -196,6 +196,25 @@ assert.ok(zoneLocked(zones.find(z => z.id === "aurum"), { level: 5000, int: 1e6 
 const warpit = zones.find(z => z.id === "warpit");
 assert.equal(intDrip(warpit, { int: 1e6 }), warpit.intPerKill);
 assert.equal(intDrip(warpit, { int: 2e6 }), 0);                 // No INT after 2M
+
+// per-variant gates (source teleport items): Luke 20x = "100 times" bridge
+const spire = zones.find(z => z.id === "spire");
+assert.ok(zoneLocked(spire, { level: 5000, int: 300_000 }, 0));           // 1x locked past 250k
+assert.equal(zoneLocked(spire, { level: 5000, int: 300_000 }, 2), null);  // 20x open to 510k
+assert.ok(zoneLocked(spire, { level: 5000, int: 510_000 }, 2));           // 20x locks at 510k
+assert.equal(zoneLocked(spire, { level: 5000, int: 300_000 }), null);     // zone open if any variant is
+assert.ok(zoneLocked(warpit, { level: 5000, int: 450_000 }, 2));          // 10x-analog needs 500k
+assert.equal(zoneLocked(warpit, { level: 5000, int: 450_000 }, 0), null); // 1x open at 400k
+const sorrow = zones.find(z => z.id === "sorrow");
+assert.equal(zoneLocked(sorrow, { level: 5000, int: 2.5e6 }, 0), null);   // (Q) opens 2.2M
+assert.ok(zoneLocked(sorrow, { level: 5000, int: 2.5e6 }, 1));            // (W 5x) needs 4M
+// no INT dead zone anywhere: every INT value has at least one INT-yielding zone
+for (let int = 5_000; int <= 20e6; int = Math.round(int * 1.05)) {
+  const p = { level: 5000, int };
+  const ok = zones.some(z => intDrip(z, p) > 0 &&
+    [0, 1, 2].some(v => !zoneLocked(z, p, v)));
+  assert.ok(ok, `INT dead zone at ${int}`);
+}
 assert.equal(kiln.name, "Fallen Temple");                       // source names
 
 // boss schema: sane numbers, resolvable pools/rares, regen math, ticket ladder
