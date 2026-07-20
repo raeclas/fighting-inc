@@ -5,7 +5,7 @@ import { save, load, wipe, exportSave, importSave } from "./saveSystem.js";
 import { bindFormatSettings } from "./format.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
-import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
+import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
 import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
@@ -17,7 +17,7 @@ import { evalAchievements, achievementBonus, ACHIEVEMENT_BONUS } from "./achieve
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
-import { legionBonuses, unlockedSlots } from "./legion.js";
+import { legionBonuses, unlockedSlots, intTutorMult } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
 import { getBoss, spawnBossMob, TICKET_SUCCESS, FIRST_KILL_BONUS, firstKillBonuses } from "./bosses.js";
@@ -399,6 +399,11 @@ function rollBossDrops(boss, dropMult = 1) {
   if (d.elixir && Math.random() < Math.min(1, d.elixir * iv)) {
     player.potions.elixir++;
     logLine(`${boss.name} dropped an Elixir of Strength!`, "success");
+  }
+  // INT bounty (specials): flat chunk per kill — the INT-era heartbeat
+  if (d.intBounty) {
+    player.int += d.intBounty;
+    logLine(`${boss.name} yields +${fmt(d.intBounty)} INT.`, "success");
   }
   if (d.rare && Math.random() < Math.min(1, d.rare.chance * iv)) {
     const rp = d.rare.pool ? poolFor(d.rare.pool) : [d.rare.itemId];
@@ -846,14 +851,17 @@ function resolveKill(mob) {
     const bag = earnCopper(mob.bag); // guaranteed bag (map: 100% drop)
     pushBattleEvent({ type: "bag", copper: bag });
     gameState.fieldKills[mob.zoneId] = (gameState.fieldKills[mob.zoneId] || 0) + 1;
-    logLine(`${mob.name} felled! Bag: +${fmt(bag)}c.`, "success");
+    // INT spike: 100× the zone drip (tutored) — variance on the INT-era grind
+    const fbInt = Math.round(intDrip(getZone(mob.zoneId), player) * FIELD_BOSS_INT_MULT * intTutorMult(gameState));
+    if (fbInt) player.int += fbInt;
+    logLine(`${mob.name} felled! Bag: +${fmt(bag)}c${fbInt ? ` · +${fmt(fbInt)} INT` : ""}.`, "success");
     if (gameState.field.length === 1) selectZone(mob.zoneId, mob.variant); // solo hunt → back to field
     else replaceInField(mob, spawnMob(getZone(mob.zoneId), mob.variant));   // elite in the ranks → regular
     return;
   }
 
   // regular field mob: INT, rare bag roll, refill the slot — or a field boss joins the ranks
-  if (mob.intPerKill) player.int += intDrip(getZone(mob.zoneId), player); // "No INT after X" cap
+  if (mob.intPerKill) player.int += intDrip(getZone(mob.zoneId), player) * intTutorMult(gameState); // capped drip × legion tutoring
   gameState.kills[mob.zoneId] = (gameState.kills[mob.zoneId] || 0) + 1;
   const iv = dropIv();
   if (Math.random() < BAG_CHANCE * iv) {
@@ -1104,8 +1112,9 @@ function simulateBatch(dt) {
   if (kills <= 0) return;
 
   const copper = earnCopper(Math.round(kills * (mob.copper + BAG_CHANCE * mob.bag)));
-  // int drip respects the zone's cap; coarse (whole batch at pre-batch int)
-  player.int += kills * intDrip(getZone(mob.zoneId), player);
+  // int drip respects the zone's cap; coarse (whole batch at pre-batch int).
+  // Tutoring applies; field-boss spikes don't (not modeled in batch).
+  player.int += kills * intDrip(getZone(mob.zoneId), player) * intTutorMult(gameState);
   // jar EV (float counts; no IV offline — buffs aren't modeled in batch)
   const jarEV = jarFor(mob.zoneId, mob.variant);
   if (jarEV) player.jars[jarEV[0]] = (player.jars[jarEV[0]] || 0) + kills * jarEV[1];

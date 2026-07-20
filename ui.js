@@ -10,7 +10,7 @@ import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
 import { ACHIEVEMENTS, achievementBonus } from "./achievements.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
-import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
+import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt, intTutorMult } from "./legion.js";
 import { getSheet, SHEETS } from "./sprites.js";
 
 // formatting lives in format.js (leaf); re-export keeps existing importers working
@@ -553,6 +553,7 @@ export function renderBossList(state, player, eff, handlers) {
     const info = document.createElement("div");
     info.className = "bossInfo";
     info.innerHTML = `<strong>${boss.name}</strong><br><span class="econ">Bounty ${fmt(bounty)}c`
+      + (boss.drops?.intBounty ? ` · +${fmt(boss.drops.intBounty)} INT` : "")
       + (boss.reqInt ? ` · Respawn ${Math.round(boss.respawnMs / 60000)}m` : "") + `</span>`;
     div.appendChild(info);
 
@@ -887,6 +888,8 @@ export function renderLegion(state, handlers) {
     .join(", ") || "<strong>none yet</strong>";
   let html = `<div>Legion board — every character boosts the whole account, scaled by its INT.</div>`;
   html += `<div>Total: ${totals}</div>`;
+  const tutor = intTutorMult(state);
+  if (tutor > 1) html += `<div>Tutoring: benched characters speed the active one's INT drip <strong>×${tutor.toFixed(1)}</strong>.</div>`;
 
   state.characters.forEach((c, i) => {
     const cls = getClass(c.classId);

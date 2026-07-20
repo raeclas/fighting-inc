@@ -218,6 +218,7 @@ export const bosses = [
     skillIndex: null,
     drops: { itemChance: 0.0225, pool: ["bernardo_neck", "bernardo_ring", "classWeapon"],
              ticket: { chance: 0.01875, tier: "abyss" }, elixir: 0.02,
+             intBounty: 1_500, // ~1.5% of reqInt per kill — INT-era heartbeat (OUR design)
              bountyTier: 0, bounty: 50_000_000 },
   },
   {
@@ -227,6 +228,7 @@ export const bosses = [
     skillIndex: null,
     drops: { itemChance: 0.0075, pool: ["bernardo2_staff", "bernardo2_ring", "bernardo2_neck"],
              ticket: { chance: 0.0075, tier: "trans" }, elixir: 0.02,
+             intBounty: 7_500,
              bountyTier: 0, bounty: 300_000_000 },
   },
   {
@@ -236,6 +238,7 @@ export const bosses = [
     skillIndex: null,
     drops: { itemChance: 0.003, pool: ["seria_weaponav", "seria_auraav", "seria_cloneav"],
              souls: { kind: "old", count: 6 }, elixir: 0.02,
+             intBounty: 20_000,
              bountyTier: 0, bounty: 1_000_000_000 },
   },
   {
@@ -245,6 +248,7 @@ export const bosses = [
     skillIndex: null,
     drops: { itemChance: 0.001, pool: ["lib_weaponav", "lib_cloneav", "lib_auraav"],
              souls: { kind: "brilliant", count: 6 }, elixir: 0.02,
+             intBounty: 75_000,
              bountyTier: S, bounty: 250_000 },
   },
   {
@@ -254,6 +258,7 @@ export const bosses = [
     skillIndex: null,
     drops: { itemChance: 0.005, pool: ["trial_staff", "trial_ring", "trial_neck"],
              ticket: { chance: 0.0015, tier: "awaken" }, elixir: 0.02,
+             intBounty: 200_000,
              bountyTier: GOLD, bounty: 5 },
   },
 ];

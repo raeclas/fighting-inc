@@ -50,6 +50,18 @@ export function unlockedSlots(state) {
   return SLOT_MILESTONES.filter(m => total >= m).length;
 }
 
+// Legion tutoring: each BENCHED character past the mastery gate speeds the
+// active character's INT drip (zone kills + field-boss spikes; boss INT
+// bounties stay flat). Makes the INT-milestone slot loop self-reinforcing.
+export const TUTOR_PCT = 10;
+export function intTutorMult(state) {
+  let n = 0;
+  state.characters.forEach((c, i) => {
+    if (i !== state.active && c.int >= MASTERY_INT) n++;
+  });
+  return 1 + n * TUTOR_PCT / 100;
+}
+
 // Summed account-wide multipliers from the whole roster (active char included).
 export function legionBonuses(state) {
   const out = { atkSpeedPct: 0, skillDmgPct: 0, dmgPct: 0, copperPct: 0 };

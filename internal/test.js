@@ -9,7 +9,7 @@ import { snapshotChar } from "../saveSystem.js";
 import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
 import { bosses, spawnBossMob, FIRST_KILL_BONUS, firstKillBonuses } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
-import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES } from "../legion.js";
+import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES, intTutorMult } from "../legion.js";
 import { load, serialize, validSave, importSave } from "../saveSystem.js";
 import { classes, skillDamage, classStatBonuses, radiusOf, buffDuration } from "../classes.js";
 import { newCharacter, gainXP, agiSpeedPct } from "../player.js";
@@ -607,6 +607,17 @@ assert.equal(poolFor("abyssirocco").length, 5);
   assert.deepEqual(ids, ["bossfirst", "fieldboss", "gather10", "int100k", "int1m", "kills1k", "lvl100", "mastery1", "merged", "plus10", "plus15", "plus20", "roster2", "silver"]);
   assert.equal(achievementBonus(rich), ids.length * ACHIEVEMENT_BONUS);
   assert.equal(evalAchievements(rich).length, 0); // already earned — no repeats
+}
+
+// INT-era speedups: boss INT bounties on the 5 specials, legion tutoring
+{
+  const expected = { bernardo: 1500, bernardo2: 7500, seria: 20000, librarykeeper: 75000, trialgiver: 200000 };
+  for (const [id, amt] of Object.entries(expected))
+    assert.equal(bosses.find(b => b.id === id).drops.intBounty, amt);
+  assert.equal(intTutorMult({ active: 0, characters: [{ int: 5e5 }] }), 1);            // solo
+  assert.equal(intTutorMult({ active: 0, characters: [{ int: 5e5 }, { int: 2000 }] }), 1.1);  // 1 benched past gate
+  assert.equal(intTutorMult({ active: 0, characters: [{ int: 5e5 }, { int: 500 }] }), 1);     // benched below gate
+  assert.equal(intTutorMult({ active: 1, characters: [{ int: 5e5 }, { int: 2000 }] }), 1.1);  // active char never counts itself
 }
 
 // save durability: validSave gate, corrupt primary preserved + backup restored

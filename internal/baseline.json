@@ -161,62 +161,82 @@
   },
   {
     "t": 63876,
-    "desc": "INT farm spot: 1 laps of Harlem Dungeon (7.50 INT/s)"
+    "desc": "INT farm spot: 1 laps of Harlem Dungeon (22.50 INT/s zone + 0.00 boss)"
   },
   {
-    "t": 75051,
+    "t": 67934,
     "desc": "INT 100k — Bernardo + slot 2 unlock"
   },
   {
-    "t": 219051,
+    "t": 211934,
     "desc": "got Abyssal Fragment - Great Sword from Bernardo (E[133] kills)"
   },
   {
-    "t": 219051,
+    "t": 211934,
     "desc": "farm spot: 20 laps of Terranium (39766873.14 c/s)"
   },
   {
-    "t": 805675,
+    "t": 800536,
     "desc": "Abyssal Fragment - Great Sword +20 (E[cost] 29.14T)"
   },
   {
-    "t": 805675,
-    "desc": "INT farm spot: 1 laps of Harlem Dungeon (14.24 INT/s)"
+    "t": 800536,
+    "desc": "INT farm spot: 1 laps of Harlem Dungeon (42.72 INT/s zone + 1.39 boss)"
   },
   {
-    "t": 812875,
-    "desc": "INT farm spot: 1 laps of Luke Raid (0.51 INT/s)"
+    "t": 804136,
+    "desc": "INT farm spot: 20 laps of Luke Raid (0.08 INT/s zone + 1.39 boss)"
   },
   {
-    "t": 902875,
-    "desc": "INT farm spot: 20 laps of Luke Raid (0.03 INT/s)"
-  },
-  {
-    "t": 5943714,
+    "t": 899712,
     "desc": "INT 400k — Fiend War opens"
   },
   {
-    "t": 5943758,
+    "t": 899756,
     "desc": "learned Extreme Overkill (ticket EV)"
   },
   {
-    "t": 5943758,
+    "t": 899756,
     "desc": "got Wisdom of Futuresight from Fiend War (E[250] kills)"
   },
   {
-    "t": 5943758,
+    "t": 899756,
     "desc": "Wisdom of Futuresight +20 (E[cost] 1.21T)"
   },
   {
-    "t": 7786958,
-    "desc": "INT farm spot: 1 laps of Fiend War (0.01 INT/s)"
+    "t": 968156,
+    "desc": "INT farm spot: 1 laps of Fiend War (0.02 INT/s zone + 6.60 boss)"
   },
   {
-    "t": 31536158,
-    "desc": "STUCK: exceeded 1 simulated year at 674.40k INT"
+    "t": 994452,
+    "desc": "INT 700k — Stormy Route opens"
   },
   {
-    "t": 31536158,
-    "desc": "END: level 5000, 2.26Qa copper banked"
+    "t": 1039758,
+    "desc": "INT 1M — slot 3"
+  },
+  {
+    "t": 1120934,
+    "desc": "INT 1.6M — Aiolite opens"
+  },
+  {
+    "t": 1146134,
+    "desc": "INT farm spot: 1 laps of Aiolite (0.00 INT/s zone + 17.71 boss)"
+  },
+  {
+    "t": 1256407,
+    "desc": "INT 4M — Ore of Despair opens"
+  },
+  {
+    "t": 1461607,
+    "desc": "INT farm spot: 1 laps of Terranium (0.00 INT/s zone + 178.82 boss)"
+  },
+  {
+    "t": 1464325,
+    "desc": "INT 15.5M — Golden Beryl opens"
+  },
+  {
+    "t": 1464325,
+    "desc": "END: level 5000, 7.58Qi copper banked"
   }
 ]

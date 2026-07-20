@@ -12,7 +12,7 @@
 // gathering buffs, active-class casts, potions/elixir IV, first-kill drop/enh
 // IV (drop-rate milestones stay solo-rate — deliberately conservative).
 import fs from "node:fs";
-import { zones, VARIANTS, spawnMob, zoneLocked, intDrip, BAG_CHANCE, FIELD_COLS, FIELD_ROWS } from "../zones.js";
+import { zones, VARIANTS, spawnMob, zoneLocked, intDrip, BAG_CHANCE, FIELD_COLS, FIELD_ROWS, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "../zones.js";
 import { getItem, tierOf, aggregate, poolFor, SPECIAL_IDS } from "../items.js";
 import { enhanceChance } from "../enhance.js";
 import { bosses, getBoss, spawnBossMob, firstKillBonuses } from "../bosses.js";
@@ -151,7 +151,8 @@ function bestZoneRate(metric = "copperPerSec") {
         zone: z, variant: v, name: mob.name,
         copperPerSec: kps * (mob.copper + BAG_CHANCE * mob.bag),
         xpPerSec: kps * mob.xp,
-        intPerSec: kps * intDrip(z, { int: P.int }), // "No INT after X" cap
+        // drip + field-boss INT-spike EV (spawn chance × 100× drip)
+        intPerSec: kps * intDrip(z, { int: P.int }) * (1 + FIELD_BOSS_SPAWN_CHANCE * FIELD_BOSS_INT_MULT),
         killsPerSec: kps,
       };
       if (!best || r[metric] > best[metric]) best = r;
@@ -194,24 +195,48 @@ function farmUntil(targetCopper) {
   return true;
 }
 
+// INT/s from killing every reachable respawn-timer special on cooldown while
+// farming (the boss INT bounties — the INT-era heartbeat). EV kills recorded
+// so trophies/achievements accrue.
+function specialBossIntRate() {
+  const out = [];
+  for (const b of bosses) {
+    if (!b.respawnMs || !b.drops?.intBounty) continue;
+    const info = bossInfo(b.id); // handles reqInt + killability
+    if (!info) continue;
+    const cycle = Math.max(info.ttk, b.respawnMs / 1000);
+    out.push({ id: b.id, intPerSec: b.drops.intBounty / cycle, killsPerSec: 1 / cycle, netPerKill: info.netPerKill });
+  }
+  return out;
+}
+
 // farm the best INT/s zone until P.int >= target — the INT-era dead-zone
 // detector: a STUCK mark here means there is no INT income at this point.
 function farmIntUntil(targetInt, label) {
   let guard = 0;
   while (P.int < targetInt && guard++ < 200_000) {
     const r = bestZoneRate("intPerSec");
-    if (!r || r.intPerSec <= 0) { mark(`STUCK: no INT-yielding zone at ${fmtC(P.int)} INT`); return false; }
-    if (r.name !== currentFarmName) {
+    const specials = specialBossIntRate();
+    const bossInt = specials.reduce((s, x) => s + x.intPerSec, 0);
+    const totalIntPerSec = (r?.intPerSec ?? 0) + bossInt;
+    if (totalIntPerSec <= 0) { mark(`STUCK: no INT income at ${fmtC(P.int)} INT`); return false; }
+    if (r && r.name !== currentFarmName) {
       currentFarmName = r.name;
-      mark(`INT farm spot: ${r.name} (${r.intPerSec.toFixed(2)} INT/s)`);
+      mark(`INT farm spot: ${r.name} (${r.intPerSec.toFixed(2)} INT/s zone + ${bossInt.toFixed(2)} boss)`);
     }
-    const dt = Math.min(Math.max((targetInt - P.int) / r.intPerSec, 1), 3600);
+    const dt = Math.min(Math.max((targetInt - P.int) / totalIntPerSec, 1), 3600);
     P.t += dt;
     if (P.t > MAX_SIM_S) { mark(`STUCK: exceeded 1 simulated year at ${fmtC(P.int)} INT`); return false; }
-    P.copper += r.copperPerSec * dt;
-    P.int += r.intPerSec * dt;
-    P.kills[r.zone.id] = (P.kills[r.zone.id] || 0) + r.killsPerSec * dt;
-    gainXp(r.xpPerSec * dt);
+    P.int += totalIntPerSec * dt;
+    if (r) {
+      P.copper += r.copperPerSec * dt;
+      P.kills[r.zone.id] = (P.kills[r.zone.id] || 0) + r.killsPerSec * dt;
+      gainXp(r.xpPerSec * dt);
+    }
+    for (const s of specials) {
+      P.kills[s.id] = (P.kills[s.id] || 0) + s.killsPerSec * dt;
+      P.copper += s.netPerKill * s.killsPerSec * dt;
+    }
   }
   mark(label);
   return true;
