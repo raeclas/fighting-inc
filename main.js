@@ -1,7 +1,7 @@
 // main.js
 // Entry point. Loads the save, wires UI, runs the update/render loop.
 import { gameState } from "./state.js";
-import { save, load, wipe } from "./saveSystem.js";
+import { save, load, wipe, exportSave, importSave } from "./saveSystem.js";
 import { bindFormatSettings } from "./format.js";
 import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
@@ -1105,6 +1105,34 @@ document.getElementById("resetGame").onclick = () => {
   resetting = true;
   wipe();
   location.reload();
+};
+
+document.getElementById("exportSave").onclick = () => {
+  const blob = new Blob([exportSave(gameState)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "esrpg_save.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  logLine("Save exported.");
+};
+
+const importFile = document.getElementById("importFile");
+document.getElementById("importSave").onclick = () => importFile.click();
+importFile.onchange = () => {
+  const f = importFile.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (importSave(reader.result)) {
+      resetting = true; // beforeunload must not overwrite the imported save
+      location.reload();
+    } else {
+      logLine("Invalid save file.", "fail");
+      importFile.value = "";
+    }
+  };
+  reader.readAsText(f);
 };
 
 ///// START /////

@@ -10,7 +10,7 @@ import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from ".
 import { bosses, spawnBossMob } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
 import { charBonus, legionBonuses, unlockedSlots, MASTERY_INT, CLASS_BONUSES } from "../legion.js";
-import { load, serialize } from "../saveSystem.js";
+import { load, serialize, validSave, importSave } from "../saveSystem.js";
 import { classes, skillDamage, classStatBonuses, radiusOf, buffDuration } from "../classes.js";
 import { newCharacter, gainXP, agiSpeedPct } from "../player.js";
 import { zones, zoneLocked, intDrip } from "../zones.js";
@@ -529,5 +529,25 @@ assert.equal(aggregate([{ itemId: "fusion_garb", plus: 20 }]).dmgIncPct, 13000);
 const fs = bosses.find(b => b.id === "abyssirocco");
 assert.ok(fs && fs.eliteChance === 0.2 && fs.eliteDropMult === 3);
 assert.equal(poolFor("abyssirocco").length, 5);
+
+// save durability: validSave gate, corrupt primary preserved + backup restored
+{
+  assert.equal(validSave(null), false);
+  assert.equal(validSave("nope"), false);
+  assert.equal(validSave({ v: 2 }), false);
+  assert.equal(validSave({ v: 3 }), true);
+  const good = JSON.stringify({ v: 3, characters: [{ classId: "indra", level: 4 }], active: 0, slots: 1 });
+  localStorage.setItem("esrpg_save", good);
+  const stA = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: {} }, settings: { fullNumbers: false } };
+  assert.ok(load(stA));
+  assert.equal(localStorage.getItem("esrpg_save_bak"), good); // last-known-good written
+  localStorage.setItem("esrpg_save", "{corrupt garbage");
+  const stB = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: {} }, settings: { fullNumbers: false } };
+  assert.ok(load(stB)); // falls back to _bak
+  assert.equal(stB.characters[0].level, 4);
+  assert.equal(localStorage.getItem("esrpg_save_corrupt"), "{corrupt garbage"); // rescue copy kept
+  assert.equal(importSave("{also garbage"), false);
+  assert.equal(importSave(good), true);
+}
 
 console.log("all checks passed");
