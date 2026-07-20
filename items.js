@@ -109,16 +109,30 @@ export function masteryMult(count) {
   return 1 + n * MASTERY_BONUS;
 }
 
-// Batch-absorb stash duplicates into mastery: keeps the highest-plus copy of
+// Special-bag duplicates beyond the first copy per item (talisman family
+// never counts — its dupes are merge fodder). Shared by UI badge + handler.
+export function bagDupeCount(bag) {
+  const seen = new Set();
+  let n = 0;
+  for (const eq of bag) {
+    if (MERGE_IDS.has(eq.itemId)) continue;
+    if (seen.has(eq.itemId)) n++;
+    else seen.add(eq.itemId);
+  }
+  return n;
+}
+
+// Batch-absorb duplicates into mastery: keeps the highest-plus copy of
 // each item, absorbs the rest at (1 + plus) each — what a player would do by
-// hand. Mutates both args; returns how many items were absorbed.
-export function absorbDupes(stash, mastery) {
+// hand. Ids in `skip` are never touched (talisman family: dupes are merge
+// fodder). Mutates both args; returns how many items were absorbed.
+export function absorbDupes(stash, mastery, skip = null) {
   stash.sort((a, b) => b.plus - a.plus); // best copy first, so it survives
   const seen = new Set();
   let absorbed = 0;
   for (let i = 0; i < stash.length; ) {
     const eq = stash[i];
-    if (seen.has(eq.itemId)) {
+    if (seen.has(eq.itemId) && !skip?.has(eq.itemId)) {
       mastery[eq.itemId] = (mastery[eq.itemId] || 0) + 1 + eq.plus;
       stash.splice(i, 1);
       absorbed++;

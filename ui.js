@@ -1,7 +1,7 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS, zoneLocked, intDrip } from "./zones.js";
-import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryMult, MASTERY_MILESTONES } from "./items.js";
+import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryMult, MASTERY_MILESTONES, bagDupeCount } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills } from "./classes.js";
 import { JARS, potionActive } from "./consumables.js";
@@ -427,8 +427,17 @@ export function renderEquipment(player, handlers) {
   const bag = player.specialBag || [];
   if (bag.length) {
     const header = document.createElement("div");
-    header.innerHTML = `<strong>Special Bag (${bag.length})</strong> — always active`;
+    header.innerHTML = `<strong>Special Bag (${bag.length})</strong> — always active `;
     header.style.marginTop = "8px";
+    // pre-dedup saves can hold stat-stacking duplicates — one-click cleanup
+    const bagDupes = bagDupeCount(bag);
+    if (bagDupes) {
+      const btn = document.createElement("button");
+      btn.textContent = `Absorb duplicates (${bagDupes})`;
+      btn.title = "Keeps the best copy of each special; the rest become mastery (1 + plus each). Talismans never touched.";
+      btn.onclick = () => handlers.onAbsorbBagDupes();
+      header.appendChild(btn);
+    }
     container.appendChild(header);
 
     bag.forEach((eq, i) => {

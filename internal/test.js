@@ -2,7 +2,7 @@
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryMult, absorbDupes } from "../items.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryMult, absorbDupes, bagDupeCount, MERGE_IDS } from "../items.js";
 import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js";
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
@@ -620,6 +620,23 @@ assert.equal(poolFor("abyssirocco").length, 5);
   assert.deepEqual(stash.map(e => `${e.itemId}+${e.plus}`).sort(), ["luke_dmg+20", "rafaros+5"]);
   assert.equal(mastery.luke_dmg, 2 + (1 + 3) + (1 + 0)); // existing + two absorbed
   assert.equal(absorbDupes(stash, mastery), 0); // idempotent
+}
+
+// specialBag dedup: talisman family exempt (merge fodder), rest collapse
+{
+  const bag = [
+    { itemId: "bernardo_neck", plus: 12 }, { itemId: "bernardo_neck", plus: 0 },
+    { itemId: "talisman", plus: 2 }, { itemId: "talisman", plus: 2 }, // merge pair — untouchable
+    { itemId: "luke_def", plus: 5 },
+  ];
+  assert.equal(bagDupeCount(bag), 1);
+  const mastery = {};
+  assert.equal(absorbDupes(bag, mastery, MERGE_IDS), 1);
+  assert.equal(mastery.bernardo_neck, 1); // +0 dupe absorbed at 1+0
+  assert.equal(bag.filter(e => e.itemId === "talisman").length, 2); // pair intact
+  assert.equal(bag.filter(e => e.itemId === "bernardo_neck").length, 1);
+  assert.equal(bag.find(e => e.itemId === "bernardo_neck").plus, 12); // best kept
+  assert.equal(bagDupeCount(bag), 0);
 }
 
 // INT-era speedups: boss INT bounties on the 5 specials, legion tutoring

@@ -7,7 +7,7 @@ import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
-import { getItem, aggregate, absorbDupes, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
+import { getItem, aggregate, absorbDupes, bagDupeCount, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
@@ -303,8 +303,16 @@ function summonBoss(bossId) {
 function acquireItem(itemId, sourceLabel) {
   const def = getItem(itemId);
   if (SPECIAL_IDS.has(itemId)) {
-    player.specialBag.push({ itemId, plus: 0 });
-    logLine(`${sourceLabel} ${def.name}! → special bag.`, "success");
+    // one copy per special: bag items are ALWAYS active, so duplicates would
+    // stack stats forever off AFK farming. Dupes feed mastery instead.
+    // Talisman family exempt — its dupes are merge fodder.
+    if (!MERGE_IDS.has(itemId) && player.specialBag.some(e => e.itemId === itemId)) {
+      player.mastery[itemId] = (player.mastery[itemId] || 0) + 1;
+      logLine(`${sourceLabel} ${def.name} — absorbed into mastery (${player.mastery[itemId]}).`, "success");
+    } else {
+      player.specialBag.push({ itemId, plus: 0 });
+      logLine(`${sourceLabel} ${def.name}! → special bag.`, "success");
+    }
     renderEquipment(player, equipHandlers);
     return;
   }
@@ -579,7 +587,7 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onAbsorbDupes: absorbStashDupes, onAbsorbBagDupes: absorbBagDupes, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
 
 // Open jars: each is a gacha roll (map ORx) — openChance × IV, consumed either way.
 function openJar(jarId, times) {
@@ -701,6 +709,17 @@ function absorbStashDupes() {
   if (!confirm(`Absorb ${dupes} duplicate item${dupes > 1 ? "s" : ""} into mastery? The best copy of each item stays.`)) return;
   absorbDupes(player.stash, player.mastery);
   logLine(`Absorbed ${dupes} stash duplicate${dupes > 1 ? "s" : ""} into mastery.`, "success");
+  renderEquipment(player, equipHandlers);
+}
+
+// Same cleanup for the special bag (pre-dedup saves stacked duplicate ring/
+// necklace stats); talisman family untouched — its dupes merge.
+function absorbBagDupes() {
+  const dupes = bagDupeCount(player.specialBag);
+  if (!dupes) return;
+  if (!confirm(`Absorb ${dupes} duplicate special item${dupes > 1 ? "s" : ""} into mastery? The best copy of each stays; talismans are never touched.`)) return;
+  absorbDupes(player.specialBag, player.mastery, MERGE_IDS);
+  logLine(`Absorbed ${dupes} special-bag duplicate${dupes > 1 ? "s" : ""} into mastery.`, "success");
   renderEquipment(player, equipHandlers);
 }
 
