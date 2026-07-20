@@ -9,14 +9,16 @@
 // enhancing to +N costs its expected copper, a boss item takes its expected
 // number of kills. The bot plays a Blood Evil (passive procs counted as EV
 // damage — the canonical idle farmer on source numbers). Not modeled: macros,
-// gathering buffs, active-class casts.
+// gathering buffs, active-class casts, potions/elixir IV, first-kill drop/enh
+// IV (drop-rate milestones stay solo-rate — deliberately conservative).
 import fs from "node:fs";
 import { zones, VARIANTS, spawnMob, zoneLocked, intDrip, BAG_CHANCE, FIELD_COLS, FIELD_ROWS } from "../zones.js";
 import { getItem, tierOf, aggregate, poolFor, SPECIAL_IDS } from "../items.js";
 import { enhanceChance } from "../enhance.js";
-import { bosses, getBoss, spawnBossMob } from "../bosses.js";
+import { bosses, getBoss, spawnBossMob, firstKillBonuses } from "../bosses.js";
 import { getClass, skillDamage, classStatBonuses } from "../classes.js";
 import { bestiaryBonus } from "../bestiary.js";
+import { evalAchievements, achievementBonus } from "../achievements.js";
 import { legionBonuses } from "../legion.js";
 
 const MAX_SIM_S = 365 * 86400;
@@ -55,12 +57,21 @@ function gainXp(xp) {
   }
 }
 
+// achievements shim: persistent earned-set, live views over P (same checks
+// the game runs; kill counts are EV floats — >= comparisons hold)
+const achState = { achievements: {}, gathering: { level: { mining: 1, fishing: 1 } } };
+
 function stats() {
   const g = aggregate(P.equipment, P.specialBag);
   // Legion: the bot is a 1-char account, so only its own class bonus applies.
   const leg = legionBonuses({ characters: [{ classId: CLS.id, int: P.int }] });
   const statSk = classStatBonuses(CLS, P.skills, g.skillLevelBonus);
+  achState.kills = P.kills;
+  achState.fieldKills = {};
+  achState.characters = [{ int: P.int, level: P.level, copper: P.copper, equipment: P.equipment, stash: [], specialBag: P.specialBag, mastery: {} }];
+  evalAchievements(achState);
   const bonus = 1 + bestiaryBonus({ kills: P.kills }) + statSk.atkPct / 100
+    + achievementBonus(achState) + firstKillBonuses(P.kills).dmg
     + leg.dmgPct / 100 + g.dmgIncPct / 100;
   const totalInt = P.int + g.int;
   const A = Math.round((P.attack + g.atk + totalInt) * bonus * (1 + g.addDmgPct / 100));
@@ -126,8 +137,9 @@ function timeToKill(mob) {
   return Math.max(interval, mob.maxHp / dps);
 }
 
-// best zone×variant by copper/s; returns null if nothing farmable
-function bestZoneRate() {
+// best zone×variant by `metric` (copper/s default, INT/s for the INT era);
+// returns null if nothing farmable
+function bestZoneRate(metric = "copperPerSec") {
   let best = null;
   for (const z of zones) {
     if (zoneLocked(z, { level: P.level, int: P.int })) continue; // gates + lockouts
@@ -142,7 +154,7 @@ function bestZoneRate() {
         intPerSec: kps * intDrip(z, { int: P.int }), // "No INT after X" cap
         killsPerSec: kps,
       };
-      if (!best || r.copperPerSec > best.copperPerSec) best = r;
+      if (!best || r[metric] > best[metric]) best = r;
     }
   }
   return best;
@@ -150,6 +162,7 @@ function bestZoneRate() {
 
 function bossInfo(bossId) {
   const boss = getBoss(bossId);
+  if (boss.reqInt && P.int < boss.reqInt) return null; // summon gate (game checks at summon)
   const mob = spawnBossMob(boss);
   const ttk = timeToKill(mob);
   if (ttk > 3600) return null; // not practically killable
@@ -178,6 +191,29 @@ function farmUntil(targetCopper) {
     P.kills[r.zone.id] = (P.kills[r.zone.id] || 0) + r.killsPerSec * dt;
     gainXp(r.xpPerSec * dt);
   }
+  return true;
+}
+
+// farm the best INT/s zone until P.int >= target — the INT-era dead-zone
+// detector: a STUCK mark here means there is no INT income at this point.
+function farmIntUntil(targetInt, label) {
+  let guard = 0;
+  while (P.int < targetInt && guard++ < 200_000) {
+    const r = bestZoneRate("intPerSec");
+    if (!r || r.intPerSec <= 0) { mark(`STUCK: no INT-yielding zone at ${fmtC(P.int)} INT`); return false; }
+    if (r.name !== currentFarmName) {
+      currentFarmName = r.name;
+      mark(`INT farm spot: ${r.name} (${r.intPerSec.toFixed(2)} INT/s)`);
+    }
+    const dt = Math.min(Math.max((targetInt - P.int) / r.intPerSec, 1), 3600);
+    P.t += dt;
+    if (P.t > MAX_SIM_S) { mark(`STUCK: exceeded 1 simulated year at ${fmtC(P.int)} INT`); return false; }
+    P.copper += r.copperPerSec * dt;
+    P.int += r.intPerSec * dt;
+    P.kills[r.zone.id] = (P.kills[r.zone.id] || 0) + r.killsPerSec * dt;
+    gainXp(r.xpPerSec * dt);
+  }
+  mark(label);
   return true;
 }
 
@@ -232,14 +268,30 @@ function bossItem(bossId, itemId) {
   if (waited) mark(`${info.boss.name} first killable (ttk ${info.ttk.toFixed(0)}s)`);
   if (!farmUntil(info.boss.summonCost)) return false; // summon capital
 
-  // expected kills for a SPECIFIC pool item: pool_size / roll_chance
+  // expected kills for a SPECIFIC pool item: pool_size / roll_chance.
+  // Explicit drop pools (specials) beat poolFor — bernardo's generated pool
+  // holds all 15 class weapons but the boss only rolls its 3-entry list.
   const d = info.boss.drops;
-  const poolSize = poolFor(bossId).length || 1;
+  const poolSize = (d?.pool?.length ?? poolFor(bossId).length) || 1;
   const killsNeeded = poolSize / (d?.itemChance ?? 0.02);
-  P.t += killsNeeded * info.ttk;
+  // respawn-timer bosses (specials) are kill-rate-bound by the timer; the bot
+  // farms the best zone during the wait. ponytail: farm spot held static
+  // across the whole wait — fine for a tracker.
+  const wait = Math.max(info.ttk, (info.boss.respawnMs ?? 0) / 1000);
+  P.t += killsNeeded * wait;
   P.copper += killsNeeded * info.netPerKill;
   P.kills[bossId] = (P.kills[bossId] || 0) + killsNeeded;
   gainXp(killsNeeded * info.mob.xp);
+  const idle = killsNeeded * Math.max(0, wait - info.ttk);
+  if (idle > 0) {
+    const r = bestZoneRate();
+    if (r) {
+      P.copper += r.copperPerSec * idle;
+      P.int += r.intPerSec * idle;
+      P.kills[r.zone.id] = (P.kills[r.zone.id] || 0) + r.killsPerSec * idle;
+      gainXp(r.xpPerSec * idle);
+    }
+  }
 
   // ticket rides the item roll (source): EV ≥ 1 ticket seen over those kills
   if (info.boss.skillIndex !== null) {
@@ -271,6 +323,17 @@ const plan = [
   () => bossItem("anton", "anton_crit"),         () => enhance("anton_crit", 20),
   () => bossItem("luke", "luke_dmg"),            () => enhance("luke_dmg", 20),   // Rosetta Stone
   () => bossItem("harlem", "harlem_dmg"),        () => enhance("harlem_dmg", 20),
+  // ---- INT era (5k → 15.5M): the previously-unsimulated stretch ----
+  () => bossItem("taibers", "taibers_intp"),     () => enhance("taibers_intp", 20),
+  () => farmIntUntil(100e3,  "INT 100k — Bernardo + slot 2 unlock"),
+  () => bossItem("bernardo", "bernardo_gsword"), () => enhance("bernardo_gsword", 20),
+  () => farmIntUntil(400e3,  "INT 400k — Fiend War opens"),
+  () => bossItem("fiendwar", "fiendwar_dmg"),    () => enhance("fiendwar_dmg", 20),
+  () => farmIntUntil(700e3,  "INT 700k — Stormy Route opens"),
+  () => farmIntUntil(1e6,    "INT 1M — slot 3"),
+  () => farmIntUntil(1.6e6,  "INT 1.6M — Aiolite opens"),
+  () => farmIntUntil(4e6,    "INT 4M — Ore of Despair opens"),
+  () => farmIntUntil(15.5e6, "INT 15.5M — Golden Beryl opens"),
 ];
 
 ///// run /////

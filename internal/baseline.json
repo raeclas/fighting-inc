@@ -12,139 +12,187 @@
     "desc": "Rafaros Staff +10 (E[cost] 819)"
   },
   {
-    "t": 817,
+    "t": 816,
     "desc": "bought Defined Darkness"
   },
   {
-    "t": 1018,
+    "t": 1017,
     "desc": "Defined Darkness +10 (E[cost] 2574)"
   },
   {
-    "t": 1018,
-    "desc": "farm spot: 20 laps of Fallen Temple (24.87 c/s)"
+    "t": 1017,
+    "desc": "farm spot: 20 laps of Fallen Temple (24.97 c/s)"
   },
   {
-    "t": 1219,
+    "t": 1218,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 8419,
-    "desc": "farm spot: 5 laps of Magtonium (71.39 c/s)"
+    "t": 8418,
+    "desc": "farm spot: 5 laps of Magtonium (71.71 c/s)"
   },
   {
-    "t": 11515,
+    "t": 11480,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 11544,
+    "t": 11508,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 14559,
+    "t": 14470,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 14576,
+    "t": 14487,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 16418,
+    "t": 16291,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 16443,
+    "t": 16315,
     "desc": "bought Lumen Caligo"
   },
   {
-    "t": 18890,
+    "t": 18711,
     "desc": "Lumen Caligo +15 (E[cost] 1.05M)"
   },
   {
-    "t": 18900,
+    "t": 18721,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 20191,
+    "t": 19987,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 20200,
+    "t": 19996,
     "desc": "bought Liberation Staff"
   },
   {
-    "t": 21226,
+    "t": 21000,
     "desc": "Liberation Staff +20 (E[cost] 546.30k)"
   },
   {
-    "t": 21324,
+    "t": 21096,
     "desc": "got Superstar Ring from Hell Party (E[125] kills)"
   },
   {
-    "t": 32124,
-    "desc": "farm spot: 20 laps of Magtonium (949.32 c/s)"
+    "t": 31896,
+    "desc": "farm spot: 20 laps of Magtonium (970.21 c/s)"
   },
   {
-    "t": 42555,
+    "t": 41897,
     "desc": "Superstar Ring +20 (E[cost] 21.85M)"
   },
   {
-    "t": 42570,
+    "t": 41912,
     "desc": "got Shepherd's Rod from Hell Party (E[125] kills)"
   },
   {
-    "t": 44454,
+    "t": 43790,
     "desc": "Shepherd's Rod +20 (E[cost] 21.85M)"
   },
   {
-    "t": 44454,
-    "desc": "farm spot: 1 laps of Terranium (32956.01 c/s)"
+    "t": 43790,
+    "desc": "farm spot: 1 laps of Terranium (32993.69 c/s)"
   },
   {
-    "t": 44474,
+    "t": 43811,
     "desc": "learned Raging Fury (ticket EV)"
   },
   {
-    "t": 44474,
+    "t": 43811,
     "desc": "got Shape of Avarice from Anton (E[167] kills)"
   },
   {
-    "t": 46513,
+    "t": 45849,
     "desc": "Shape of Avarice +20 (E[cost] 109.26M)"
   },
   {
-    "t": 46532,
+    "t": 45867,
     "desc": "got Savior's Glory - Spear from Anton (E[167] kills)"
   },
   {
-    "t": 47172,
+    "t": 46507,
     "desc": "Savior's Glory - Spear +20 (E[cost] 109.26M)"
   },
   {
-    "t": 47200,
+    "t": 46534,
     "desc": "learned Blood Sword (ticket EV)"
   },
   {
-    "t": 47200,
+    "t": 46534,
     "desc": "got Rosetta Stone from Luke (E[250] kills)"
   },
   {
-    "t": 47703,
+    "t": 47037,
     "desc": "Rosetta Stone +20 (E[cost] 364.20M)"
   },
   {
-    "t": 47748,
+    "t": 47082,
     "desc": "learned Blood Boom (ticket EV)"
   },
   {
-    "t": 47748,
+    "t": 47082,
     "desc": "got Jealous Obsession Ring from Harlem Hell Party (E[200] kills)"
   },
   {
-    "t": 53332,
+    "t": 52662,
     "desc": "Jealous Obsession Ring +20 (E[cost] 10.93B)"
   },
   {
-    "t": 53332,
-    "desc": "END: level 5000, 0 copper banked"
+    "t": 52662,
+    "desc": "farm spot: 20 laps of Terranium (10545902.66 c/s)"
+  },
+  {
+    "t": 52892,
+    "desc": "learned Outrage Break (ticket EV)"
+  },
+  {
+    "t": 52892,
+    "desc": "got Serenity of Life: Harmonic from Taibers (E[250] kills)"
+  },
+  {
+    "t": 63876,
+    "desc": "Serenity of Life: Harmonic +20 (E[cost] 182.10B)"
+  },
+  {
+    "t": 63876,
+    "desc": "INT farm spot: 1 laps of Harlem Dungeon (7.50 INT/s)"
+  },
+  {
+    "t": 75051,
+    "desc": "INT 100k — Bernardo + slot 2 unlock"
+  },
+  {
+    "t": 219051,
+    "desc": "got Abyssal Fragment - Great Sword from Bernardo (E[133] kills)"
+  },
+  {
+    "t": 219051,
+    "desc": "farm spot: 20 laps of Terranium (39766873.14 c/s)"
+  },
+  {
+    "t": 805675,
+    "desc": "Abyssal Fragment - Great Sword +20 (E[cost] 29.14T)"
+  },
+  {
+    "t": 805675,
+    "desc": "INT farm spot: 1 laps of Harlem Dungeon (14.24 INT/s)"
+  },
+  {
+    "t": 812875,
+    "desc": "INT farm spot: 1 laps of Luke Raid (0.51 INT/s)"
+  },
+  {
+    "t": 902875,
+    "desc": "STUCK: no INT-yielding zone at 251.77k INT"
+  },
+  {
+    "t": 902875,
+    "desc": "END: level 5000, 3.03T copper banked"
   }
 ]
