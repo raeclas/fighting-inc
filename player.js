@@ -41,6 +41,9 @@ export function newCharacter() {
     // class + known skills (skillId -> level 1..7)
     classId: null,
     skills: {},
+
+    // worn title id (titles.js; earned set is derived, only the choice persists)
+    title: null,
   };
 }
 

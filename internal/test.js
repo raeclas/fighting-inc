@@ -523,6 +523,20 @@ assert.equal(minC.xpToNext, 150);
   assert.ok(fan.kind === "fanfare" && fan.text.includes("★"));
 }
 
+// titles: derived earn set, worn title guarded against unearned ids
+{
+  const { TITLES, earnedTitles, titleName } = await import("../titles.js");
+  const st = { kills: { hellparty: 3 }, fieldKills: {}, gathering: { level: { mining: 1, fishing: 1 } },
+    characters: [{ int: 150_000, equipment: [{ itemId: "rafaros", plus: 16 }], specialBag: [], title: "plus15" }] };
+  const ids = earnedTitles(st).map(t => t.id);
+  assert.ok(ids.includes("slave") && ids.includes("plus15") && ids.includes("slayer") && ids.includes("bigbrain"));
+  assert.ok(!ids.includes("plus20") && !ids.includes("galaxy"));
+  assert.equal(titleName(st, st.characters[0]), "Against the Odds");
+  assert.equal(titleName(st, { title: "plus20" }), null);  // unearned = not worn
+  assert.equal(titleName(st, { title: null }), null);
+  for (const t of TITLES) assert.ok(typeof t.check(st) === "boolean" || t.check(st) === true);
+}
+
 // fmt respects the injected settings getter
 const fakeSettings = { fullNumbers: false };
 bindFormatSettings(() => fakeSettings);

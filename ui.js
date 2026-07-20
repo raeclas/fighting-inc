@@ -6,6 +6,7 @@ import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills, classStatBonuses } from "./classes.js";
 import { potionActive, ivMult, PROB_POTION_IV, ELIXIR_IV, INT_POTION_MULT } from "./consumables.js";
 import { rivalRows, accountBest } from "./rivals.js";
+import { TITLES, earnedTitles, titleName } from "./titles.js";
 import { bosses, INTEREST, TICKET_SUCCESS, EVOLUTION } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES, BONUS_PER_MILESTONE } from "./bestiary.js";
 import { FEATS, featCount, featBonus, firstKillFeats, starFeats, FEAT_DMG, FEAT_LUCK } from "./feats.js";
@@ -53,8 +54,9 @@ function portraitCanvas(sheetId, px, tint = "#2b3854") {
 
 function updateHud(state, player) {
   const cls = getClass(player.classId);
+  const worn = titleName(state, player);
   document.getElementById("hudPlate").textContent =
-    `Lv ${player.level} ${cls ? cls.name : "Enhancement Slave"}`;
+    `Lv ${player.level} ${cls ? cls.name : "Enhancement Slave"}${worn ? ` «${worn}»` : ""}`;
 
   // WC3 purple XP strip — HP is vestigial in the source (no hero-damage system)
   document.getElementById("hudHpBar").style.width = `${Math.min(100, (player.xp / player.xpToNext) * 100)}%`;
@@ -256,7 +258,8 @@ export function updateUI(state, player, eff) {
 let lastLobbyKey = "";
 export function renderLobby(state, player) {
   const best = accountBest(state);
-  const key = `${Math.round(Math.log10(best.int + 10) * 8)}|${best.plus}|${player.classId}`;
+  const worn = titleName(state, player);
+  const key = `${Math.round(Math.log10(best.int + 10) * 8)}|${best.plus}|${player.classId}|${worn}`;
   if (key === lastLobbyKey) return;
   lastLobbyKey = key;
   const cls = getClass(player.classId);
@@ -268,6 +271,7 @@ export function renderLobby(state, player) {
     `<div class="econ">8 slaves grinding. Rankings by INT — the only number anyone respects.</div>`
     + rows.map((r, i) =>
       `<div class="bestiaryEntry${r.me ? "" : " locked"}">#${i + 1} <strong>${r.name}</strong>`
+      + `${r.me && worn ? ` «${worn}»` : ""}`
       + ` — ${getClass(r.classId)?.name ?? cls?.name ?? "Slave"} · ${fmt(r.int)} INT · best +${r.topPlus}</div>`
     ).join("");
 }
@@ -949,16 +953,22 @@ export function renderMasteryItems(state, player) {
 // kills + mastery stars, each worth +FEAT_DMG damage and +FEAT_LUCK Luck.
 let lastFeatKey = "";
 export function renderFeats(state) {
-  // called every frame; rebuild only when the total changes
-  const total = featCount(state);
+  // called every frame; rebuild only when the total or earned titles change
+  const player = state.characters[state.active];
+  const titles = earnedTitles(state);
+  const total = `${featCount(state)}|${titles.length}|${player?.title}`;
   if (total === lastFeatKey) return;
   lastFeatKey = total;
   const container = document.querySelector(".achievementList");
   const b = featBonus(state);
   const earned = Object.keys(state.achievements ?? {}).length;
-  let html = `<div>Feats: <strong>${total}</strong> = <strong>+${(b.dmg * 100).toFixed(0)}% damage · +${(b.luck * 100).toFixed(1)}% Luck</strong>`
+  let html = `<div>Feats: <strong>${featCount(state)}</strong> = <strong>+${(b.dmg * 100).toFixed(0)}% damage · +${(b.luck * 100).toFixed(1)}% Luck</strong>`
     + ` — each feat is +${FEAT_DMG * 100}% / +${FEAT_LUCK * 100}%</div>`
-    + `<div class="econ">Boss first kills: ${firstKillFeats(state)}/${bosses.length} · Mastery stars: ★${starFeats(state)} · Named feats: ${earned}/${FEATS.length}</div>`;
+    + `<div class="econ">Boss first kills: ${firstKillFeats(state)}/${bosses.length} · Mastery stars: ★${starFeats(state)} · Named feats: ${earned}/${FEATS.length}</div>`
+    + `<div style="margin:6px 0">Title: <select id="titlePick">`
+    + `<option value="">(none)</option>`
+    + titles.map(t => `<option value="${t.id}"${player?.title === t.id ? " selected" : ""}>${t.name}</option>`).join("")
+    + `</select> <span class="econ">${titles.length}/${TITLES.length} earned — worn on your plate and the Lobby board</span></div>`;
   for (const a of FEATS) {
     const got = !!state.achievements?.[a.id];
     html += `<div class="bestiaryEntry${got ? "" : " locked"}">
@@ -966,6 +976,10 @@ export function renderFeats(state) {
     </div>`;
   }
   container.innerHTML = html;
+  container.querySelector("#titlePick").onchange = e => {
+    if (player) player.title = e.target.value || null;
+    bustRenderCaches(); // plate + lobby pick the new title up next frame
+  };
 }
 
 let lastLegionKey = "";

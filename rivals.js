@@ -72,3 +72,20 @@ export function rollAnnouncement(state, rng = Math.random) {
 export function scheduleNext(now, rng = Math.random) {
   return now + ANNOUNCE_MIN_MS + rng() * (ANNOUNCE_MAX_MS - ANNOUNCE_MIN_MS);
 }
+
+// Rivals react to YOUR moments — the identity payoff of having witnesses.
+// kind: "plus" (detail = the plus reached) | "firstkill" (detail = boss name)
+export function rollReaction(kind, detail, rng = Math.random) {
+  const r = RIVAL_ROSTER[Math.floor(rng() * RIVAL_ROSTER.length)];
+  const lines = kind === "plus" ? [
+    `[Lobby] ${r.name}: "+${detail}?? That was luck and everyone knows it."`,
+    `[Lobby] ${r.name} inspects your +${detail} in bitter silence.`,
+    `[Lobby] ${r.name}: "sell me that +${detail}. name a price."`,
+    `[Lobby] ${r.name} screenshots your +${detail} for "research".`,
+  ] : [
+    `[Lobby] ${r.name}: "you killed ${detail} before me? unsubscribe."`,
+    `[Lobby] ${r.name} pretends not to be impressed by the ${detail} kill.`,
+    `[Lobby] ${r.name}: "${detail}? cleared it ages ago." (they did not)`,
+  ];
+  return lines[Math.floor(rng() * lines.length)];
+}

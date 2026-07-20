@@ -14,7 +14,7 @@ import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SK
 import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, renderMasteryItems, renderFeats, renderLobby, renderStatsPanel, renderCodex, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { evalFeats, featBonus, FEAT_DMG, FEAT_LUCK } from "./feats.js";
-import { rollAnnouncement, scheduleNext } from "./rivals.js";
+import { rollAnnouncement, scheduleNext, rollReaction } from "./rivals.js";
 import { renderMacro } from "./ui.js";
 import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
 import { renderGathering, renderLegion } from "./ui.js";
@@ -646,6 +646,7 @@ function enhanceBag(bagIdx, times) {
     const pct = (chance * 100).toFixed(2);
     if (result === "success") {
       logLine(`${def.name} +${eq.plus - 1} → +${eq.plus} SUCCESS (${pct}%)`, "success");
+      if (eq.plus >= 15 && Math.random() < 0.5) logLine(rollReaction("plus", eq.plus));
     } else {
       logLine(`${def.name} +${eq.plus} enhancement FAILED (${pct}%)`, "fail");
     }
@@ -765,6 +766,7 @@ function enhance(slotIdx, times) {
     const pct = (chance * 100).toFixed(2);
     if (result === "success") {
       logLine(`${def.name} +${eq.plus - 1} → +${eq.plus} SUCCESS (${pct}%)`, "success");
+      if (eq.plus >= 15 && Math.random() < 0.5) logLine(rollReaction("plus", eq.plus));
     } else {
       logLine(`${def.name} +${eq.plus} enhancement FAILED (${pct}%)`, "fail");
     }
@@ -876,6 +878,7 @@ function resolveKill(mob) {
       const paid = earnCopper(base * FIRST_KILL_MULT);
       pushBattleEvent({ type: "bag", copper: paid });
       logLine(`FIRST KILL: ${boss.name}! Trophy bounty +${fmt(paid)}c and a feat: +${FEAT_DMG * 100}% damage, +${FEAT_LUCK * 100}% Luck forever.`, "success");
+      if (Math.random() < 0.6) logLine(rollReaction("firstkill", boss.name));
     }
     rollBossDrops(boss, mob.elite ? (boss.eliteDropMult ?? 1) : 1);
     if (boss.respawnMs) gameState.bossCooldowns[boss.id] = gameState.total_time + boss.respawnMs;
