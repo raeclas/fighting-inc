@@ -28,21 +28,15 @@ shifts get a fresh `baseline.json` in the same commit.
   Strike/Seventh Flow windows), timed buff registry (Power Fist, Death by
   Revolver ×3, Miracle Vision, Khai, Tiger Flash, Overdrive, Wave Eye),
   Doppelganger clones (rider model + battlefield sprites).
+- ✅ Talisman merge + special bag: `player.specialBag` (rings/necklaces/
+  talismans/insignia/aura, incl. both Ent Spirit pieces — never eat the 6
+  slots), talisman family merge-only 2×(+n)→+(n+1) free (`tryMerge`), aura
+  DEF-only from bag (atk/INT suppressed), jewelry keeps copper enhance from
+  bag, idempotent v3 sweep migration, fresh baseline (~1-2% earlier).
 
 ## Next — remaining source gaps, in build order
 
-### 1. Talisman merge + special bags (next session's round)
-**Map:** talismans drop +0, merge 2×(+n)→+(n+1) to +6 (64× +0 for a +6).
-Rings/necklaces/talismans/insignia/avatars live in a SPECIAL EQUIPMENT BAG /
-Avatar Warehouse — they don't eat the 6 weapon slots. Lumen-style auras only
-work from the special slot (and their atk/INT then don't apply — we're
-currently generous, applying both from a normal slot).
-**Us:** `player.specialBag` slots + merge UI (2 same-tier → +1); move
-talisman/insignia acquisition there. Tier data already in itemdata.js.
-**Touches:** player.js (bag), items.js aggregate (special-slot rules),
-main.js acquireItem routing, ui.js gear tab, saveSystem (v4 or additive).
-
-### 2. Enhanced skills + special bosses (biggest payoff)
+### 1. Enhanced skills + special bosses (biggest payoff)
 **Map:** Bernardo (100k) Abyssal ticket EVOLVES Q; Trans-Bernardo (500k) W/E;
 Giver of Trials (5M) True Awakening M ultimate (300s CD, INT×1.7M–12M).
 Class weapons carry meta-modifiers (activation rate +40–60%, skill INT-ratio
@@ -53,18 +47,18 @@ HEROES.md); item data extractable same as round 1.
 **Us:** skill evolution state per character, M slot, meta-modifier fields in
 effectiveStats, special-boss drop tables, coin currency.
 
-### 3. Consumables/jars
+### 2. Consumables/jars
 Zone-dropped Talisman/Myth/Insignia jars, Ezra/Sirocco pots, Golden Book
 (Reversal Staff amp), INT potions, enhancement-protection tickets. Add after
 merge exists so jars have somewhere to pour. Per-zone jar list in
 GROUND-TRUTH.md zone table.
 
-### 4. Party/lobby multiplier analogue (IV × YJ)
+### 3. Party/lobby multiplier analogue (IV × YJ)
 **Map:** enhance/bag/coin all ×`IV[player]` (elixirs) ×`YJ[party-size]`.
 **Us:** single-player → brewed elixirs granting a global `dropBonus`; reuses
 gathering buff plumbing. Touches enhance.js, zones.js rolls, a buff source.
 
-### 5. Batch-2 heroes + missing boss
+### 4. Batch-2 heroes + missing boss
 Crusader (auto-cast), Majesty (on-hit riders), Divineress (spheres), Geniewiz
 (GS/S/F rolls), Spectre (speed stacks), Hekate/Ashtarte (buffers),
 Necromancer (stance), Dark Knight (borrows skills) — port notes in HEROES.md.

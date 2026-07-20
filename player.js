@@ -27,6 +27,9 @@ export function newCharacter() {
     // overflow storage for drops when all 6 slots are full (no ground chests here)
     stash: [],
 
+    // special items (rings/necklaces/talismans/insignia/aura): bag, not the 6 slots
+    specialBag: [],
+
     // class + known skills (skillId -> level 1..7)
     classId: null,
     skills: {},

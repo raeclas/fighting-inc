@@ -12,7 +12,7 @@
 // gathering buffs, active-class casts.
 import fs from "node:fs";
 import { zones, VARIANTS, spawnMob, zoneLocked, intDrip, BAG_CHANCE, FIELD_COLS, FIELD_ROWS } from "../zones.js";
-import { getItem, tierOf, aggregate, poolFor } from "../items.js";
+import { getItem, tierOf, aggregate, poolFor, SPECIAL_IDS } from "../items.js";
 import { enhanceChance } from "../enhance.js";
 import { bosses, getBoss, spawnBossMob } from "../bosses.js";
 import { getClass, skillDamage, classStatBonuses } from "../classes.js";
@@ -29,6 +29,7 @@ const P = {
   attack: 5, attackSpeed: 1000,
   int: 0,        // per-character flat damage (kill drip + 1/level)
   equipment: [], // {itemId, plus}
+  specialBag: [], // special items: never eat the 6 slots
   skills: { [CLS.skills[0].id]: 1 },
   kills: {},
 };
@@ -55,7 +56,7 @@ function gainXp(xp) {
 }
 
 function stats() {
-  const g = aggregate(P.equipment);
+  const g = aggregate(P.equipment, P.specialBag);
   // Legion: the bot is a 1-char account, so only its own class bonus applies.
   const leg = legionBonuses({ characters: [{ classId: CLS.id, int: P.int }] });
   const statSk = classStatBonuses(CLS, P.skills, g.skillLevelBonus);
@@ -182,6 +183,7 @@ function farmUntil(targetCopper) {
 
 ///// equipment ops /////
 function equip(itemId) {
+  if (SPECIAL_IDS.has(itemId)) { P.specialBag.push({ itemId, plus: 0 }); return; }
   if (P.equipment.length >= 6) {
     // replace the weakest slot by tier ATK
     const weakest = P.equipment
@@ -204,7 +206,7 @@ function buyShop(itemId) {
 
 function enhance(itemId, target) {
   const def = getItem(itemId);
-  const eq = P.equipment
+  const eq = [...P.equipment, ...P.specialBag]
     .filter(e => e.itemId === itemId && e.plus < target)
     .sort((a, b) => b.plus - a.plus)[0];
   if (!eq) return true;

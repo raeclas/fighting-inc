@@ -36,8 +36,12 @@ const SHOP = {
   lumen:      { cost: 10_000, enhCost: 3_900 },
 };
 
-// talismans/insignia enhance costs (merge system is the real source sink — later)
-const SPECIAL_ENH = { talisman: 1 * S, transtalisman: 100 * S, brtalisman: 5000 * S, insignia: 1000 * S };
+// merge-only 7-tier family: no copper enhance, 2×(+n) → +(n+1)
+export const MERGE_IDS = new Set(["talisman", "transtalisman", "brtalisman", "insignia"]);
+// everything living in the special bag (merge family + aura + jewelry) —
+// source: rings/necklaces/talismans/insignia don't eat the 6 weapon slots
+export const SPECIAL_IDS = new Set([...MERGE_IDS, "luke_def",
+  "hellparty_dmg", "harlem_dmg", "fiendwar_add", "abysswalker_intp", "luton_add"]);
 
 export const items = Object.entries(ITEM_DATA).map(([id, d]) => ({
   id,
@@ -45,7 +49,7 @@ export const items = Object.entries(ITEM_DATA).map(([id, d]) => ({
   boss: d.boss,                        // null for shop/talismans
   shop: id in SHOP,
   cost: SHOP[id]?.cost ?? 0,
-  enhCost: SHOP[id]?.enhCost ?? ENH_COST[d.boss] ?? SPECIAL_ENH[id] ?? 1 * S,
+  enhCost: SHOP[id]?.enhCost ?? ENH_COST[d.boss] ?? 1 * S,
   tiers: d.tiers,
 }));
 
@@ -66,7 +70,9 @@ export const statValue = (def, plus) => tierOf(def, plus).atk ?? 0;
 export const intValue = (def, plus) => tierOf(def, plus).int ?? 0;
 
 // equipment: array of ({itemId, plus} | null) -> folded stat bundle.
-export function aggregate(equipment) {
+// specialBag: rings/necklaces/talismans/insignia/auras — folded the same,
+// except aura items (defReduce) contribute DEF only (source special-slot rule).
+export function aggregate(equipment, specialBag = []) {
   const out = {
     atk: 0, int: 0,
     spdPct: 0,          // best only
@@ -80,11 +86,12 @@ export function aggregate(equipment) {
     crit: null,         // best single crit item
     intProcs: [],       // all apply
   };
-  for (const eq of equipment) {
-    if (!eq) continue;
+  const fold = (eq, bagged) => {
+    if (!eq) return;
     const def = byId.get(eq.itemId);
-    if (!def) continue;
+    if (!def) return;
     const t = tierOf(def, eq.plus);
+    if (bagged && t.defReduce) { out.defReduce += t.defReduce; return; } // aura: DEF only, no atk/int
     out.atk += t.atk ?? 0;
     out.int += t.int ?? 0;
     if (t.spdPct) out.spdPct = Math.max(out.spdPct, t.spdPct);
@@ -101,7 +108,9 @@ export function aggregate(equipment) {
         out.crit = { chance: t.critChance / 100, mult: t.critMult };
       }
     }
-  }
+  };
+  for (const eq of equipment) fold(eq, false);
+  for (const eq of specialBag) fold(eq, true);
   out.int = Math.round(out.int * (1 + out.itemIntPct / 100));
   return out;
 }

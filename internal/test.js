@@ -1,7 +1,7 @@
 // test.js — run with `node test.js`
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
-import { enhanceChance, tryEnhance } from "../enhance.js";
+import { enhanceChance, tryEnhance, tryMerge } from "../enhance.js";
 import { tierOf, maxPlus, aggregate, getItem, poolFor } from "../items.js";
 import { bosses, spawnBossMob } from "../bosses.js";
 import { spawnField, gridDist, getZone } from "../zones.js";
@@ -241,5 +241,44 @@ assert.doesNotThrow(() => aggregate(st2.characters[0].equipment));
 const out = serialize(st2);
 assert.equal(out.v, 3);
 assert.equal(out.characters[0].copper, 5555);
+
+// merge: 2×(+n) → +(n+1), no pair → no-op, +6 → max
+const mbag = [
+  { itemId: "talisman", plus: 0 }, { itemId: "talisman", plus: 0 },
+  { itemId: "talisman", plus: 1 }, { itemId: "insignia", plus: 6 },
+];
+assert.equal(tryMerge(mbag, 0, tal), "merged");
+assert.equal(mbag.length, 3);
+assert.equal(mbag[0].plus, 1);
+assert.equal(tryMerge(mbag, 0, tal), "merged");        // the two +1s pair up
+assert.deepEqual(mbag.map(e => e.plus), [2, 6]);
+assert.equal(tryMerge(mbag, 0, tal), "no-pair");
+assert.equal(tryMerge(mbag, 1, getItem("insignia")), "max");
+assert.equal(mbag.length, 2);                          // no-op paths mutate nothing
+
+// special bag rules: aura contributes DEF only from the bag; insignia keeps all
+const bagged = aggregate([], [{ itemId: "luke_def", plus: 0 }, { itemId: "insignia", plus: 0 }]);
+assert.equal(bagged.defReduce, 8);
+const ins0 = tierOf(getItem("insignia"), 0);
+assert.equal(bagged.atk, ins0.atk);                    // luke_def atk suppressed
+assert.equal(bagged.int, ins0.int);
+assert.equal(bagged.addDmgPct, ins0.addDmg);
+
+// migration: specials equipped in weapon slots / stash sweep into specialBag
+localStorage.setItem("esrpg_save", JSON.stringify({
+  v: 3, characters: [{
+    classId: "striker", level: 1,
+    equipment: [{ itemId: "luke_def", plus: 12 }, { itemId: "rafaros", plus: 3 }, null, null, null, null],
+    stash: [{ itemId: "talisman", plus: 4 }, { itemId: "luke_dmg", plus: 2 }],
+  }], active: 0, slots: 1,
+}));
+const st3 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: {}, settings: { fullNumbers: false } };
+load(st3);
+const mc = st3.characters[0];
+assert.equal(mc.equipment[0], null);
+assert.equal(mc.equipment[1].itemId, "rafaros");
+assert.deepEqual(mc.stash.map(e => e.itemId), ["luke_dmg"]);
+assert.deepEqual(mc.specialBag.map(e => [e.itemId, e.plus]), [["luke_def", 12], ["talisman", 4]]); // plus preserved
+assert.equal(serialize(st3).characters[0].specialBag.length, 2); // persists
 
 console.log("all checks passed");

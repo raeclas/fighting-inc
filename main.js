@@ -6,8 +6,8 @@ import { startGameLoop } from "./gameLoop.js";
 import { updateUI, renderZoneList, renderShop, renderEquipment, logLine, fmt } from "./ui.js";
 import { getZone, spawnMob, spawnField, spawnFieldBoss, gridDist, zoneLocked, intDrip, FIELD_COLS, FIELD_ROWS, BAG_CHANCE, FIELD_BOSS_SPAWN_CHANCE } from "./zones.js";
 import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
-import { getItem, aggregate } from "./items.js";
-import { tryEnhance } from "./enhance.js";
+import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS } from "./items.js";
+import { tryEnhance, tryMerge } from "./enhance.js";
 import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL } from "./classes.js";
 import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
@@ -99,7 +99,7 @@ function activeClones() {
 }
 
 function effectiveStats() {
-  const g = aggregate(player.equipment);
+  const g = aggregate(player.equipment, player.specialBag);
   const leg = legionBonuses(gameState);
   const cls = getClass(player.classId);
   const statSk = classStatBonuses(cls, player.skills, g.skillLevelBonus);
@@ -208,9 +208,16 @@ function summonBoss(bossId) {
   logLine(`Summoned ${boss.name}.`);
 }
 
-// Give the player an item: into a free equipment slot, else the stash (never lost).
+// Give the player an item: special items go to the special bag; the rest into
+// a free equipment slot, else the stash (never lost).
 function acquireItem(itemId, sourceLabel) {
   const def = getItem(itemId);
+  if (SPECIAL_IDS.has(itemId)) {
+    player.specialBag.push({ itemId, plus: 0 });
+    logLine(`${sourceLabel} ${def.name}! → special bag.`, "success");
+    renderEquipment(player, equipHandlers);
+    return;
+  }
   const slot = player.equipment.indexOf(null);
   if (slot !== -1) {
     player.equipment[slot] = { itemId, plus: 0 };
@@ -395,7 +402,46 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag };
+
+function mergeBag(bagIdx) {
+  const eq = player.specialBag[bagIdx];
+  if (!eq) return;
+  const def = getItem(eq.itemId);
+  const result = tryMerge(player.specialBag, bagIdx, def);
+  if (result === "merged") logLine(`Merged two ${def.name} +${eq.plus - 1} → +${eq.plus}!`, "success");
+  else if (result === "max") logLine(`${def.name} is already at max merge (+${def.tiers.length - 1}).`);
+  else logLine(`Need another ${def.name} +${eq.plus} to merge.`, "fail");
+  renderEquipment(player, equipHandlers);
+}
+
+function enhanceBag(bagIdx, times) {
+  const eq = player.specialBag[bagIdx];
+  if (!eq || MERGE_IDS.has(eq.itemId)) return; // talisman family is merge-only
+  const def = getItem(eq.itemId);
+  for (let i = 0; i < times; i++) {
+    const { result, chance } = tryEnhance(player, eq, def, Math.random, gameState.gathering.buffs);
+    if (result === "max") { logLine(`${def.name} is already at max enhancement.`); break; }
+    if (result === "poor") { logLine("Out of copper.", "fail"); break; }
+    const pct = (chance * 100).toFixed(2);
+    if (result === "success") {
+      logLine(`${def.name} +${eq.plus - 1} → +${eq.plus} SUCCESS (${pct}%)`, "success");
+    } else {
+      logLine(`${def.name} +${eq.plus} enhancement FAILED (${pct}%)`, "fail");
+    }
+  }
+  renderEquipment(player, equipHandlers);
+}
+
+function discardBag(bagIdx) {
+  const eq = player.specialBag[bagIdx];
+  if (!eq) return;
+  const def = getItem(eq.itemId);
+  if (!confirm(`Discard ${def.name} +${eq.plus} from the special bag? No refund.`)) return;
+  player.specialBag.splice(bagIdx, 1);
+  logLine(`Discarded ${def.name} +${eq.plus} from the special bag.`);
+  renderEquipment(player, equipHandlers);
+}
 
 // Swap = unequip to stash, then Equip from stash. No modal needed.
 function unequipToStash(slotIdx) {

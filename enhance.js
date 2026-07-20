@@ -40,3 +40,16 @@ export function tryEnhance(state, eq, def, rng = Math.random, buffs = null) {
   }
   return { result: "fail", chance };
 }
+
+// Talisman-family upgrade: 2×(+n) → 1×(+n+1). Free, deterministic,
+// cap def.tiers.length - 1 (+6). Mutates bag (removes the partner).
+export function tryMerge(bag, idx, def) {
+  const a = bag[idx];
+  if (!a) return "no-pair";
+  if (a.plus >= def.tiers.length - 1) return "max";
+  const j = bag.findIndex((b, k) => k !== idx && b.itemId === a.itemId && b.plus === a.plus);
+  if (j === -1) return "no-pair";
+  bag.splice(j, 1);
+  a.plus++;
+  return "merged";
+}

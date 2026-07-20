@@ -3,7 +3,7 @@
 // v2: account + character roster. Live characters are plain data objects in
 // state.characters; snapshotChar strips transients (lastAttack).
 const KEY = "esrpg_save";
-import { getItem } from "./items.js";
+import { getItem, SPECIAL_IDS } from "./items.js";
 
 // The persisted fields of one character.
 export function snapshotChar(c) {
@@ -19,6 +19,7 @@ export function snapshotChar(c) {
     copper: c.copper,
     equipment: c.equipment,
     stash: c.stash,
+    specialBag: c.specialBag,
     classId: c.classId,
     skills: c.skills,
   };
@@ -56,6 +57,17 @@ function normalizeChar(c) {
   // silently freeze the game
   c.equipment = c.equipment.map(eq => (eq && getItem(eq.itemId)) ? eq : null);
   c.stash = c.stash.filter(eq => eq && getItem(eq.itemId));
+  if (!Array.isArray(c.specialBag)) c.specialBag = [];
+  c.specialBag = c.specialBag.filter(eq => eq && getItem(eq.itemId));
+  // migrate: earlier v3 saves have special items in weapon slots / stash
+  c.equipment = c.equipment.map(eq => {
+    if (eq && SPECIAL_IDS.has(eq.itemId)) { c.specialBag.push(eq); return null; }
+    return eq;
+  });
+  c.stash = c.stash.filter(eq => {
+    if (SPECIAL_IDS.has(eq.itemId)) { c.specialBag.push(eq); return false; }
+    return true;
+  });
   c.int = c.int ?? 0;
   c.copper = c.copper ?? 0;
   c.lastAttack = 0;

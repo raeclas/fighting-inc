@@ -1,7 +1,7 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS, zoneLocked } from "./zones.js";
-import { items, getItem, tierOf, maxPlus, aggregate } from "./items.js";
+import { items, getItem, tierOf, maxPlus, aggregate, MERGE_IDS } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage } from "./classes.js";
 import { bosses, INTEREST } from "./bosses.js";
@@ -258,7 +258,8 @@ function itemLabel(def, plus) {
 }
 
 // handlers: { onEnhance(slotIdx, times), onUnequip(slotIdx), onDiscard(slotIdx),
-//             onEquipStash(stashIdx), onDiscardStash(stashIdx) }
+//             onEquipStash(stashIdx), onDiscardStash(stashIdx),
+//             onMergeBag(bagIdx), onEnhanceBag(bagIdx, times), onDiscardBag(bagIdx) }
 export function renderEquipment(player, handlers) {
   const container = document.querySelector(".equipmentList");
   container.innerHTML = "";
@@ -325,6 +326,53 @@ export function renderEquipment(player, handlers) {
       const discard = document.createElement("button");
       discard.textContent = "Discard";
       discard.onclick = () => handlers.onDiscardStash(i);
+      div.appendChild(discard);
+
+      container.appendChild(div);
+    });
+  }
+
+  // Special bag: rings/necklaces/talismans/insignia/aura — always active,
+  // never eat the 6 slots. Talisman family merges (2× same +n → +n+1).
+  const bag = player.specialBag || [];
+  if (bag.length) {
+    const header = document.createElement("div");
+    header.innerHTML = `<strong>Special Bag (${bag.length})</strong> — always active`;
+    header.style.marginTop = "8px";
+    container.appendChild(header);
+
+    bag.forEach((eq, i) => {
+      const def = getItem(eq.itemId);
+      const t = tierOf(def, eq.plus);
+      const div = document.createElement("div");
+      div.className = "equipSlot";
+      // aura items: only DEF applies from the bag
+      const label = t.defReduce ? `nearby enemies DEF −${t.defReduce}` : itemLabel(def, eq.plus);
+      div.innerHTML = `<span><strong>${def.name} +${eq.plus}</strong> — ${label}</span> `;
+
+      if (MERGE_IDS.has(eq.itemId)) {
+        const merge = document.createElement("button");
+        const atMax = eq.plus >= maxPlus(def);
+        merge.textContent = atMax ? "MAX" : "Merge";
+        merge.disabled = atMax || !bag.some((b, k) => k !== i && b.itemId === eq.itemId && b.plus === eq.plus);
+        merge.onclick = () => handlers.onMergeBag(i);
+        div.appendChild(merge);
+      } else {
+        const next = eq.plus >= maxPlus(def)
+          ? "MAX"
+          : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
+        div.querySelector("span").innerHTML += ` — ${next}`;
+        [1, 10, 30].forEach(times => {
+          const btn = document.createElement("button");
+          btn.textContent = `x${times}`;
+          btn.onclick = () => handlers.onEnhanceBag(i, times);
+          div.appendChild(btn);
+        });
+      }
+
+      const discard = document.createElement("button");
+      discard.textContent = "Discard";
+      discard.onclick = () => handlers.onDiscardBag(i);
       div.appendChild(discard);
 
       container.appendChild(div);
