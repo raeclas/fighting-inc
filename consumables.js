@@ -25,13 +25,16 @@ export const ZONE_JARS = {
 };
 export const jarFor = (zoneId, variant) => ZONE_JARS[zoneId]?.[variant] ?? null;
 
-// Both potions run 30 real-time minutes (map tips).
+// All potions run 30 real-time minutes (map tips).
 export const POTION_MS = 30 * 60 * 1000;
 export const INT_POTION_MULT = 2.2;   // "intelligence increases by 1.2x your pure intelligence"
 export const PROB_POTION_IV = 0.25;   // "all reinforcement probabilities and drop rates +25%"
+export const ELIXIR_IV = 0.60;        // "Elixir of Strength": all probabilities +60%, no duplicate use
 
 export const potionActive = (char, kind, now) => (char.potionUntil?.[kind] ?? 0) > now;
 
-// The source's IV multiplier on every drop/enhance roll.
-// Roadmap item 2 (party/elixir analogue) plugs additional terms in here.
-export const ivMult = (char, now) => 1 + (potionActive(char, "prob", now) ? PROB_POTION_IV : 0);
+// The source's IV multiplier on every drop/enhance roll. Probability potion
+// and elixir stack additively — both ran simultaneously in the map.
+export const ivMult = (char, now) =>
+  1 + (potionActive(char, "prob", now) ? PROB_POTION_IV : 0)
+    + (potionActive(char, "elixir", now) ? ELIXIR_IV : 0);

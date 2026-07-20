@@ -439,8 +439,8 @@ localStorage.setItem("esrpg_save", JSON.stringify({
 const st5 = { characters: [], active: 0, slots: 1, kills: {}, fieldKills: {}, macro: {}, gathering: { buffs: { doubleChance: 0, freeAttempts: 0, okTickets: 0 } }, settings: { fullNumbers: false } };
 load(st5);
 assert.equal(st5.characters[0].jars.sirocco, 2.75);
-assert.deepEqual(st5.characters[0].potions, { int: 1, prob: 0 });
-assert.deepEqual(st5.characters[0].potionUntil, { int: 0, prob: 12345 });
+assert.deepEqual(st5.characters[0].potions, { int: 1, prob: 0, elixir: 0 });
+assert.deepEqual(st5.characters[0].potionUntil, { int: 0, prob: 12345, elixir: 0 });
 assert.deepEqual(st5.gathering.buffs, { doubleChance: 3, freeAttempts: 1, okTickets: 0 });
 assert.equal(serialize(st5).characters[0].jars.sirocco, 2.75);
 
@@ -475,7 +475,7 @@ const minC = st6.characters[0];
 assert.equal(minC.level, 9);
 assert.deepEqual(minC.equipment, [null, null, null, null, null, null]);
 assert.deepEqual(minC.souls, { old: 5, brilliant: 0 }); // partial nested keeps new sub-fields
-assert.deepEqual(minC.potions, { int: 0, prob: 0 });
+assert.deepEqual(minC.potions, { int: 0, prob: 0, elixir: 0 });
 assert.equal(minC.xpToNext, 150);
 
 // avatar soul map covers every avatar id
@@ -543,6 +543,18 @@ assert.equal(poolFor("abyssirocco").length, 5);
   assert.equal(mastered.atk, Math.round(plain.atk * 1.04));
   assert.equal(mastered.int, Math.round(tierOf(getItem("luke_dmg"), 20).int * 1.04));
   assert.deepEqual(aggregate(eqp, [], {}), plain); // no mastery = identical
+}
+
+// Elixir of Strength: +60% IV, additive with prob potion, backfilled on load
+{
+  const c = { potionUntil: { elixir: 1000 } };
+  assert.equal(ivMult(c, 500), 1.6);
+  assert.equal(ivMult(c, 1500), 1);
+  const both = { potionUntil: { prob: 1000, elixir: 1000 } };
+  assert.equal(Math.round(ivMult(both, 500) * 100), 185);
+  // special bosses carry the elixir drop field
+  for (const id of ["bernardo", "bernardo2", "seria", "librarykeeper", "trialgiver"])
+    assert.equal(bosses.find(b => b.id === id).drops.elixir, 0.02);
 }
 
 // save durability: validSave gate, corrupt primary preserved + backup restored

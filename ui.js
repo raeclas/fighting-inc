@@ -8,7 +8,7 @@ import { JARS, potionActive } from "./consumables.js";
 import { bosses, INTEREST } from "./bosses.js";
 import { bestiaryEntries, bestiaryBonus, MILESTONES } from "./bestiary.js";
 import { UNLOCK_COST, MAX_SLOTS, MAX_INTERVAL_LEVEL, intervalMs, intervalUpgradeCost, slotCost } from "./macro.js";
-import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST } from "./gathering.js";
+import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
 import { legionBonuses, charBonus, CLASS_BONUSES, MASTERY_INT, SLOT_MILESTONES, accountInt } from "./legion.js";
 import { getSheet, SHEETS } from "./sprites.js";
 
@@ -86,6 +86,7 @@ function updateHud(state, player) {
   const potParts = [];
   if (potionActive(player, "int", now)) potParts.push(`INT ${fmtCountdown(player.potionUntil.int - now)}`);
   if (potionActive(player, "prob", now)) potParts.push(`IV ${fmtCountdown(player.potionUntil.prob - now)}`);
+  if (potionActive(player, "elixir", now)) potParts.push(`ELIXIR ${fmtCountdown(player.potionUntil.elixir - now)}`);
   document.getElementById("potionRow").style.display = potParts.length ? "" : "none";
   if (potParts.length) document.getElementById("potionVal").textContent = potParts.join(" · ");
 
@@ -478,7 +479,7 @@ export function renderEquipment(player, handlers) {
       container.appendChild(div);
     }
 
-    const POT_LABELS = { int: "Intelligence Potion — pure INT +120%, 30min", prob: "Probability Potion — drops & enhances +25%, 30min" };
+    const POT_LABELS = { int: "Intelligence Potion — pure INT +120%, 30min", prob: "Probability Potion — drops & enhances +25%, 30min", elixir: "Elixir of Strength — drops & enhances +60%, 30min, no restack" };
     for (const [kind, count] of pots) {
       const div = document.createElement("div");
       div.className = "equipSlot";
@@ -813,9 +814,14 @@ export function renderGathering(state, player, handlers) {
   ticket.onclick = handlers.onCraftTicket;
   crafts.appendChild(ticket);
 
+  const elixir = document.createElement("button");
+  elixir.textContent = `Elixir of Strength (${ELIXIR_COST.ore} ore + ${ELIXIR_COST.fish} fish): drops & enhances +60%, 30min`;
+  elixir.onclick = handlers.onCraftElixir;
+  crafts.appendChild(elixir);
+
   const buffs = document.createElement("div");
   buffs.textContent = `Prepared: ${g.buffs.doubleChance} boosted, ${g.buffs.freeAttempts} free attempts, `
-    + `${g.buffs.okTickets ?? 0} guaranteed · Potions held: ${player.potions?.int ?? 0} INT, ${player.potions?.prob ?? 0} probability (use from Gear tab)`;
+    + `${g.buffs.okTickets ?? 0} guaranteed · Potions held: ${player.potions?.int ?? 0} INT, ${player.potions?.prob ?? 0} probability, ${player.potions?.elixir ?? 0} elixir (use from Gear tab)`;
   crafts.appendChild(buffs);
 
   container.appendChild(crafts);

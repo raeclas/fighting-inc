@@ -18,7 +18,7 @@ import { UNLOCK_COST, MAX_SLOTS, intervalMs, intervalUpgradeCost, slotCost } fro
 import { renderGathering, renderLegion } from "./ui.js";
 import { legionBonuses, unlockedSlots } from "./legion.js";
 import { initBattle, renderBattle, pushBattleEvent } from "./battle.js";
-import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST } from "./gathering.js";
+import { ACTIVITIES, tickIntervalMs, xpToNext, HAMMER_ORE_COST, OFFERING_FISH_COST, INT_POTION_FISH_COST, PROB_POTION_ORE_COST, OK_TICKET_COST, ELIXIR_COST } from "./gathering.js";
 import { getBoss, spawnBossMob, TICKET_SUCCESS } from "./bosses.js";
 import { poolFor } from "./items.js";
 
@@ -383,6 +383,11 @@ function rollBossDrops(boss, dropMult = 1) {
   }
   // evolution ticket — independent roll (source dispatch)
   if (d.ticket && Math.random() < Math.min(1, d.ticket.chance * iv)) useEvolutionTicket(boss, d.ticket.tier);
+  // Elixir of Strength — potion count, not an item, so it skips acquireItem
+  if (d.elixir && Math.random() < Math.min(1, d.elixir * iv)) {
+    player.potions.elixir++;
+    logLine(`${boss.name} dropped an Elixir of Strength!`, "success");
+  }
   if (d.rare && Math.random() < Math.min(1, d.rare.chance * iv)) {
     const rp = d.rare.pool ? poolFor(d.rare.pool) : [d.rare.itemId];
     acquireItem(rp[Math.floor(Math.random() * rp.length)], `${boss.name} dropped a RARE find:`);
@@ -520,6 +525,15 @@ const gatheringHandlers = {
     g.buffs.okTickets++;
     refreshGathering();
   },
+  onCraftElixir() {
+    const g = gameState.gathering;
+    if (g.resources.ore < ELIXIR_COST.ore || g.resources.fish < ELIXIR_COST.fish)
+      return logLine("Elixir of Strength needs 50 ore + 50 fish.", "fail");
+    g.resources.ore -= ELIXIR_COST.ore;
+    g.resources.fish -= ELIXIR_COST.fish;
+    player.potions.elixir++;
+    refreshGathering();
+  },
 };
 
 function refreshGathering() {
@@ -571,12 +585,17 @@ function openJar(jarId, times) {
 
 function usePotion(kind) {
   if ((player.potions[kind] || 0) < 1) return;
+  // source tip: "Duplicate use is not possible." — elixir only; int/prob stack-extend
+  if (kind === "elixir" && potionActive(player, "elixir", gameState.total_time))
+    return logLine("Elixir of Strength: duplicate use is not possible.", "fail");
   player.potions[kind]--;
   // stacking uses extend the timer (map: fixed 30min per potion)
   player.potionUntil[kind] = Math.max(gameState.total_time, player.potionUntil[kind] || 0) + POTION_MS;
-  logLine(kind === "int"
-    ? "Intelligence Potion: pure INT +120% for 30 minutes."
-    : "Probability Potion: all drop & enhance rates +25% for 30 minutes.", "success");
+  logLine({
+    int: "Intelligence Potion: pure INT +120% for 30 minutes.",
+    prob: "Probability Potion: all drop & enhance rates +25% for 30 minutes.",
+    elixir: "Elixir of Strength: all drop & enhance rates +60% for 30 minutes.",
+  }[kind], "success");
   renderEquipment(player, equipHandlers);
 }
 

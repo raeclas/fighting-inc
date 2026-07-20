@@ -40,8 +40,8 @@ export function newCharacter() {
     // zone-jar inventory (FLOAT counts: live kills +1, offline EV +kills×chance;
     // UI floors, opening needs ≥1) + potion counts and active-buff expiries
     jars: {},
-    potions: { int: 0, prob: 0 },
-    potionUntil: { int: 0, prob: 0 }, // absolute total_time — survives reload
+    potions: { int: 0, prob: 0, elixir: 0 },
+    potionUntil: { int: 0, prob: 0, elixir: 0 }, // absolute total_time — survives reload
 
     // class + known skills (skillId -> level 1..7)
     classId: null,
