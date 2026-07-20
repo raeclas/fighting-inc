@@ -867,6 +867,7 @@ function resolveKill(mob) {
     gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
     syncEvolutions(); // kill-count evolution ladder (specials)
     const boss = getBoss(mob.bossId);
+    pushBattleEvent({ type: "bosskill" });
     logLine(`${boss.name} defeated! ${boss.respawnMs ? "Bounty" : "Refund"} ${fmt(mob.copper)}c.`, "success");
     // first-kill trophy: 10× bounty burst + permanent account bonus
     if (gameState.kills[mob.bossId] === 1) {
