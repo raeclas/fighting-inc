@@ -76,6 +76,10 @@ function updateHud(state, player) {
   document.getElementById("curSilver").textContent = fmt(Math.floor(c / 1e9) % 1e9);
   document.getElementById("curCopper").textContent = fmt(c % 1e9);
 
+  // Luck — the ONE multiplier on every drop & enhance roll (potions + feats)
+  document.getElementById("luckVal").textContent =
+    `×${(ivMult(player, state.total_time) + featBonus(state).luck).toFixed(2)}`;
+
 
   // active potion countdowns — hidden when none running
   const now = state.total_time;
@@ -298,16 +302,16 @@ function itemLabel(def, plus) {
   if (t.addDmg) parts.push(`+${fmt(t.addDmg)}% add dmg (best only)`);
   if (t.skillDmg) parts.push(`+${fmt(t.skillDmg)}% skill dmg`);
   if (t.intPct) parts.push(`+${t.intPct}% item INT`);
-  if (t.spdPct) parts.push(`ATK SPD +${t.spdPct}%`);
+  if (t.spdPct) parts.push(`ATK SPD +${t.spdPct}% (best only)`);
   if (t.procMult) parts.push(`${t.procChance}% proc ${fmt(t.procMult)}×INT`);
-  if (t.critMult) parts.push(`${t.critChance}% crit ×${fmt(t.critMult)}`);
+  if (t.critMult) parts.push(`${t.critChance}% crit ×${fmt(t.critMult)} (best only)`);
   if (t.skillLevels) parts.push(`+${t.skillLevels} to all skills`);
   if (t.defReduce) parts.push(`nearby enemies DEF −${t.defReduce}`);
   if (t.cooldownPct) parts.push(`skill cooldowns −${t.cooldownPct}%`);
   if (t.intRatioPct) parts.push(`skill INT ratio +${t.intRatioPct}%`);
   if (t.procRatePct) parts.push(`skill activation +${t.procRatePct}%`);
   if (t.clones) parts.push(`+${t.clones} clones`);
-  if (t.magicCritPct) parts.push(`${t.magicCritChance}% magic crit +${t.magicCritPct}%`);
+  if (t.magicCritPct) parts.push(`${t.magicCritChance}% magic crit +${t.magicCritPct}% (best only)`);
   return parts.join(" · ") || "(no stats)";
 }
 
@@ -1087,6 +1091,7 @@ export function renderCodex() {
       `Summons cost copper, refund ×${INTEREST} on kill + bounty`,
       `The skill ticket drops alongside a successful item roll; a ticket upgrade is ${TICKET_SUCCESS * 100}% (new skills always learn)`,
       `Regen walls: some bosses heal a % of max HP per second — out-DPS it or gear up`,
+      `Enhanced skills evolve on kill-count ladders: ${Object.entries(EVOLUTION).map(([t, e]) => `${t} every ${e.kills} ${bosses.find(b => b.id === e.boss)?.name} kills`).join(" · ")} (progress on the boss cards)`,
       `INT-gated specials are free challenges on respawn timers and pay INT bounties (see below)`,
       `First kill of EVERY boss: 10× bounty + a feat (+${FEAT_DMG * 100}% damage, +${FEAT_LUCK * 100}% Luck forever)`,
     ]))
