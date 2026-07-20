@@ -273,6 +273,15 @@ button.skillCell:disabled { cursor: default; }
     color: var(--gold);
     text-shadow: 0 1px 2px #000;
 }
+.skillCell .glyphIcon {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+    opacity: 0.9;
+}
 .skillCell .key {
     position: absolute;
     top: 1px;

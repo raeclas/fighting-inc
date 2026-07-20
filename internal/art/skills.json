@@ -1,0 +1,722 @@
+[
+ {
+  "id": "gloves",
+  "name": "Equip Boxing Gloves"
+ },
+ {
+  "id": "lowkick",
+  "name": "Low Kick"
+ },
+ {
+  "id": "oneinch",
+  "name": "One Inch Punch"
+ },
+ {
+  "id": "risingknuckle",
+  "name": "Rising Knuckle"
+ },
+ {
+  "id": "powerfist",
+  "name": "Power Fist"
+ },
+ {
+  "id": "kihop",
+  "name": "Kihop Low Kick"
+ },
+ {
+  "id": "climax",
+  "name": "Empress's Climactic Fist"
+ },
+ {
+  "id": "limitbreak",
+  "name": "Limit Break"
+ },
+ {
+  "id": "tigerstrike",
+  "name": "Tiger Strike"
+ },
+ {
+  "id": "slidingslash",
+  "name": "Neo: Awakened Sliding Slash"
+ },
+ {
+  "id": "lanternfire",
+  "name": "Lantern Fire"
+ },
+ {
+  "id": "arcticfist",
+  "name": "Arctic Fist"
+ },
+ {
+  "id": "thundercall",
+  "name": "Thunder Calling"
+ },
+ {
+  "id": "astralstorm",
+  "name": "Astral Storm"
+ },
+ {
+  "id": "curtain",
+  "name": "Elemental Curtain"
+ },
+ {
+  "id": "gate",
+  "name": "The Gate"
+ },
+ {
+  "id": "sesto",
+  "name": "Sesto Elemental"
+ },
+ {
+  "id": "holloween",
+  "name": "Holloween Buster"
+ },
+ {
+  "id": "elemquake",
+  "name": "Elemental Quake"
+ },
+ {
+  "id": "cosmiccalamity",
+  "name": "Cosmic Calamity"
+ },
+ {
+  "id": "lightsword",
+  "name": "Lightsword Mastery"
+ },
+ {
+  "id": "ironstrike",
+  "name": "Ultimate Slay: Iron Strike"
+ },
+ {
+  "id": "overdrive",
+  "name": "Overdrive"
+ },
+ {
+  "id": "drawsword",
+  "name": "Draw Sword"
+ },
+ {
+  "id": "sworddance",
+  "name": "Illusion Sword Dance"
+ },
+ {
+  "id": "mindsword",
+  "name": "Omnislay: Mind's Sword"
+ },
+ {
+  "id": "tempestslay",
+  "name": "Ultimate Slay: Tempest"
+ },
+ {
+  "id": "shootingstar",
+  "name": "Shooting Star"
+ },
+ {
+  "id": "etherealslash",
+  "name": "Ethereal Slash"
+ },
+ {
+  "id": "pentastrike",
+  "name": "Pentastrike"
+ },
+ {
+  "id": "gorecross",
+  "name": "Gore Cross"
+ },
+ {
+  "id": "ragingfury",
+  "name": "Raging Fury"
+ },
+ {
+  "id": "bloodsword",
+  "name": "Blood Sword"
+ },
+ {
+  "id": "bloodboom",
+  "name": "Blood Boom"
+ },
+ {
+  "id": "outrage",
+  "name": "Outrage Break"
+ },
+ {
+  "id": "overkill",
+  "name": "Extreme Overkill"
+ },
+ {
+  "id": "bloodriven",
+  "name": "Blood Riven"
+ },
+ {
+  "id": "enrage",
+  "name": "Enrage"
+ },
+ {
+  "id": "bloodsnatch",
+  "name": "Blood Snatch"
+ },
+ {
+  "id": "bloodmajin",
+  "name": "Blood Majin Strike"
+ },
+ {
+  "id": "wavewheel",
+  "name": "Wave Wheel Slasher"
+ },
+ {
+  "id": "waverad",
+  "name": "Wave Radiation"
+ },
+ {
+  "id": "heatwave",
+  "name": "Heat Wave Sword"
+ },
+ {
+  "id": "crescent",
+  "name": "Spirit Crescent"
+ },
+ {
+  "id": "agni",
+  "name": "Agni Pentacle"
+ },
+ {
+  "id": "waveeye",
+  "name": "Wave Eye"
+ },
+ {
+  "id": "thundergod",
+  "name": "Thunder God"
+ },
+ {
+  "id": "groundquaker",
+  "name": "Ground Quaker"
+ },
+ {
+  "id": "murderouswave",
+  "name": "Murderous Wave"
+ },
+ {
+  "id": "heaventhunder",
+  "name": "Heaven's Thunder"
+ },
+ {
+  "id": "soaring",
+  "name": "Soaring"
+ },
+ {
+  "id": "oppress",
+  "name": "Oppressive Pressure"
+ },
+ {
+  "id": "explsword",
+  "name": "Explosive Sword"
+ },
+ {
+  "id": "crosssword",
+  "name": "Cross Sword"
+ },
+ {
+  "id": "blastpalm",
+  "name": "Blasting Palm"
+ },
+ {
+  "id": "verdant",
+  "name": "Verdant Blast"
+ },
+ {
+  "id": "moondance",
+  "name": "Moonlight Dance"
+ },
+ {
+  "id": "lotusdance",
+  "name": "Lotus Dance"
+ },
+ {
+  "id": "lotusflash",
+  "name": "Lotus Flash"
+ },
+ {
+  "id": "moondancex",
+  "name": "Moonlight Dance -Awakened-"
+ },
+ {
+  "id": "windmill",
+  "name": "Windmill"
+ },
+ {
+  "id": "headshot",
+  "name": "Headshot"
+ },
+ {
+  "id": "revolver",
+  "name": "Revolver Enhancement"
+ },
+ {
+  "id": "wildshot",
+  "name": "Wild Shot"
+ },
+ {
+  "id": "deathrev",
+  "name": "Death by Revolver"
+ },
+ {
+  "id": "scud",
+  "name": "Scud Genoside"
+ },
+ {
+  "id": "seventh",
+  "name": "Seventh Flow"
+ },
+ {
+  "id": "suppressive",
+  "name": "Suppressive Barrage"
+ },
+ {
+  "id": "wipeout",
+  "name": "Wipeout"
+ },
+ {
+  "id": "deathcrisis",
+  "name": "Death Crisis"
+ },
+ {
+  "id": "heavymastery",
+  "name": "Heavy Weapons Mastery"
+ },
+ {
+  "id": "flamethrow",
+  "name": "Flame Thrower"
+ },
+ {
+  "id": "laser",
+  "name": "Laser Rifle"
+ },
+ {
+  "id": "quantum",
+  "name": "Quantum Bomb"
+ },
+ {
+  "id": "miracle",
+  "name": "Miracle Vision"
+ },
+ {
+  "id": "agenttrig",
+  "name": "Agent Trigger"
+ },
+ {
+  "id": "opraids",
+  "name": "Operation Raids"
+ },
+ {
+  "id": "heavymasteryx",
+  "name": "Heavy Weapon Mastery -Enhanced-"
+ },
+ {
+  "id": "pt15",
+  "name": "PT-15 Prototype"
+ },
+ {
+  "id": "decisive",
+  "name": "Decisive Battle"
+ },
+ {
+  "id": "khai",
+  "name": "Khai"
+ },
+ {
+  "id": "doppel",
+  "name": "Doppelganger"
+ },
+ {
+  "id": "lionroar",
+  "name": "Lion's Roar"
+ },
+ {
+  "id": "energyshield",
+  "name": "Energy Shield"
+ },
+ {
+  "id": "tigerflash",
+  "name": "Tiger Flash"
+ },
+ {
+  "id": "nenflower",
+  "name": "Nen Flower"
+ },
+ {
+  "id": "brilliant",
+  "name": "Brilliant Nen"
+ },
+ {
+  "id": "nenshot",
+  "name": "Nen Shot"
+ },
+ {
+  "id": "grandroar",
+  "name": "Lion's Grand Roar"
+ },
+ {
+  "id": "nendragons",
+  "name": "Nen Dragons"
+ },
+ {
+  "id": "purity",
+  "name": "Blades of Purity"
+ },
+ {
+  "id": "deflection",
+  "name": "Deflection Wall"
+ },
+ {
+  "id": "invocation",
+  "name": "Divine Invocation"
+ },
+ {
+  "id": "repentance",
+  "name": "Hammer of Repentance"
+ },
+ {
+  "id": "judgment",
+  "name": "Righteous Judgment"
+ },
+ {
+  "id": "apocalypse",
+  "name": "Apocalypse"
+ },
+ {
+  "id": "punishment",
+  "name": "Punishment"
+ },
+ {
+  "id": "jupiterhammer",
+  "name": "Thunder Hammer: Jupiter"
+ },
+ {
+  "id": "doomspear",
+  "name": "Doom Spear"
+ },
+ {
+  "id": "finaljudgement",
+  "name": "Final Judgement"
+ },
+ {
+  "id": "swordplay",
+  "name": "Swordplay"
+ },
+ {
+  "id": "elemshift",
+  "name": "Elemental Shift"
+ },
+ {
+  "id": "arcaneblast",
+  "name": "Arcane Sword Blast"
+ },
+ {
+  "id": "swiftslash",
+  "name": "Swift Demon Slash"
+ },
+ {
+  "id": "imperial",
+  "name": "Imperial Swordsmanship"
+ },
+ {
+  "id": "spacetime",
+  "name": "Ultimate Slayer: Spacetime Cutter"
+ },
+ {
+  "id": "laevateinn",
+  "name": "Ultimate Sword: Laevateinn"
+ },
+ {
+  "id": "illusionsword",
+  "name": "Illusion Sword"
+ },
+ {
+  "id": "eradicator",
+  "name": "Elemental Eradicator"
+ },
+ {
+  "id": "supremelegion",
+  "name": "Supreme Legion"
+ },
+ {
+  "id": "thunderamulet",
+  "name": "Thunder Amulet"
+ },
+ {
+  "id": "powerorb",
+  "name": "Power Orb"
+ },
+ {
+  "id": "soulmagnet",
+  "name": "Soul Magnet"
+ },
+ {
+  "id": "dragonfury",
+  "name": "Dragon Fury"
+ },
+ {
+  "id": "thunderstorm",
+  "name": "Oracle: Dragon Thunderstorm"
+ },
+ {
+  "id": "beads",
+  "name": "One Hundred Eight Beads"
+ },
+ {
+  "id": "incarnation",
+  "name": "Incarnation: Raging Godly Dragon"
+ },
+ {
+  "id": "holycomet",
+  "name": "Holy Comet"
+ },
+ {
+  "id": "rosaryprison",
+  "name": "Rosary Prison"
+ },
+ {
+  "id": "celestialpurge",
+  "name": "Celestial Purge"
+ },
+ {
+  "id": "flyswatter",
+  "name": "Devolution Flyswatter"
+ },
+ {
+  "id": "acidcloud",
+  "name": "Acid Cloud"
+ },
+ {
+  "id": "lavapotion",
+  "name": "Lava Potion No. 9"
+ },
+ {
+  "id": "collider",
+  "name": "Florae Collider"
+ },
+ {
+  "id": "giantswatter",
+  "name": "Giant Flyswatter"
+ },
+ {
+  "id": "fusioncraft",
+  "name": "Fusion Craft"
+ },
+ {
+  "id": "ouroboros",
+  "name": "Ouroboros"
+ },
+ {
+  "id": "gravitas",
+  "name": "Gravitas"
+ },
+ {
+  "id": "electricrabbit",
+  "name": "Florae Electric Rabbit"
+ },
+ {
+  "id": "arsmagna",
+  "name": "Ars Magna"
+ },
+ {
+  "id": "doubleshot",
+  "name": "Double Shot"
+ },
+ {
+  "id": "blending",
+  "name": "Blending Pain"
+ },
+ {
+  "id": "shaker",
+  "name": "Shaker Blast"
+ },
+ {
+  "id": "lastorder",
+  "name": "Last Order"
+ },
+ {
+  "id": "trace",
+  "name": "Trace"
+ },
+ {
+  "id": "showdown",
+  "name": "Showdown"
+ },
+ {
+  "id": "daybreak",
+  "name": "Daybreak"
+ },
+ {
+  "id": "professional",
+  "name": "Professional"
+ },
+ {
+  "id": "catharsis",
+  "name": "Catharsis"
+ },
+ {
+  "id": "testament",
+  "name": "Testament"
+ },
+ {
+  "id": "curiosity",
+  "name": "Evil Curiosity"
+ },
+ {
+  "id": "favoritism",
+  "name": "Favoritism"
+ },
+ {
+  "id": "forbiddencurse",
+  "name": "Forbidden Curse"
+ },
+ {
+  "id": "hotaffection",
+  "name": "Hot Affection"
+ },
+ {
+  "id": "loveemergency",
+  "name": "Love Emergency Measures"
+ },
+ {
+  "id": "marionette",
+  "name": "Marionette"
+ },
+ {
+  "id": "dollforest",
+  "name": "Forest of Dolls"
+ },
+ {
+  "id": "possession",
+  "name": "Eternal Possession"
+ },
+ {
+  "id": "transfavoritism",
+  "name": "-Transcendence- Favoritism"
+ },
+ {
+  "id": "finale",
+  "name": "Finale"
+ },
+ {
+  "id": "wedge",
+  "name": "Wedge"
+ },
+ {
+  "id": "brainattack",
+  "name": "Brain Attack"
+ },
+ {
+  "id": "chaser",
+  "name": "Chaser"
+ },
+ {
+  "id": "teana",
+  "name": "Teana Transformation"
+ },
+ {
+  "id": "martialartist",
+  "name": "Civilian and Martial Artist"
+ },
+ {
+  "id": "chaserevo",
+  "name": "Chaser Evolution"
+ },
+ {
+  "id": "apostolate",
+  "name": "Apostolate"
+ },
+ {
+  "id": "apostledance",
+  "name": "Dance of the Apostles"
+ },
+ {
+  "id": "wargoddess",
+  "name": "Goddess of the Battlefield"
+ },
+ {
+  "id": "extition",
+  "name": "Extition"
+ },
+ {
+  "id": "darknail",
+  "name": "Dark Nail"
+ },
+ {
+  "id": "soullure",
+  "name": "Soul Lure"
+ },
+ {
+  "id": "rapport",
+  "name": "Nicholas Rapport"
+ },
+ {
+  "id": "blackwave",
+  "name": "Black Wave"
+ },
+ {
+  "id": "vallacre",
+  "name": "Vallacre the Slaughterer"
+ },
+ {
+  "id": "phantomstorm",
+  "name": "Phantom Storm"
+ },
+ {
+  "id": "vallacreinc",
+  "name": "Vallacre Incarnation"
+ },
+ {
+  "id": "guillotine",
+  "name": "Guillotine"
+ },
+ {
+  "id": "executioner",
+  "name": "Executioner Slash"
+ },
+ {
+  "id": "moros",
+  "name": "Primordial Fear: Moros"
+ },
+ {
+  "id": "combo1",
+  "name": "Combo I"
+ },
+ {
+  "id": "combo2",
+  "name": "Combo II"
+ },
+ {
+  "id": "combo3",
+  "name": "Combo III"
+ },
+ {
+  "id": "combo4",
+  "name": "Combo IV"
+ },
+ {
+  "id": "combo5",
+  "name": "Combo V"
+ },
+ {
+  "id": "combo6",
+  "name": "Combo VI"
+ },
+ {
+  "id": "combo7",
+  "name": "Combo VII"
+ },
+ {
+  "id": "sqcombo",
+  "name": "SQ Combo"
+ },
+ {
+  "id": "swcombo",
+  "name": "SW Combo"
+ },
+ {
+  "id": "endoftime",
+  "name": "The End of Time"
+ }
+]
