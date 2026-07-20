@@ -51,6 +51,8 @@ export const AVATAR_IDS = new Set(Object.keys(AVATAR_SOULS));
 export const SPECIAL_GEAR_IDS = new Set([
   "bernardo_neck", "bernardo_ring", "bernardo_staff", "bernardo_gsword", "bernardo_gswords",
   "bernardo_handcannon", "bernardo_revolver", "bernardo_knuckle",
+  "bernardo_spear", "bernardo_brushs", "bernardo_brush", "bernardo_rosary",
+  "bernardo_blade", "bernardo_wand", "bernardo_cross",
   "bernardo2_staff", "bernardo2_ring", "bernardo2_neck",
   "trial_staff", "trial_ring", "trial_neck", ...AVATAR_IDS,
 ]);
@@ -64,6 +66,10 @@ export const CLASS_WEAPON = {
   overmind: "bernardo_staff", stormtrooper: "bernardo_handcannon", desperado: "bernardo_revolver",
   striker: "bernardo_gswords", nenempress: "bernardo_knuckle",
   omniblade: "bernardo_gsword", bloodevil: "bernardo_gsword", indra: "bernardo_gsword", vagabond: "bernardo_gsword",
+  // batch 2 (map oE pool ↔ "@For X only" tips)
+  ashtarte: "bernardo_spear", hekate: "bernardo_brushs", geniewiz: "bernardo_brush",
+  divineress: "bernardo_rosary", spectre: "bernardo_blade", necromancer: "bernardo_wand",
+  crusader: "bernardo_cross", majesty: "bernardo_gswords", darkknight: "bernardo_gsword",
 };
 
 export const items = Object.entries(ITEM_DATA).map(([id, d]) => ({
@@ -109,6 +115,9 @@ export function aggregate(equipment, specialBag = []) {
     cooldownPct: 0,     // class weapons (Abyss Fragment Staff/Hand Cannon)
     intRatioPct: 0,     // "skill's intelligence ratio increases" — class weapons
     procRatePct: 0,     // "skill activation probability increased" — class weapons/rings
+    gsRatePct: 0,       // Geniewiz Brush: jackpot ("great success") chance
+    buffValuePct: 0,    // Hekate Brush S: scales her buff magnitudes
+    skillSpdPct: 0,     // Spectre Blade: attack speed when using skills
     clones: 0,          // Abyssal Knuckle: extra Doppelganger clones
     magicCrit: null,    // best single {chance, pct} — Clone Rare avatars, skill crits
     crit: null,         // best single crit item
@@ -134,6 +143,9 @@ export function aggregate(equipment, specialBag = []) {
     if (t.cooldownPct) out.cooldownPct += t.cooldownPct;
     if (t.intRatioPct) out.intRatioPct += t.intRatioPct;
     if (t.procRatePct) out.procRatePct += t.procRatePct;
+    if (t.gsRatePct) out.gsRatePct += t.gsRatePct;
+    if (t.buffValuePct) out.buffValuePct += t.buffValuePct;
+    if (t.skillSpdPct) out.skillSpdPct += t.skillSpdPct;
     if (t.clones) out.clones += t.clones;
     if (t.magicCritPct && (!out.magicCrit || t.magicCritChance * t.magicCritPct >
         out.magicCrit.chance * 100 * out.magicCrit.pct)) {

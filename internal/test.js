@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
 import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS } from "../items.js";
-import { activeSkills, matchesSkill } from "../classes.js";
+import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js";
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
 import { JARS, ZONE_JARS, jarFor, ivMult, potionActive, PROB_POTION_IV } from "../consumables.js";
@@ -127,7 +127,10 @@ for (const cls of classes) {
     allSkillIds.add(s.id);
     assert.equal(s.key, KEYS[i], `${s.id} slot key`);
     if (s.kind === "cast") assert.ok(s.cooldownMs > 0 && s.mult >= 0, s.id);
-    else if (s.kind === "proc") assert.ok(s.procChance > 0 && s.procChance <= 1 && (s.mult > 0 || s.buff), s.id);
+    // procs fire by chance OR every-N; payload is dmg (mult/base), a buff, or a borrow
+    else if (s.kind === "proc") assert.ok(
+      (s.every > 0 || (s.procChance > 0 && s.procChance <= 1))
+      && (s.mult > 0 || s.base > 0 || s.buff || s.borrow), s.id);
     else if (s.kind === "stat") assert.ok(s.atkSpdPct || s.atkPctPerLevel, s.id);
     else assert.fail(`${s.id} unknown kind ${s.kind}`);
     if (s.aoe) assert.ok(s.radius > 0 || s.rangeBase > 0, s.id);
@@ -485,5 +488,46 @@ assert.equal(fmt(1_234_567), "1.23M");
 fakeSettings.fullNumbers = true;
 assert.equal(fmt(1_234_567), "1,234,567");
 fakeSettings.fullNumbers = false;
+
+// batch-2 mechanics
+// outcome roll: GS < 0.1, S < 0.6, F < 0.9, miss above; gsMult widens jackpot
+const gwQ = getClass("geniewiz").skills[0];
+assert.equal(rollOutcome(gwQ.outcomes, 1, () => 0.05).tag, "GS");
+assert.equal(rollOutcome(gwQ.outcomes, 1, () => 0.3).tag, "S");
+assert.equal(rollOutcome(gwQ.outcomes, 1, () => 0.7).tag, "F");
+assert.equal(rollOutcome(gwQ.outcomes, 1, () => 0.95), null);
+assert.equal(rollOutcome(gwQ.outcomes, 2, () => 0.15).tag, "GS"); // Brush weapon doubles GS
+// Dark Knight borrow tiers resolve into all three source classes
+for (const s of getClass("darkknight").skills) {
+  if (!s.borrow) continue;
+  for (const src of ["bloodevil", "indra", "omniblade"]) {
+    assert.ok(getClass(src).skills[s.borrow.tier], `${s.id} tier ${s.borrow.tier} in ${src}`);
+  }
+}
+for (const e of getClass("darkknight").enhanced) {
+  if (e.borrow) for (const src of ["bloodevil", "indra", "omniblade"]) {
+    assert.ok(getClass(src).enhanced[e.borrow.enhanced], `${e.id} enhanced ${e.borrow.enhanced} in ${src}`);
+  }
+}
+// spheres/stance/charges/stacks data shapes
+const dv = getClass("divineress");
+assert.deepEqual(dv.spheres, { perAttack: 14, max: 50 });
+assert.equal(dv.skills.find(s => s.id === "powerorb").sphereCost, 3);
+assert.equal(dv.enhanced.find(e => e.id === "holycomet").sphereCost, "all");
+const nec = getClass("necromancer");
+assert.equal(nec.skills.find(s => s.id === "phantomstorm").requiresBuff, "vallacre");
+assert.ok(nec.skills.some(s => s.id === "vallacre" && s.buff));
+assert.equal(getClass("majesty").skills.find(s => s.id === "elemshift").buff.charges, 20);
+assert.equal(getClass("majesty").skills.find(s => s.id === "imperial").stacksTo, 40);
+assert.ok(getClass("crusader").skills.every(s => s.autocast));
+// new gear folds through aggregate
+assert.equal(aggregate([], [{ itemId: "bernardo_brush", plus: 20 }]).gsRatePct, 22);
+assert.equal(aggregate([], [{ itemId: "bernardo_brushs", plus: 20 }]).buffValuePct, 32);
+assert.equal(aggregate([], [{ itemId: "bernardo_blade", plus: 20 }]).skillSpdPct, 33);
+assert.equal(aggregate([{ itemId: "fusion_garb", plus: 20 }]).dmgIncPct, 13000);
+// Formless Sirocco: pool resolves, elite fields sane
+const fs = bosses.find(b => b.id === "abyssirocco");
+assert.ok(fs && fs.eliteChance === 0.2 && fs.eliteDropMult === 3);
+assert.equal(poolFor("abyssirocco").length, 5);
 
 console.log("all checks passed");

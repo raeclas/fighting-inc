@@ -4,6 +4,7 @@
 // animation — hero lunge, mob flash/shake, floating damage numbers, HP bar.
 import { getSheet } from "./sprites.js";
 import { fmt as fmtNum } from "./format.js";
+import { getClass } from "./classes.js";
 
 const W = 560, H = 280;
 // bigger tap-targets on touch devices
@@ -174,11 +175,15 @@ export function renderBattle(state, player) {
   }
   drawActor(player.classId ?? "hero", heroX, HERO.y, now, { scale: 2.5 });
 
-  // Doppelganger clones: two smaller copies flank the hero while active
-  const doppel = state.buffs?.doppel;
-  if (doppel && doppel.until > state.total_time) {
+  // Summon clones (Doppelganger, Necromancer's minion — any active buff with
+  // clones): smaller copies flank the hero while the buff runs
+  const cloneSkill = getClass(player.classId)?.skills.find(s => s.buff?.clones);
+  const cloneBuff = cloneSkill && state.buffs?.[cloneSkill.id];
+  if (cloneBuff && cloneBuff.until > state.total_time) {
     drawActor(player.classId ?? "hero", heroX - 45, HERO.y - 28, now, { scale: 1.6 });
-    drawActor(player.classId ?? "hero", heroX - 62, HERO.y + 14, now, { scale: 1.6 });
+    if ((cloneSkill.buff.clones ?? 1) > 1) {
+      drawActor(player.classId ?? "hero", heroX - 62, HERO.y + 14, now, { scale: 1.6 });
+    }
   }
 
   // WC3-style overhead HP bar: black outline, always visible

@@ -19,6 +19,15 @@ export const CLASS_BONUSES = {
   desperado:    { stat: "copperPct",   per: 4, label: "copper find" },
   stormtrooper: { stat: "dmgPct",      per: 4, label: "damage" },
   nenempress:   { stat: "skillDmgPct", per: 4, label: "skill damage" },
+  crusader:     { stat: "skillDmgPct", per: 4, label: "skill damage" },
+  majesty:      { stat: "dmgPct",      per: 4, label: "damage" },
+  divineress:   { stat: "skillDmgPct", per: 4, label: "skill damage" },
+  geniewiz:     { stat: "copperPct",   per: 5, label: "copper find" },
+  spectre:      { stat: "atkSpeedPct", per: 4, label: "attack speed" },
+  hekate:       { stat: "dmgPct",      per: 4, label: "damage" },
+  ashtarte:     { stat: "atkSpeedPct", per: 3, label: "attack speed" },
+  necromancer:  { stat: "skillDmgPct", per: 4, label: "skill damage" },
+  darkknight:   { stat: "dmgPct",      per: 4, label: "damage" },
 };
 
 // % contributed by one character (0 below the gate / for unwired classes).

@@ -24,6 +24,9 @@ const PORTRAIT_COLORS = {
   striker: "#a8502f", overmind: "#6a3fa0", omniblade: "#8a8f9f",
   bloodevil: "#8f1f1f", indra: "#1f5f8f", vagabond: "#4f6f3f",
   desperado: "#8f6f2f", stormtrooper: "#2f6f6f", nenempress: "#8f2f6f",
+  crusader: "#b09a3f", majesty: "#3f4fa0", divineress: "#2f8f7f",
+  geniewiz: "#8f7f1f", spectre: "#4f4f6f", hekate: "#7f2f8f",
+  ashtarte: "#a03f5f", necromancer: "#3f5f3f", darkknight: "#26262e",
 };
 
 // frame-0 face-crop (top-center 2× zoom) on a tinted radial backdrop.
@@ -85,6 +88,11 @@ function updateHud(state, player) {
   if (potionActive(player, "prob", now)) potParts.push(`IV ${fmtCountdown(player.potionUntil.prob - now)}`);
   document.getElementById("potionRow").style.display = potParts.length ? "" : "none";
   if (potParts.length) document.getElementById("potionVal").textContent = potParts.join(" · ");
+
+  // Divineress spheres — shown only for classes that use them
+  const sph = cls?.spheres;
+  document.getElementById("sphereRow").style.display = sph ? "" : "none";
+  if (sph) document.getElementById("sphereVal").textContent = `${Math.floor(state.spheres)} / ${sph.max}`;
 
   // portrait: sprite frame 0 face-crop on a class-colored backdrop, else emoji
   const sheet = player.classId ? getSheet(player.classId) : null;
@@ -660,12 +668,17 @@ export function renderSkillBar(state, player, eff, onCast) {
       const total = Math.max(1, Math.round(skill.cooldownMs * (eff.cdMult ?? 1)));
       const remaining = Math.max(0, (state.cooldowns[skill.id] || 0) - state.total_time);
       const ready = remaining <= 0;
-      const buffLeft = Math.max(0, (state.buffs[skill.id]?.until ?? 0) - state.total_time);
+      // charge-based buffs (Majesty riders) end when charges run out, not on the timer
+      const bEntry = state.buffs[skill.id];
+      const buffLeft = bEntry && (bEntry.charges === undefined || bEntry.charges > 0)
+        ? Math.max(0, bEntry.until - state.total_time) : 0;
       const frac = ready ? 0 : Math.min(1, remaining / total);
       r.sweep.style.background = frac
         ? `conic-gradient(rgba(0,0,0,0.72) ${frac * 360}deg, transparent 0)` : "none";
-      r.cd.textContent = ready ? "" : `${Math.ceil(remaining / 1000)}`;
-      r.el.disabled = !ready;
+      // stance-gated skills (Necromancer) lock while the enabler buff is down
+      const gated = r.skill.requiresBuff && (state.buffs[r.skill.requiresBuff]?.until ?? 0) <= state.total_time;
+      r.cd.textContent = gated ? "🔒" : ready ? "" : `${Math.ceil(remaining / 1000)}`;
+      r.el.disabled = !ready || gated;
       r.el.classList.toggle("buffed", buffLeft > 0);
       const status = buffLeft > 0 ? `ACTIVE ${(buffLeft / 1000).toFixed(1)}s`
         : ready ? "READY" : `${(remaining / 1000).toFixed(1)}s`;

@@ -10,7 +10,7 @@ import { newCharacter, gainXP, resetHealth, agiSpeedPct } from "./player.js";
 import { getItem, aggregate, SPECIAL_IDS, MERGE_IDS, AVATAR_IDS, AVATAR_SOULS, CLASS_WEAPON } from "./items.js";
 import { tryEnhance, tryMerge, tryAvatarEnhance } from "./enhance.js";
 import { JARS, jarFor, ivMult, potionActive, POTION_MS, INT_POTION_MULT } from "./consumables.js";
-import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill } from "./classes.js";
+import { getClass, skillDamage, classStatBonuses, radiusOf, buffDuration, MAX_SKILL_LEVEL, activeSkills, matchesSkill, rollOutcome } from "./classes.js";
 import { renderClassSelect, hideClassSelect, renderSkillBar, renderBossList, renderBestiary, initTabs, initFeedFilter, bustRenderCaches } from "./ui.js";
 import { bestiaryBonus } from "./bestiary.js";
 import { renderMacro } from "./ui.js";
@@ -93,7 +93,11 @@ function pickClass(classId) {
   save(gameState);
 }
 
-const buffActive = id => (gameState.buffs[id]?.until ?? 0) > gameState.total_time;
+// a buff is up while its timer runs AND (for on-hit charge buffs) charges remain
+const buffActive = id => {
+  const b = gameState.buffs[id];
+  return !!b && b.until > gameState.total_time && (b.charges === undefined || b.charges > 0);
+};
 
 // the 7 slots with learned evolutions swapped in + the M ultimate appended
 function skillsOf() {
@@ -113,15 +117,26 @@ function effectiveStats() {
   const cls = getClass(player.classId);
   const statSk = classStatBonuses(cls, player.skills, g.skillLevelBonus);
 
-  // buff-driven bonuses (Khai haste, Miracle skill dmg) + timed armor debuffs
+  // buff-driven bonuses (Khai haste, Miracle skill dmg, Hekate's self-buff kit)
+  // + timed armor debuffs. Enhanced skills carry buffs too — walk activeSkills.
+  // The Brush S class weapon scales Hekate-style buff magnitudes.
+  const bvMult = 1 + g.buffValuePct / 100;
   let buffSpdPct = 0, buffSkillDmgPct = 0, timedArmor = 0;
-  for (const s of cls?.skills ?? []) {
+  let buffIntPct = 0, buffAtkPct = 0, buffAddDmgPct = 0, buffProcMultPct = 0;
+  for (const s of activeSkills(cls, player.skills)) {
     const level = player.skills[s.id];
     if (!level) continue;
     const L = level + g.skillLevelBonus;
     if (s.buff && buffActive(s.id)) {
-      buffSpdPct += (s.buff.atkSpdPctPerLevel ?? 0) * L;
+      buffSpdPct += (s.buff.atkSpdPct ?? 0) + (s.buff.atkSpdPctPerLevel ?? 0) * L;
       buffSkillDmgPct += (s.buff.skillDmgPctPerLevel ?? 0) * L;
+      // Favoritism: past the source INT cap the per-level value drops
+      const intPerLvl = player.int >= (s.buff.capInt ?? Infinity)
+        ? (s.buff.intPctPerLevelCapped ?? 0) : (s.buff.intPctPerLevel ?? 0);
+      buffIntPct += ((s.buff.intPctBase ?? 0) + intPerLvl * L) * bvMult;
+      buffAtkPct += ((s.buff.atkPctBase ?? 0) + (s.buff.atkPctPerLevel ?? 0) * L) * bvMult;
+      buffAddDmgPct += (s.buff.addDmgPctPerLevel ?? 0) * L * bvMult;
+      buffProcMultPct += ((s.buff.procMultPctBase ?? 0) + (s.buff.procMultPctPerLevel ?? 0) * L) * bvMult;
     }
     if (s.armorDebuff && buffActive(`${s.id}:armor`)) timedArmor += s.armorDebuff.perLevel * L;
   }
@@ -129,16 +144,23 @@ function effectiveStats() {
   // percent bonuses; addDmg ("Additional damage", best item only) multiplies
   // on top — matches the source tooltips' two separate multiplier families.
   const bonus = 1 + bestiaryBonus(gameState) + statSk.atkPct / 100
-    + leg.dmgPct / 100 + g.dmgIncPct / 100;
+    + leg.dmgPct / 100 + g.dmgIncPct / 100 + buffAtkPct / 100;
   // INT (character + item) is flat 1:1 damage, added before the % multipliers.
   // INT potion multiplies PURE (character) INT only — item INT untouched (map).
   const pureMult = potionActive(player, "int", gameState.total_time) ? INT_POTION_MULT : 1;
-  const totalInt = Math.round(player.int * pureMult) + g.int;
-  const atkTotal = Math.round((player.attack + g.atk + totalInt) * bonus * (1 + g.addDmgPct / 100));
+  // Hekate's INT buffs (Love Emergency etc.) scale the whole INT term
+  const totalInt = Math.round((Math.round(player.int * pureMult) + g.int) * (1 + buffIntPct / 100));
+  const atkTotal = Math.round((player.attack + g.atk + totalInt) * bonus * (1 + (g.addDmgPct + buffAddDmgPct) / 100));
   // AGI saturates WC3's +400% cap from level 1 (source). ponytail: letting
   // item/legion/buff speed stack PAST the cap is OUR adaptation — in the map
   // those stats are decorative (cap already full); here they stay meaningful.
-  const spdPct = agiSpeedPct(player) + g.spdPct + leg.atkSpeedPct + statSk.atkSpdPct + buffSpdPct;
+  // ponytail: skillSpdPct (Blade weapon "when using a skill") folds in
+  // unconditionally — idle combat casts constantly; no per-cast window kept.
+  const spdPct = agiSpeedPct(player) + g.spdPct + g.skillSpdPct + leg.atkSpeedPct + statSk.atkSpdPct + buffSpdPct;
+  // Forbidden Curse boosts INT-proc item effectiveness
+  const intProcs = buffProcMultPct
+    ? g.intProcs.map(p => ({ chance: p.chance, mult: p.mult * (1 + buffProcMultPct / 100) }))
+    : g.intProcs;
   return {
     atk: atkTotal,
     // source skill formula: level × (base + INT × mult) × this
@@ -148,12 +170,13 @@ function effectiveStats() {
     armorStrip: g.defReduce + statSk.armorReduce + timedArmor,
     totalInt,
     crit: g.crit,             // {chance, mult} | null — auto-attacks only
-    intProcs: g.intProcs,     // [{chance, mult}] — mult × INT bonus per auto
+    intProcs,                 // [{chance, mult}] — mult × INT bonus per auto
     cdMult: 1 - g.cooldownPct / 100,
     skillLevelBonus: g.skillLevelBonus,
     // class-weapon meta-modifiers + avatar magic crit
     intRatioMult: 1 + g.intRatioPct / 100,   // scales the INT×mult term of skills
     procRateMult: 1 + g.procRatePct / 100,   // scales proc-skill activation chance
+    gsRateMult: 1 + g.gsRatePct / 100,       // Geniewiz jackpot chance (Brush weapon)
     magicCrit: g.magicCrit,                  // {chance, pct} | null — skills only
     clones: g.clones,                        // extra Doppelganger clones
   };
@@ -177,28 +200,70 @@ function applySkillDamage(skill, dmg, target, radius = skill.radius) {
   }
 }
 
+function resetOtherCooldowns(exceptId) {
+  for (const id of Object.keys(gameState.cooldowns)) {
+    if (id !== exceptId) gameState.cooldowns[id] = 0;
+  }
+}
+
 function castSkill(skill) {
   const level = player.skills[skill.id];
   const target = frontMob();
   if (skill.kind !== "cast" || !level || !target) return;
   if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) return;
+  // Necromancer stance: some skills need the enabler buff running
+  if (skill.requiresBuff && !buffActive(skill.requiresBuff)) {
+    return logLine(`${skill.name} needs its stance active.`, "fail");
+  }
+  // Divineress spheres: gate the cost before anything is spent
+  const sph = getClass(player.classId)?.spheres;
+  let spent = 0;
+  if (skill.sphereCost) {
+    const cost = skill.sphereCost === "all" ? Math.floor(gameState.spheres) : skill.sphereCost;
+    if (cost < 1 || gameState.spheres < cost) return logLine(`${skill.name} needs spheres.`, "fail");
+    gameState.spheres -= cost;
+    spent = cost;
+  }
 
   const eff = effectiveStats();
   gameState.cooldowns[skill.id] = gameState.total_time + Math.round(skill.cooldownMs * eff.cdMult);
-  if (skill.resetsCooldowns) { // Sesto Elemental: every other cooldown clears
-    for (const id of Object.keys(gameState.cooldowns)) {
-      if (id !== skill.id) gameState.cooldowns[id] = 0;
-    }
-  }
+  if (skill.resetsCooldowns) resetOtherCooldowns(skill.id); // Sesto Elemental
+
   const L = effSkillLevel(level, eff);
-  if (skill.buff) {
-    gameState.buffs[skill.id] = { until: gameState.total_time + buffDuration(skill, L) };
+  // Geniewiz: one weighted outcome roll decides the damage tier (or a miss)
+  let dmgSkill = skill;
+  let gsHit = !skill.outcomes;
+  if (skill.outcomes) {
+    const o = rollOutcome(skill.outcomes, eff.gsRateMult);
+    if (!o) {
+      pushBattleEvent({ type: "skill", dmg: 0 });
+      return logLine(`${skill.name}: MAJOR FAILURE. The wheel laughs.`, "fail");
+    }
+    dmgSkill = { ...skill, base: o.base, mult: o.mult };
+    gsHit = o.tag === "GS";
+    if (o.tag === "GS") logLine(`${skill.name}: GREAT SUCCESS!`, "success");
+    if (o.resetsCooldowns) resetOtherCooldowns(skill.id); // Gravitas jackpot
+  }
+  // buffs arm normally; outcome skills whose buff is jackpot-gated arm on GS only
+  if (skill.buff && (!skill.buffOnGS || gsHit)) {
+    gameState.buffs[skill.id] = {
+      until: gameState.total_time + buffDuration(skill, L),
+      ...(skill.buff.charges ? { charges: skill.buff.charges } : {}),
+    };
     logLine(`${skill.name} active.`, "success");
   }
   if (skill.armorDebuff) {
     gameState.buffs[`${skill.id}:armor`] = { until: gameState.total_time + skill.armorDebuff.durationMs };
   }
-  let dmg = skillDamage(skill, L, eff.totalInt, eff.skillDmgMult, eff.intRatioMult);
+
+  let dmg = skillDamage(dmgSkill, L, eff.totalInt, eff.skillDmgMult, eff.intRatioMult);
+  // Holy Comet: consumed spheres add INT×mult each; Celestial Purge refills
+  if (skill.sphereBonusMult && spent) dmg += Math.round(L * eff.totalInt * skill.sphereBonusMult * spent);
+  if (skill.sphereFill && sph) gameState.spheres = sph.max;
+  if (skill.sphereGain && sph) {
+    const mult = target.isBoss ? (skill.sphereGainBossMult ?? 1) : 1;
+    gameState.spheres = Math.min(sph.max, gameState.spheres + skill.sphereGain * mult);
+  }
   if (eff.magicCrit && Math.random() < eff.magicCrit.chance) {
     dmg = Math.round(dmg * (1 + eff.magicCrit.pct / 100)); // avatar magic crit
   }
@@ -285,7 +350,7 @@ function useEvolutionTicket(boss, tier) {
   refreshMacro(); // skill bar re-renders on the next tick
 }
 
-function rollBossDrops(boss) {
+function rollBossDrops(boss, dropMult = 1) {
   const d = boss.drops;
   if (!d) return;
   // bounty: tier-N amount = bounty × 1e9^tier copper (silver/gold tiers)
@@ -299,8 +364,9 @@ function rollBossDrops(boss) {
     player.souls[d.souls.kind] = (player.souls[d.souls.kind] || 0) + d.souls.count;
     logLine(`${boss.name} leaves ${d.souls.count} souls behind.`, "success");
   }
-  // all boss drop rolls scale with the source IV multiplier (probability potion)
-  const iv = ivMult(player, gameState.total_time);
+  // all boss drop rolls scale with the source IV multiplier (probability
+  // potion) and the elite twin's 3× (Formless Sirocco)
+  const iv = ivMult(player, gameState.total_time) * dropMult;
   // item roll — the skill ticket drops ALONGSIDE a successful roll (source Epx)
   if (Math.random() < Math.min(1, d.itemChance * iv)) {
     // specials carry an explicit pool; "classWeapon" resolves per active class
@@ -380,6 +446,7 @@ function switchCharacter(i) {
   gameState.cooldowns = {};
   gameState.buffs = {};
   gameState.procCounts = {};
+  gameState.spheres = 0;
   gameState.field = [];
   gameState.currentZoneId = null;
   gameState.macro.enabled = false;
@@ -691,7 +758,7 @@ function resolveKill(mob) {
     gameState.kills[mob.bossId] = (gameState.kills[mob.bossId] || 0) + 1;
     const boss = getBoss(mob.bossId);
     logLine(`${boss.name} defeated! ${boss.respawnMs ? "Bounty" : "Refund"} ${fmt(mob.copper)}c.`, "success");
-    rollBossDrops(boss);
+    rollBossDrops(boss, mob.elite ? (boss.eliteDropMult ?? 1) : 1);
     if (boss.respawnMs) gameState.bossCooldowns[boss.id] = gameState.total_time + boss.respawnMs;
     if (gameState.autoResummon && !boss.respawnMs && player.copper >= boss.summonCost) {
       player.copper -= boss.summonCost;
@@ -750,6 +817,9 @@ function autoRiderDamage(cls, eff) {
       let r = L * (b.autoRider.base + eff.totalInt * b.autoRider.mult);
       if (b.perAttacker) r *= 1 + clones; // Tiger Flash: clones swing it too
       d += r;
+      // Majesty on-hit charges: the rider spends one per auto, buff ends at 0
+      const entry = gameState.buffs[s.id];
+      if (entry && entry.charges !== undefined) entry.charges--;
     }
     if (b.cloneRider && clones) d += clones * L * (b.cloneRider.base + eff.totalInt * b.cloneRider.mult);
   }
@@ -761,6 +831,13 @@ function simulateLive(dt) {
   if (!frontMob()) return;
 
   runMacro();
+  // Crusader: deterministic passive — skills fire themselves off cooldown
+  for (const skill of skillsOf()) {
+    if (skill.autocast && player.skills[skill.id]
+        && (gameState.cooldowns[skill.id] || 0) <= gameState.total_time) {
+      castSkill(skill);
+    }
+  }
 
   const eff = effectiveStats();
   const { atk, interval, crit, intProcs, totalInt } = eff;
@@ -777,6 +854,9 @@ function simulateLive(dt) {
     player.lastAttack += interval;
     const target = frontMob();
     if (!target) break;
+
+    // Divineress: basic attacks accrue Spheres
+    if (cls?.spheres) gameState.spheres = Math.min(cls.spheres.max, gameState.spheres + cls.spheres.perAttack);
 
     // auto-attack: single target (the front mob); armor strip lowers its
     // defense; item crit multiplies it; buff riders add on top (ignore def)
@@ -809,6 +889,7 @@ function simulateLive(dt) {
         if (skill.kind !== "proc") continue;
         const level = player.skills[skill.id];
         if (!level) continue;
+        if (skill.requiresBuff && !buffActive(skill.requiresBuff)) continue; // stance-gated
         // Limit Break fires every Nth auto (deterministic); others roll chance
         // × class-weapon activation bonus. Awakened procs carry a real cooldown.
         let fired;
@@ -816,7 +897,14 @@ function simulateLive(dt) {
           const n = (gameState.procCounts[`${skill.id}:n`] = (gameState.procCounts[`${skill.id}:n`] || 0) + 1);
           fired = n % skill.every === 0;
         } else {
-          fired = Math.random() < Math.min(1, skill.procChance * eff.procRateMult);
+          // active buffs can raise a proc's activation chance (War Goddess → Chaser)
+          let chance = skill.procChance * eff.procRateMult;
+          for (const b of skillsOf()) {
+            if (b.buff?.procChanceAdd && buffActive(b.id) && matchesSkill(skill, b.buff.procChanceAdd.target)) {
+              chance += b.buff.procChanceAdd.add;
+            }
+          }
+          fired = Math.random() < Math.min(1, chance);
         }
         if (fired && skill.cooldownMs) {
           if ((gameState.cooldowns[skill.id] || 0) > gameState.total_time) fired = false;
@@ -824,16 +912,36 @@ function simulateLive(dt) {
         }
         if (fired) {
           const L = effSkillLevel(level, eff);
+          // Majesty's Imperial stacks: every proc builds one; full = all cooldowns reset
+          if (skill.stacksTo) {
+            const k = `${skill.id}:stk`;
+            gameState.procCounts[k] = (gameState.procCounts[k] || 0) + 1;
+            if (gameState.procCounts[k] >= skill.stacksTo) {
+              gameState.procCounts[k] = 0;
+              resetOtherCooldowns(null);
+              logLine(`${skill.name}: ${skill.stacksTo} stacks — cooldowns reset!`, "success");
+            }
+          }
+          // Dark Knight combo: this proc borrows a sibling passive's skill at the
+          // same tier (Blood Evil / Indra / Omniblade), damage + shape included
+          let dmgSrc = skill;
+          if (skill.borrow) {
+            const srcCls = getClass(["bloodevil", "indra", "omniblade"][Math.floor(Math.random() * 3)]);
+            dmgSrc = skill.borrow.enhanced != null
+              ? srcCls.enhanced[skill.borrow.enhanced]
+              : srcCls.skills[skill.borrow.tier];
+          }
           if (skill.buff) { // Overdrive / Wave Eye: proc (re)starts the buff
             gameState.buffs[skill.id] = { until: gameState.total_time + buffDuration(skill, L) };
           }
           if (skill.armorDebuff) { // Iron Strike armor window
             gameState.buffs[`${skill.id}:armor`] = { until: gameState.total_time + skill.armorDebuff.durationMs };
           }
-          let procDmg = skillDamage(skill, L, totalInt, eff.skillDmgMult, eff.intRatioMult);
+          let procDmg = skillDamage(dmgSrc, L, totalInt, eff.skillDmgMult, eff.intRatioMult);
           // active buffs that target this proc (Death by Revolver ×3,
-          // Miracle Vision's mastery rider) — declared on the buff data
-          for (const b of cls.skills) {
+          // Miracle Vision's mastery rider, Chaser Evolution) — buff data,
+          // enhanced skills included
+          for (const b of skillsOf()) {
             if (!b.buff || !buffActive(b.id)) continue;
             const bL = effSkillLevel(player.skills[b.id], eff);
             if (b.buff.procBoost && matchesSkill(skill, b.buff.procBoost.target)) procDmg *= b.buff.procBoost.mult;
@@ -844,8 +952,9 @@ function simulateLive(dt) {
             procDmg = Math.round(procDmg * (1 + eff.magicCrit.pct / 100));
           }
           if (procDmg > 0) {
-            applySkillDamage(skill, procDmg, center, radiusOf(skill, L, buffActive("miracle")));
+            applySkillDamage(dmgSrc, procDmg, center, radiusOf(dmgSrc, L, buffActive("miracle")));
             pushBattleEvent({ type: "skill", dmg: procDmg });
+            if (skill.borrow) logLine(`${skill.name} → ${dmgSrc.name}!`);
           }
           gameState.procCounts[skill.id] = (gameState.procCounts[skill.id] || 0) + 1;
         }
@@ -909,7 +1018,17 @@ function simulateBatch(dt) {
     }
   }
 
-  const fieldDmgPerSec = fieldDmgPerAttack / (interval / 1000);
+  // Crusader autocasts contribute offline: each fires every cooldown
+  let autocastDps = 0;
+  for (const skill of skillsOf()) {
+    if (!skill.autocast) continue;
+    const level = player.skills[skill.id];
+    if (!level) continue;
+    const L = effSkillLevel(level, eff);
+    autocastDps += skillDamage(skill, L, totalInt, eff.skillDmgMult, eff.intRatioMult)
+      * (skill.aoe ? aoeCoverage(radiusOf(skill, L)) : 1) / (skill.cooldownMs / 1000);
+  }
+  const fieldDmgPerSec = fieldDmgPerAttack / (interval / 1000) + autocastDps;
   const kills = Math.floor((dt / 1000) * fieldDmgPerSec / mob.maxHp);
   if (kills <= 0) return;
 

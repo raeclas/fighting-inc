@@ -27,6 +27,7 @@ export const gameState = {
   bossCooldowns: {},    // special bossId -> total_time when it respawns (saved)
 
   cooldowns: {},        // skillId -> total_time when ready again (transient)
-  buffs: {},            // skillId (or "skillId:armor") -> { until } (transient)
-  procCounts: {},       // skillId -> lifetime proc count this session (transient)
+  buffs: {},            // skillId (or "skillId:armor") -> { until, charges? } (transient)
+  procCounts: {},       // skillId -> proc/stack counters this session (transient)
+  spheres: 0,           // Divineress combat resource (transient)
 };

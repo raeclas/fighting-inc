@@ -23,6 +23,15 @@ export const SHEETS = {
   desperado:       { src: "assets/desperado.png",       size: 64, frames: 4, fps: 6,  fallback: "🤠" },
   stormtrooper:    { src: "assets/stormtrooper.png",    size: 64, frames: 4, fps: 6,  fallback: "🔫" },
   nenempress:      { src: "assets/nenempress.png",      size: 64, frames: 4, fps: 6,  fallback: "👑" },
+  crusader:        { src: "assets/crusader.png",        size: 64, frames: 4, fps: 6,  fallback: "✝️" },
+  majesty:         { src: "assets/majesty.png",         size: 64, frames: 4, fps: 6,  fallback: "🗡" },
+  divineress:      { src: "assets/divineress.png",      size: 64, frames: 4, fps: 6,  fallback: "🔮" },
+  geniewiz:        { src: "assets/geniewiz.png",        size: 64, frames: 4, fps: 6,  fallback: "🎰" },
+  spectre:         { src: "assets/spectre.png",         size: 64, frames: 4, fps: 6,  fallback: "👻" },
+  hekate:          { src: "assets/hekate.png",          size: 64, frames: 4, fps: 6,  fallback: "💜" },
+  ashtarte:        { src: "assets/ashtarte.png",        size: 64, frames: 4, fps: 6,  fallback: "🔱" },
+  necromancer:     { src: "assets/necromancer.png",     size: 64, frames: 4, fps: 6,  fallback: "💀" },
+  darkknight:      { src: "assets/darkknight.png",      size: 64, frames: 4, fps: 6,  fallback: "🌑" },
 
   // zone mobs (keyed by zone id)
   kiln:    { src: "assets/kiln.png",    size: 64, frames: 4, fps: 4, fallback: "😩" },

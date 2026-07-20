@@ -164,6 +164,16 @@ export const bosses = [
     drops: { itemChance: 0.02, bountyTier: GOLD, bounty: 60, rare: { chance: 0.003, itemId: "brtalisman" } },
   },
 
+  // ★Abyss★ Formless Sirocco (map w3u nske variants): free summon, 20% of
+  // summons spawn the elite twin whose drop rolls run at 3× (2%→6% pool).
+  {
+    id: "abyssirocco", name: "★Abyss★ Formless Sirocco",
+    hp: 1_000_000_000, defense: 750, summonCost: 0, xp: 100_000_000,
+    skillIndex: null, regenPct: 0.07,
+    eliteChance: 0.20, eliteDropMult: 3,
+    drops: { itemChance: 0.02, bountyTier: S, bounty: 243_000, rare: { chance: 0.02, itemId: "transtalisman" } },
+  },
+
   // ---- INT-gated specials (free challenge, respawn timers) ----
   // Real source drops (war3map.j dispatch ~L103890, see internal/extract/):
   // gear pools via itemChance, evolution tickets via `ticket`, souls via `fixed`.
@@ -218,9 +228,12 @@ export const bosses = [
 export const getBoss = id => bosses.find(b => b.id === id);
 
 export function spawnBossMob(boss) {
+  // Formless Sirocco: a fifth of summons are the elite twin (same stats, 3× drops)
+  const elite = boss.eliteChance && Math.random() < boss.eliteChance;
   return {
     bossId: boss.id,
-    name: `${boss.name} (BOSS)`,
+    elite,
+    name: `${boss.name}${elite ? " ELITE" : ""} (BOSS)`,
     hp: boss.hp,
     maxHp: boss.hp,
     defense: boss.defense,

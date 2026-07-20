@@ -51,7 +51,18 @@ shifts get a fresh `baseline.json` in the same commit.
   Myth-jar open weights, mixed-jar brtalisman branch, Beryl 20-lap rate,
   protection-rights wiring.
 
+- ✅ Batch-2 heroes + Formless Sirocco (2026-07-20): all 9 remaining classes
+  (Crusader autocast, Majesty on-hit charges + 40-stack reset, Divineress
+  spheres, Geniewiz GS/S/F outcome rolls, Spectre every-N, Hekate self-buff
+  kit from w3a extraction, Ashtarte chaser tempo, Necromancer Vallacre stance,
+  Dark Knight borrow-wrapper) + their 7 Abyss Fragment weapons and the
+  ★Abyss★ Formless Sirocco boss (free summon, 20% elite twin at 3× drops,
+  5-item ★Fusion★ pool — tR decoded; ROADMAP's old "already extracted" claim
+  was wrong until now). 18/19 classes shipped. Zero sim drift.
+
 ## Next — remaining source gaps, in build order
+
+### 1. Rakshasa (last class) — prompt-timing minigame, needs its own reaction UI.
 
 ### SHELVED — Party/lobby multiplier analogue (IV × YJ)
 Shelved by user decision (2026-07-20). `ivMult()` in consumables.js already
@@ -59,14 +70,13 @@ carries the IV plumbing (probability potion feeds it); elixir sources can plug
 in whenever this revives. **Map:** enhance/bag/coin all ×`IV[player]` (elixirs)
 ×`YJ[party-size]`.
 
-### 1. Batch-2 heroes + missing boss
-Crusader (auto-cast), Majesty (on-hit riders), Divineress (spheres), Geniewiz
-(GS/S/F rolls), Spectre (speed stacks), Hekate/Ashtarte (buffers),
-Necromancer (stance), Dark Knight (borrows skills) — port notes in HEROES.md.
-Abyssal Intangible Sirocco boss (★Fusion★ pool `tR`, already extracted).
-Rakshasa last (prompt-timing minigame).
-
 ### Mechanical residue (small, opportunistic)
+Batch-2 marked adaptations: Apostolate AS% + Hekate SW crit component
+undecoded (trigger-applied); Geniewiz GS side-buffs unnumbered (damage tiers
+only); DK combo chances interpolated between the 2.7/0.5 endpoints; multi-hit
+skills folded to one volley (Judgment, Brain Attack finisher, End of Time);
+Spectre single/multi damage split uses single; Necromancer minion = clone
+rider with Black Web folded to EV; a few unstated CDs assumed (marked ponytail).
 Attack speed = HYBRID adaptation (2026-07-20): source saturates the WC3 +400%
 cap at level 1 (base AGI 1 × AgiAttackSpeedBonus 500, per-class baseCooldownMs
 from w3u), so all spd% stats are decorative in the map — we let item/legion/

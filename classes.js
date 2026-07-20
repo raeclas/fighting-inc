@@ -234,6 +234,249 @@ export const classes = [
       { tier: "awaken", id: "nendragons", key: "M", name: "Nen Dragons", kind: "cast", base: 0, mult: 3_000_000, cooldownMs: 300_000 },
     ],
   },
+
+  // ---- batch 2 (HEROES.md + w3a extraction; assumptions marked) ----
+  {
+    id: "crusader",
+    baseCooldownMs: 550, // w3u attack cooldown
+    name: "Crusader",
+    archetype: "passive", // deterministic: skills fire themselves off cooldown
+    desc: "Holy clockwork. Every skill casts itself the moment it's ready.",
+    skills: [
+      { id: "purity",     key: "Q", name: "Blades of Purity",    kind: "cast", autocast: true, base: 120, mult: 120, cooldownMs: 5_000 },
+      { id: "deflection", key: "W", name: "Deflection Wall",     kind: "cast", autocast: true, base: 0, mult: 800,    cooldownMs: 15_000, aoe: true, radius: 1.5 },
+      { id: "invocation", key: "E", name: "Divine Invocation",   kind: "cast", autocast: true, base: 0, mult: 300,    cooldownMs: 60_000,
+        buff: { durationMs: 22_000, autoRider: { base: 0, mult: 300 } } },
+      // Penance rider (INT×500) has no stated duration — omitted, damage kept
+      { id: "repentance", key: "R", name: "Hammer of Repentance", kind: "cast", autocast: true, base: 0, mult: 2_000, cooldownMs: 30_000, aoe: true, radius: 2.5 },
+      // 6 hits/3s folded to one volley (Astral Storm precedent)
+      { id: "judgment",   key: "T", name: "Righteous Judgment",  kind: "cast", autocast: true, base: 0, mult: 48_000, cooldownMs: 30_000, aoe: true, radius: 2.5 },
+      { id: "apocalypse", key: "F", name: "Apocalypse",          kind: "cast", autocast: true, base: 0, mult: 1_100,  cooldownMs: 60_000,
+        buff: { durationMs: 22_000, skillDmgPctPerLevel: 5 } },
+      { id: "punishment", key: "D", name: "Punishment",          kind: "cast", autocast: true, base: 0, mult: 19_000, cooldownMs: 60_000 },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "purity", id: "jupiterhammer", key: "Q", name: "Thunder Hammer: Jupiter", kind: "cast", autocast: true, base: 0, mult: 4_000, cooldownMs: 60_000 },
+      { tier: "trans",  replaces: "deflection", id: "doomspear", key: "W", name: "Doom Spear", kind: "cast", autocast: true, base: 0, mult: 90_000, cooldownMs: 60_000 },
+      { tier: "awaken", id: "finaljudgement", key: "M", name: "Final Judgement", kind: "cast", autocast: true, base: 0, mult: 2_500_000, cooldownMs: 300_000 },
+    ],
+  },
+  {
+    id: "majesty",
+    baseCooldownMs: 500, // w3u attack cooldown
+    name: "Majesty",
+    archetype: "active",
+    desc: "Single-target god. Casts arm the blade; your autos do the killing.",
+    skills: [
+      { id: "swordplay",  key: "Q", name: "Swordplay",           kind: "proc", procChance: 0.20, base: 2, mult: 0 },
+      // casts arm on-hit riders: charges = how many autos carry the damage
+      { id: "elemshift",  key: "W", name: "Elemental Shift",     kind: "cast", base: 0, mult: 0, cooldownMs: 15_000,
+        buff: { durationMs: 60_000, charges: 20, autoRider: { base: 0, mult: 150 } } },
+      { id: "arcaneblast", key: "E", name: "Arcane Sword Blast", kind: "cast", base: 0, mult: 0, cooldownMs: 10_000,
+        buff: { durationMs: 60_000, charges: 1, autoRider: { base: 0, mult: 6_000 } } },
+      { id: "swiftslash", key: "R", name: "Swift Demon Slash",   kind: "cast", base: 0, mult: 0, cooldownMs: 15_000,
+        buff: { durationMs: 60_000, charges: 1, autoRider: { base: 0, mult: 15_000 } } },
+      { id: "imperial",   key: "T", name: "Imperial Swordsmanship", kind: "proc", procChance: 0.10, base: 0, mult: 1_200, stacksTo: 40 },
+      { id: "spacetime",  key: "F", name: "Ultimate Slayer: Spacetime Cutter", kind: "cast", base: 0, mult: 0, cooldownMs: 35_000,
+        buff: { durationMs: 60_000, charges: 1, autoRider: { base: 0, mult: 60_000 } } },
+      { id: "laevateinn", key: "D", name: "Ultimate Sword: Laevateinn", kind: "cast", base: 0, mult: 0, cooldownMs: 45_000,
+        buff: { durationMs: 60_000, charges: 1, autoRider: { base: 0, mult: 110_000 } } },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "swordplay", id: "illusionsword", key: "Q", name: "Illusion Sword", kind: "cast", base: 0, mult: 2_000, cooldownMs: 50_000 },
+      { tier: "trans",  replaces: "elemshift", id: "eradicator", key: "W", name: "Elemental Eradicator", kind: "cast", base: 0, mult: 600_000, cooldownMs: 60_000 },
+      { tier: "awaken", id: "supremelegion", key: "M", name: "Supreme Legion", kind: "cast", base: 0, mult: 11_600_000, cooldownMs: 300_000 },
+    ],
+  },
+  {
+    id: "divineress",
+    baseCooldownMs: 550, // w3u attack cooldown
+    name: "Divineress",
+    archetype: "active",
+    desc: "Builds Spheres with every swing, spends them on dragon prayers.",
+    spheres: { perAttack: 14, max: 50 },
+    skills: [
+      { id: "thunderamulet", key: "Q", name: "Thunder Amulet", kind: "cast", base: 200, mult: 200, cooldownMs: 10_000 },
+      { id: "powerorb",   key: "W", name: "Power Orb",         kind: "cast", base: 600, mult: 600, cooldownMs: 100, sphereCost: 3 },
+      { id: "soulmagnet", key: "E", name: "Soul Magnet",       kind: "cast", base: 2_000, mult: 2_000, cooldownMs: 20_000, sphereGain: 2 },
+      { id: "dragonfury", key: "R", name: "Dragon Fury",       kind: "cast", base: 2_000, mult: 2_000, cooldownMs: 28_000, sphereGain: 1, sphereGainBossMult: 5 },
+      { id: "thunderstorm", key: "T", name: "Oracle: Dragon Thunderstorm", kind: "cast", base: 7_500, mult: 7_500, cooldownMs: 28_000, sphereGain: 1, sphereGainBossMult: 10 },
+      // ponytail: HEROES.md calls this a "sphere management hybrid" with no CD — 20s assumed (Khai precedent)
+      { id: "beads",      key: "F", name: "One Hundred Eight Beads", kind: "cast", base: 0, mult: 1_500, cooldownMs: 20_000, sphereGain: 2 },
+      { id: "incarnation", key: "D", name: "Incarnation: Raging Godly Dragon", kind: "cast", base: 0, mult: 37_500, cooldownMs: 50_000, sphereGain: 1, sphereGainBossMult: 20 },
+    ],
+    enhanced: [
+      // ponytail: CDs unstated for the two evolves — base-slot CDs assumed
+      { tier: "abyss",  replaces: "thunderamulet", id: "holycomet", key: "Q", name: "Holy Comet", kind: "cast", base: 0, mult: 13_000, cooldownMs: 10_000, sphereCost: "all", sphereBonusMult: 1_000 },
+      { tier: "trans",  replaces: "soulmagnet", id: "rosaryprison", key: "E", name: "Rosary Prison", kind: "cast", base: 0, mult: 120_000, cooldownMs: 20_000 },
+      { tier: "awaken", id: "celestialpurge", key: "M", name: "Celestial Purge", kind: "cast", base: 0, mult: 2_000_000, cooldownMs: 300_000, sphereFill: true },
+    ],
+  },
+  {
+    id: "geniewiz",
+    baseCooldownMs: 580, // w3u attack cooldown
+    name: "Geniewiz",
+    archetype: "active",
+    desc: "Every cast spins the wheel: jackpot, success, failure — or nothing.",
+    skills: [
+      // outcomes: GS 10% / S 50% / F 30%; the missing 10% is a total miss
+      { id: "flyswatter", key: "Q", name: "Devolution Flyswatter", kind: "cast", base: 0, mult: 0, cooldownMs: 8_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 300, mult: 300 }, { p: 0.5, tag: "S", base: 200, mult: 200 }, { p: 0.3, tag: "F", base: 50, mult: 50 }] },
+      { id: "acidcloud", key: "W", name: "Acid Cloud", kind: "cast", base: 0, mult: 0, cooldownMs: 15_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 1_500, mult: 1_500 }, { p: 0.5, tag: "S", base: 700, mult: 700 }, { p: 0.3, tag: "F", base: 200, mult: 200 }] },
+      { id: "lavapotion", key: "E", name: "Lava Potion No. 9", kind: "cast", base: 0, mult: 0, cooldownMs: 22_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 5_000, mult: 5_000 }, { p: 0.5, tag: "S", base: 2_500, mult: 2_500 }, { p: 0.3, tag: "F", base: 400, mult: 400 }] },
+      { id: "collider", key: "R", name: "Florae Collider", kind: "cast", base: 0, mult: 0, cooldownMs: 25_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 12_000, mult: 12_000 }, { p: 0.5, tag: "S", base: 3_500, mult: 3_500 }, { p: 0.3, tag: "F", base: 600, mult: 600 }] },
+      { id: "giantswatter", key: "T", name: "Giant Flyswatter", kind: "cast", base: 0, mult: 0, cooldownMs: 32_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 30_000, mult: 30_000 }, { p: 0.5, tag: "S", base: 8_000, mult: 8_000 }, { p: 0.3, tag: "F", base: 1_000, mult: 1_000 }] },
+      // GS auto/skill-dmg side-buffs carry no numbers in HEROES.md — damage tiers only
+      { id: "fusioncraft", key: "F", name: "Fusion Craft", kind: "cast", base: 0, mult: 0, cooldownMs: 42_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 0, mult: 20_000 }, { p: 0.5, tag: "S", base: 0, mult: 15_000 }, { p: 0.3, tag: "F", base: 0, mult: 2_000 }] },
+      { id: "ouroboros", key: "D", name: "Ouroboros", kind: "cast", base: 0, mult: 0, cooldownMs: 50_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 0, mult: 50_000 }, { p: 0.5, tag: "S", base: 0, mult: 30_000 }, { p: 0.3, tag: "F", base: 0, mult: 4_000 }] },
+    ],
+    enhanced: [
+      // evolves are jackpot-or-nothing per HEROES.md
+      { tier: "abyss",  replaces: "flyswatter", id: "gravitas", key: "Q", name: "Gravitas", kind: "cast", base: 0, mult: 0, cooldownMs: 60_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 0, mult: 75_000, resetsCooldowns: true }] },
+      { tier: "trans",  replaces: "acidcloud", id: "electricrabbit", key: "W", name: "Florae Electric Rabbit", kind: "cast", base: 0, mult: 0, cooldownMs: 100_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 0, mult: 110_000 }] },
+      { tier: "awaken", id: "arsmagna", key: "M", name: "Ars Magna", kind: "cast", base: 0, mult: 0, cooldownMs: 300_000,
+        outcomes: [{ p: 0.1, tag: "GS", base: 0, mult: 4_000_000 }] },
+    ],
+  },
+  {
+    id: "spectre",
+    baseCooldownMs: 500, // w3u attack cooldown ("Jin: Blade")
+    name: "Spectre",
+    archetype: "active",
+    desc: "Every skill hastens the trigger finger. Single targets fear her most.",
+    skills: [
+      { id: "doubleshot", key: "Q", name: "Double Shot",   kind: "proc", every: 9, base: 0, mult: 100 },
+      // multi-target damage variants folded to single-target values (residue)
+      { id: "blending",  key: "W", name: "Blending Pain",  kind: "cast", base: 0, mult: 900,    cooldownMs: 12_000, buff: { durationMs: 2_000, atkSpdPct: 30 } },
+      { id: "shaker",    key: "E", name: "Shaker Blast",   kind: "cast", base: 0, mult: 6_000,  cooldownMs: 13_000, buff: { durationMs: 3_000, atkSpdPct: 30 } },
+      { id: "lastorder", key: "R", name: "Last Order",     kind: "cast", base: 0, mult: 12_000, cooldownMs: 20_000, buff: { durationMs: 4_000, atkSpdPct: 30 } },
+      { id: "trace",     key: "T", name: "Trace",          kind: "cast", base: 0, mult: 0,      cooldownMs: 60_000,
+        buff: { durationMs: 35_000, autoRider: { base: 0, mult: 1_200 } } },
+      { id: "showdown",  key: "F", name: "Showdown",       kind: "cast", base: 0, mult: 50_000, cooldownMs: 30_000, buff: { durationMs: 5_000, atkSpdPct: 30 } },
+      { id: "daybreak",  key: "D", name: "Daybreak",       kind: "cast", base: 0, mult: 95_000, cooldownMs: 45_000, buff: { durationMs: 4_000, atkSpdPct: 30 } },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "doubleshot", id: "professional", key: "Q", name: "Professional", kind: "proc", every: 60, base: 0, mult: 40_000 },
+      { tier: "trans",  replaces: "blending", id: "catharsis", key: "W", name: "Catharsis", kind: "cast", base: 0, mult: 500_000, cooldownMs: 60_000 },
+      { tier: "awaken", id: "testament", key: "M", name: "Testament", kind: "cast", base: 0, mult: 3_000_000, cooldownMs: 300_000 },
+    ],
+  },
+  {
+    id: "hekate",
+    baseCooldownMs: 550, // w3u attack cooldown ("Hecate")
+    name: "Hekate",
+    archetype: "active",
+    desc: "Affection as a weapon system. Solo, every buff is a self-buff.",
+    skills: [
+      // w3a: buffs run 600s (self-cast unlimited in source; 600s is close enough)
+      { id: "curiosity", key: "Q", name: "Evil Curiosity",  kind: "cast", base: 0, mult: 0, cooldownMs: 10_000,
+        buff: { durationMs: 600_000, intPctPerLevel: 50 } },
+      // w3a: over 15M INT the buff drops to lvl×50% — capped pair
+      { id: "favoritism", key: "W", name: "Favoritism",     kind: "cast", base: 0, mult: 0, cooldownMs: 1_000,
+        buff: { durationMs: 600_000, intPctPerLevel: 500, intPctPerLevelCapped: 50, capInt: 15_000_000 } },
+      { id: "forbiddencurse", key: "E", name: "Forbidden Curse", kind: "cast", base: 0, mult: 0, cooldownMs: 1_000,
+        buff: { durationMs: 600_000, procMultPctBase: 8, procMultPctPerLevel: 3 } },
+      { id: "hotaffection", key: "R", name: "Hot Affection", kind: "cast", base: 0, mult: 10_000, cooldownMs: 30_000, aoe: true, radius: 2.5 },
+      { id: "loveemergency", key: "T", name: "Love Emergency Measures", kind: "cast", base: 0, mult: 0, cooldownMs: 1_000,
+        buff: { durationMs: 600_000, intPctBase: 5, intPctPerLevel: 2 } },
+      { id: "marionette", key: "F", name: "Marionette",     kind: "cast", base: 0, mult: 30_000, cooldownMs: 40_000, aoe: true, radius: 2.5 },
+      { id: "dollforest", key: "D", name: "Forest of Dolls", kind: "cast", base: 0, mult: 50_000, cooldownMs: 60_000, aoe: true, radius: 2.5 },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "curiosity", id: "possession", key: "Q", name: "Eternal Possession", kind: "cast", base: 0, mult: 0, cooldownMs: 1_000,
+        buff: { durationMs: 600_000, addDmgPctPerLevel: 50 } },
+      // skill-crit component of the source buff is undecoded — atk% part only
+      { tier: "trans",  replaces: "favoritism", id: "transfavoritism", key: "W", name: "-Transcendence- Favoritism", kind: "cast", base: 0, mult: 0, cooldownMs: 1_000,
+        buff: { durationMs: 600_000, atkPctBase: 4, atkPctPerLevel: 1.5 } },
+      { tier: "awaken", id: "finale", key: "M", name: "Finale", kind: "cast", base: 0, mult: 2_000_000, cooldownMs: 300_000, aoe: true, radius: 4 },
+    ],
+  },
+  {
+    id: "ashtarte",
+    baseCooldownMs: 500, // w3u attack cooldown ("Ashtoreth")
+    name: "Ashtarte",
+    archetype: "active",
+    desc: "Spear tempo: cast rhythm feeds Chaser procs and long war-trances.",
+    skills: [
+      { id: "wedge",     key: "Q", name: "Wedge",           kind: "cast", base: 140, mult: 140, cooldownMs: 6_000 },
+      // AoE finisher component (lvl×(INT×200)+20000) folded out — main hit only
+      { id: "brainattack", key: "W", name: "Brain Attack",  kind: "cast", base: 50_000, mult: 900, cooldownMs: 10_000 },
+      { id: "chaser",    key: "E", name: "Chaser",          kind: "proc", procChance: 0.12, base: 40_000, mult: 650 },
+      { id: "teana",     key: "R", name: "Teana Transformation", kind: "cast", base: 0, mult: 0, cooldownMs: 75_000,
+        buff: { durationMs: 41_000, autoRider: { base: 0, mult: 500 } } },
+      { id: "martialartist", key: "T", name: "Civilian and Martial Artist", kind: "proc", every: 1, base: 0, mult: 280 },
+      { id: "chaserevo", key: "F", name: "Chaser Evolution", kind: "cast", base: 0, mult: 0, cooldownMs: 75_000,
+        buff: { durationMs: 41_000, procRider: { target: "chaser", base: 0, mult: 3_000 } } },
+      // w3a: +attack speed value is trigger-applied and undecoded — duration only
+      { id: "apostolate", key: "D", name: "Apostolate",     kind: "cast", base: 0, mult: 0, cooldownMs: 150_000,
+        buff: { durationMs: 48_000, perLevelMs: 3_000 } },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "wedge", id: "apostledance", key: "Q", name: "Dance of the Apostles", kind: "cast", base: 0, mult: 300_000, cooldownMs: 50_000 },
+      { tier: "trans",  replaces: "brainattack", id: "wargoddess", key: "W", name: "Goddess of the Battlefield", kind: "cast", base: 0, mult: 0, cooldownMs: 75_000,
+        buff: { durationMs: 41_000, autoRider: { base: 0, mult: 4_000 }, procChanceAdd: { target: "chaser", add: 0.40 } } },
+      { tier: "awaken", id: "extition", key: "M", name: "Extition", kind: "cast", base: 0, mult: 13_200_000, cooldownMs: 300_000 },
+    ],
+  },
+  {
+    id: "necromancer",
+    baseCooldownMs: 580, // w3u attack cooldown ("Jin: The Necromancer")
+    name: "Necromancer",
+    archetype: "active",
+    desc: "Raise Vallacre, then the real spellbook opens.",
+    skills: [
+      { id: "darknail",  key: "Q", name: "Dark Nail",       kind: "proc", procChance: 0.05, base: 100, mult: 100 },
+      { id: "soullure",  key: "W", name: "Soul Lure",       kind: "proc", procChance: 0.03, base: 600, mult: 600, aoe: true, radius: 1.5 },
+      // ponytail: minion = clone rider; Black Web 1.5%×INT×800 folded to EV mult 12
+      { id: "rapport",   key: "E", name: "Nicholas Rapport", kind: "cast", base: 0, mult: 0, cooldownMs: 60_000,
+        buff: { durationMs: 60_000, clones: 1, cloneRider: { base: 0, mult: 12 } } },
+      { id: "blackwave", key: "R", name: "Black Wave",      kind: "cast", base: 0, mult: 5_000, cooldownMs: 25_000, aoe: true, radius: 2.5 },
+      // stance enabler; duration unstated — matches its 40s cooldown (continuous upkeep)
+      { id: "vallacre",  key: "T", name: "Vallacre the Slaughterer", kind: "cast", base: 0, mult: 0, cooldownMs: 40_000,
+        buff: { durationMs: 40_000, autoRider: { base: 0, mult: 170 } } },
+      { id: "phantomstorm", key: "F", name: "Phantom Storm", kind: "cast", base: 0, mult: 7_000, cooldownMs: 19_000, aoe: true, radius: 4, requiresBuff: "vallacre" },
+      { id: "vallacreinc", key: "D", name: "Vallacre Incarnation", kind: "cast", base: 0, mult: 38_000, cooldownMs: 39_000, requiresBuff: "vallacre",
+        buff: { durationMs: 10_000, atkSpdPct: 20 } },
+    ],
+    enhanced: [
+      { tier: "abyss",  replaces: "darknail", id: "guillotine", key: "Q", name: "Guillotine", kind: "cast", base: 0, mult: 60_000, cooldownMs: 39_000 },
+      // ponytail: proc% unstated — inherits the base W slot's 3%
+      { tier: "trans",  replaces: "soullure", id: "executioner", key: "W", name: "Executioner Slash", kind: "proc", procChance: 0.03, base: 0, mult: 25_000 },
+      { tier: "awaken", id: "moros", key: "M", name: "Primordial Fear: Moros", kind: "cast", base: 0, mult: 3_000_000, cooldownMs: 300_000 },
+    ],
+  },
+  {
+    id: "darkknight",
+    baseCooldownMs: 580, // w3u attack cooldown
+    name: "Dark Knight",
+    archetype: "passive",
+    desc: "Borrowed steel: each proc casts Blood Evil, Indra, or Omniblade's craft.",
+    skills: [
+      { id: "combo1", key: "Q", name: "Combo I",   kind: "proc", procChance: 0.05,  base: 100, mult: 100 },
+      // ponytail: HEROES.md gives only the 2.7%→0.5% endpoints — linear ramp
+      { id: "combo2", key: "W", name: "Combo II",  kind: "proc", procChance: 0.027,  base: 0, mult: 1, borrow: { tier: 1 } },
+      { id: "combo3", key: "E", name: "Combo III", kind: "proc", procChance: 0.0226, base: 0, mult: 1, borrow: { tier: 2 } },
+      { id: "combo4", key: "R", name: "Combo IV",  kind: "proc", procChance: 0.0182, base: 0, mult: 1, borrow: { tier: 3 } },
+      { id: "combo5", key: "T", name: "Combo V",   kind: "proc", procChance: 0.0138, base: 0, mult: 1, borrow: { tier: 4 } },
+      { id: "combo6", key: "F", name: "Combo VI",  kind: "proc", procChance: 0.0094, base: 0, mult: 1, borrow: { tier: 5 } },
+      { id: "combo7", key: "D", name: "Combo VII", kind: "proc", procChance: 0.005,  base: 0, mult: 1, borrow: { tier: 6 } },
+    ],
+    enhanced: [
+      // ponytail: SQ/SW combo chances unstated — base-slot chances kept
+      { tier: "abyss",  replaces: "combo1", id: "sqcombo", key: "Q", name: "SQ Combo", kind: "proc", procChance: 0.05, base: 0, mult: 1, borrow: { enhanced: 0 } },
+      { tier: "trans",  replaces: "combo2", id: "swcombo", key: "W", name: "SW Combo", kind: "proc", procChance: 0.027, base: 0, mult: 1, borrow: { enhanced: 1 } },
+      // Time Strike (INT×12M) + Time Explosion (INT×2M) folded to one 14M hit
+      { tier: "awaken", id: "endoftime", key: "M", name: "The End of Time", kind: "proc", procChance: 0.05, base: 0, mult: 14_000_000, cooldownMs: 300_000, aoe: true, radius: 4 },
+    ],
+  },
 ];
 
 export const getClass = id => classes.find(c => c.id === id);
@@ -241,6 +484,19 @@ export const getClass = id => classes.find(c => c.id === id);
 // Does `skill` answer to `id`? Evolved replacements answer to the base id
 // they replaced (procBoost/procRider targets keep working post-evolution).
 export const matchesSkill = (skill, id) => skill.id === id || skill.replaces === id;
+
+// Geniewiz outcome roll: outcomes = [{p, tag, base, mult, ...}] in order
+// (GS/S/F); remaining probability mass = total miss (0 damage). gsMult scales
+// the FIRST (jackpot) entry's chance — the Brush class weapon's "success rate".
+export function rollOutcome(outcomes, gsMult = 1, rng = Math.random) {
+  let r = rng();
+  for (let i = 0; i < outcomes.length; i++) {
+    const p = outcomes[i].p * (i === 0 ? gsMult : 1);
+    if (r < p) return outcomes[i];
+    r -= p;
+  }
+  return null; // major failure
+}
 
 export const MAX_SKILL_LEVEL = 7;
 
