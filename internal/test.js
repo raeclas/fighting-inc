@@ -2,7 +2,7 @@
 // Smallest checks that fail if the enhance odds, tier data, or stat stacking break.
 import assert from "node:assert/strict";
 import { enhanceChance, tryEnhance, tryMerge, avatarChance, tryAvatarEnhance } from "../enhance.js";
-import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS } from "../items.js";
+import { tierOf, maxPlus, aggregate, getItem, poolFor, CLASS_WEAPON, AVATAR_IDS, AVATAR_SOULS, SPECIAL_IDS, masteryMult } from "../items.js";
 import { activeSkills, matchesSkill, rollOutcome, getClass } from "../classes.js";
 import { fmt, bindFormatSettings } from "../format.js";
 import { snapshotChar } from "../saveSystem.js";
@@ -529,6 +529,21 @@ assert.equal(aggregate([{ itemId: "fusion_garb", plus: 20 }]).dmgIncPct, 13000);
 const fs = bosses.find(b => b.id === "abyssirocco");
 assert.ok(fs && fs.eliteChance === 0.2 && fs.eliteDropMult === 3);
 assert.equal(poolFor("abyssirocco").length, 5);
+
+// item mastery: milestone mult + aggregate wiring (default arg = zero drift)
+{
+  assert.equal(masteryMult(0), 1);
+  assert.equal(masteryMult(1), 1.02);
+  assert.equal(masteryMult(10), 1.04);
+  assert.equal(masteryMult(999), 1.06);
+  assert.equal(masteryMult(1000), 1.08);
+  const eqp = [{ itemId: "luke_dmg", plus: 20 }];
+  const plain = aggregate(eqp);
+  const mastered = aggregate(eqp, [], { luke_dmg: 10 });
+  assert.equal(mastered.atk, Math.round(plain.atk * 1.04));
+  assert.equal(mastered.int, Math.round(tierOf(getItem("luke_dmg"), 20).int * 1.04));
+  assert.deepEqual(aggregate(eqp, [], {}), plain); // no mastery = identical
+}
 
 // save durability: validSave gate, corrupt primary preserved + backup restored
 {

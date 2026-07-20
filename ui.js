@@ -1,7 +1,7 @@
 // ui.js
 // DOM updates, zone list, shop, equipment, and the enhance feed.
 import { zones, VARIANTS, zoneLocked, intDrip } from "./zones.js";
-import { items, getItem, tierOf, maxPlus, MERGE_IDS } from "./items.js";
+import { items, getItem, tierOf, maxPlus, MERGE_IDS, masteryMult, MASTERY_MILESTONES } from "./items.js";
 import { enhanceChance } from "./enhance.js";
 import { classes, getClass, skillDamage, activeSkills } from "./classes.js";
 import { JARS, potionActive } from "./consumables.js";
@@ -348,8 +348,10 @@ export function renderEquipment(player, handlers) {
       const next = eq.plus >= maxPlus(def)
         ? "MAX"
         : `next: ${(enhanceChance(eq.plus) * 100).toFixed(2)}% @ ${fmt(def.enhCost)}c`;
+      const mCount = player.mastery?.[eq.itemId] || 0;
+      const mStars = mCount ? ` <span title="Mastery ${mCount}: +${Math.round((masteryMult(mCount) - 1) * 100)}% atk & INT">${"★".repeat(MASTERY_MILESTONES.filter(m => mCount >= m).length)}</span>` : "";
       const info = document.createElement("div");
-      info.innerHTML = `<strong>${def.name} +${eq.plus}</strong><br>${itemLabel(def, eq.plus)} — ${next}`;
+      info.innerHTML = `<strong>${def.name} +${eq.plus}</strong>${mStars}<br>${itemLabel(def, eq.plus)} — ${next}`;
       div.appendChild(info);
       [1, 10, 30].forEach(times => {
         const btn = document.createElement("button");
@@ -388,6 +390,12 @@ export function renderEquipment(player, handlers) {
       equip.disabled = !player.equipment.includes(null);
       equip.onclick = () => handlers.onEquipStash(i);
       div.appendChild(equip);
+
+      const absorb = document.createElement("button");
+      absorb.textContent = "Absorb";
+      absorb.title = `Consume for +${1 + eq.plus} mastery (milestones grant +2% atk & INT on this item)`;
+      absorb.onclick = () => handlers.onAbsorbStash(i);
+      div.appendChild(absorb);
 
       const discard = document.createElement("button");
       discard.textContent = "Discard";

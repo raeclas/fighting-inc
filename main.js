@@ -112,7 +112,7 @@ function activeClones(extra = 0) {
 }
 
 function effectiveStats() {
-  const g = aggregate(player.equipment, player.specialBag);
+  const g = aggregate(player.equipment, player.specialBag, player.mastery);
   const leg = legionBonuses(gameState);
   const cls = getClass(player.classId);
   const statSk = classStatBonuses(cls, player.skills, g.skillLevelBonus);
@@ -308,6 +308,11 @@ function acquireItem(itemId, sourceLabel) {
   if (slot !== -1) {
     player.equipment[slot] = { itemId, plus: 0 };
     logLine(`${sourceLabel} ${def.name}!`, "success");
+  } else if (player.stash.some(e => e.itemId === itemId)) {
+    // stash holds at most one spare per item; further dupes feed mastery
+    // (otherwise AFK boss farming floods the stash forever)
+    player.mastery[itemId] = (player.mastery[itemId] || 0) + 1;
+    logLine(`${sourceLabel} ${def.name} — absorbed into mastery (${player.mastery[itemId]}).`, "success");
   } else {
     player.stash.push({ itemId, plus: 0 });
     logLine(`${sourceLabel} ${def.name} — slots full, sent to stash.`, "success");
@@ -543,7 +548,7 @@ function gatherTick() {
 }
 
 ///// SHOP / EQUIPMENT ACTIONS /////
-const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
+const equipHandlers = { onEnhance: enhance, onUnequip: unequipToStash, onDiscard: discard, onEquipStash: equipStash, onDiscardStash: discardStash, onAbsorbStash: absorbStash, onMergeBag: mergeBag, onEnhanceBag: enhanceBag, onDiscardBag: discardBag, onOpenJar: openJar, onUsePotion: usePotion };
 
 // Open jars: each is a gacha roll (map ORx) — openChance × IV, consumed either way.
 function openJar(jarId, times) {
@@ -648,6 +653,19 @@ function discardStash(stashIdx) {
   if (!confirm(`Discard ${def.name} +${eq.plus} from stash? No refund.`)) return;
   player.stash.splice(stashIdx, 1);
   logLine(`Discarded ${def.name} +${eq.plus} from stash.`);
+  renderEquipment(player, equipHandlers);
+}
+
+// Absorb a stash item into mastery: worth 1 + its plus level (a +20 = 21).
+function absorbStash(stashIdx) {
+  const eq = player.stash[stashIdx];
+  if (!eq) return;
+  const def = getItem(eq.itemId);
+  const worth = 1 + eq.plus;
+  if (!confirm(`Absorb ${def.name} +${eq.plus} into mastery (+${worth})? The item is consumed.`)) return;
+  player.stash.splice(stashIdx, 1);
+  player.mastery[eq.itemId] = (player.mastery[eq.itemId] || 0) + worth;
+  logLine(`Absorbed ${def.name} +${eq.plus} — ${def.name} mastery ${player.mastery[eq.itemId]}.`, "success");
   renderEquipment(player, equipHandlers);
 }
 

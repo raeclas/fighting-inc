@@ -30,6 +30,10 @@ export function newCharacter() {
     // special items (rings/necklaces/talismans/insignia/aura): bag, not the 6 slots
     specialBag: [],
 
+    // item mastery: itemId -> absorbed duplicate count. Duplicates beyond the
+    // one stash spare feed this instead of flooding the stash.
+    mastery: {},
+
     // avatar-enhancement souls: "100 years old" (Seria) / "Brilliant Sarah" (Library)
     souls: { old: 0, brilliant: 0 },
 
