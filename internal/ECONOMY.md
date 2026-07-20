@@ -21,7 +21,10 @@ node sim.js --compare  # diff current balance vs baseline.json; exit 1 on >25% d
 - Drift you didn't intend → that's the creep, fix before shipping.
 
 Not modeled (acceptable blind spots, revisit if they become primary income):
-macros, gathering buffs, Legion retirement loops, active-class play.
+macros, gathering buffs, Legion retirement loops, active-class play, the
+Luck multiplier (potions + feat luck) on drop/enhance rolls. Feat DAMAGE
+is modeled. "Luck" is the reduction-pass name for the source IV multiplier —
+one visible number (HUD 🍀) multiplying every drop and enhance roll.
 
 ## Baseline timeline (2026-07-19, after bags + zone taper)
 

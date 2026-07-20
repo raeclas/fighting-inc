@@ -70,7 +70,9 @@ function huntFieldBoss() {
 
 // MIGRATION (reduction pass): stored jar inventories → their contents. Each
 // whole jar gets one open roll at its map rate, then the counters are gone.
+// Dead soul counters drop too (avatars enhance with copper now).
 for (const c of gameState.characters) {
+  delete c.souls;
   if (!c.jars) continue;
   for (const [jarId, count] of Object.entries(c.jars)) {
     const jar = JARS[jarId];
@@ -85,7 +87,6 @@ for (const c of gameState.characters) {
 
 // resume farming where the save left off
 if (gameState.currentZoneId) selectZone(gameState.currentZoneId, gameState.currentVariant);
-syncEvolutions(); // kill-count ladder may outrank saved ticket levels
 
 ///// TIME /////
 // Wall clock is the source of truth. A 250ms tick and an 8h offline gap run
@@ -1264,6 +1265,7 @@ renderCodex(); // static mechanics reference — built once from live constants
 renderZoneList(player, selectZone, true);
 renderShop(buy);
 renderEquipment(player, equipHandlers);
+syncEvolutions(); // after handlers init — kill ladder may outrank saved ticket levels
 refreshMacro();
 refreshGathering();
 updateUI(gameState, player, effectiveStats());

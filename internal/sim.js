@@ -9,8 +9,9 @@
 // enhancing to +N costs its expected copper, a boss item takes its expected
 // number of kills. The bot plays a Blood Evil (passive procs counted as EV
 // damage — the canonical idle farmer on source numbers). Not modeled: macros,
-// gathering buffs, active-class casts, potions/elixir IV, first-kill drop/enh
-// IV (drop-rate milestones stay solo-rate — deliberately conservative).
+// gathering buffs, active-class casts, the Luck multiplier on drops/enhances
+// (potions + feat luck; drop-rate milestones stay base-rate — deliberately
+// conservative). Feat DAMAGE is modeled (featBonus in stats()).
 import fs from "node:fs";
 import { zones, VARIANTS, spawnMob, zoneLocked, intDrip, BAG_CHANCE, FIELD_COLS, FIELD_ROWS, FIELD_BOSS_SPAWN_CHANCE, FIELD_BOSS_INT_MULT } from "../zones.js";
 import { getItem, tierOf, aggregate, poolFor, SPECIAL_IDS } from "../items.js";
