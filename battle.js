@@ -51,12 +51,18 @@ function hitTest(ev) {
   return null;
 }
 
+// canvas theme colors, read from the stylesheet once at init so the canvas
+// follows style.css (fallbacks = the shipped theme)
+const C = { hp: "#2fd42f", gold: "#ffd700" };
 export function initBattle(el) {
   canvas = el;
   canvas.width = W;
   canvas.height = H;
   ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
+  const css = getComputedStyle(document.documentElement);
+  C.hp = css.getPropertyValue("--hp-green").trim() || C.hp;
+  C.gold = css.getPropertyValue("--cur-gold").trim() || C.gold;
 
   tooltip = document.createElement("div");
   tooltip.className = "battleTooltip";
@@ -123,8 +129,8 @@ export function renderBattle(state, player) {
   for (const e of events) {
     if (e.type === "hit") hits.push(e);
     else if (e.type === "skill") spawnFloater(fmtNum(e.dmg), "#ffb02e", 22);
-    else if (e.type === "kill") spawnFloater(`+${fmtNum(e.copper)}c`, "#ffd700", 18);
-    else if (e.type === "bag") spawnFloater(`💰 +${fmtNum(e.copper)}c!`, "#ffd700", 26);
+    else if (e.type === "kill") spawnFloater(`+${fmtNum(e.copper)}c`, C.gold, 18);
+    else if (e.type === "bag") spawnFloater(`💰 +${fmtNum(e.copper)}c!`, C.gold, 26);
   }
   events.length = 0;
 
@@ -176,7 +182,7 @@ export function renderBattle(state, player) {
   }
 
   // WC3-style overhead HP bar: black outline, always visible
-  function hpBar(x, y, w, frac, color = "#2fd42f") {
+  function hpBar(x, y, w, frac, color = C.hp) {
     ctx.fillStyle = "#000";
     ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);
     ctx.fillStyle = color;
@@ -196,7 +202,7 @@ export function renderBattle(state, player) {
       { scale: 2.2, flip: true, bright: flashing });
     const frac = mob.hp / mob.maxHp;
     hpBar(MOB.x, MOB.y - SPRITE_DRAW * 2.2 - 12, 170,
-      frac, frac > 0.5 ? "#2fd42f" : frac > 0.2 ? "#e0a020" : "#d03030");
+      frac, frac > 0.5 ? C.hp : frac > 0.2 ? "#e0a020" : "#d03030");
     ctx.fillStyle = "#fff";
     ctx.font = "12px system-ui, sans-serif";
     ctx.textAlign = "center";
@@ -214,7 +220,7 @@ export function renderBattle(state, player) {
       const y = oy + (m.gy || 0) * cellH;
       drawActor(m.zoneId, x, y, now, { scale: m.isFieldBoss ? 1.1 : 0.75, flip: true, bright: flashing });
       hpBar(x, y - (m.isFieldBoss ? 76 : 56), 30, m.hp / m.maxHp,
-        m.isFieldBoss ? "#ffd700" : "#2fd42f");
+        m.isFieldBoss ? C.gold : C.hp);
       hitboxes.push({ m, x, y, r: HIT_R });
     }
     ctx.fillStyle = "#fff";

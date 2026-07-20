@@ -973,11 +973,13 @@ fmtToggle.onclick = () => {
 refreshFmtToggle();
 
 document.getElementById("resetGame").onclick = () => {
-  if (confirm("Are you sure you want to reset the game? This cannot be undone.")) {
-    resetting = true;
-    wipe();
-    location.reload();
+  if (!confirm("Are you sure you want to reset the game? This cannot be undone.")) return;
+  if (prompt('Last chance: type "RESET" to wipe your save.') !== "RESET") {
+    return logLine("Reset cancelled.");
   }
+  resetting = true;
+  wipe();
+  location.reload();
 };
 
 ///// START /////

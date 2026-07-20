@@ -506,61 +506,73 @@ export function hideClassSelect() {
   document.getElementById("classSelect").style.display = "none";
 }
 
-// Called every frame: cooldowns tick down visibly.
+// Called every frame: cooldowns tick down visibly. DOM structure is rebuilt
+// only when the structural key (class/levels/evolutions) changes; per-frame
+// work is textContent updates on stored refs — no innerHTML churn.
 // eff: effectiveStats() bundle (totalInt/skillDmgMult/skillLevelBonus).
 // onCast(skill): tap-to-cast for cast skills (touch, no keyboard needed).
+let skillBarKey = "";
+let skillBarRefs = [];
 export function renderSkillBar(state, player, eff, onCast) {
   const slb = eff.skillLevelBonus ?? 0;
   const container = document.querySelector(".skillBar");
   const cls = getClass(player.classId);
-  if (!cls) { container.textContent = ""; return; }
+  if (!cls) { container.textContent = ""; skillBarKey = ""; return; }
 
-  container.innerHTML = "";
-  activeSkills(cls, player.skills).forEach(skill => {
-    const level = player.skills[skill.id];
-
-    if (!level) {
-      const div = document.createElement("div");
-      div.className = "skillEntry locked";
-      div.textContent = `[${skill.key}] ${skill.name} — locked (boss ticket)`;
-      container.appendChild(div);
-      return;
+  const skills = activeSkills(cls, player.skills);
+  const key = `${player.classId}|${slb}|` + skills.map(s => `${s.id}:${player.skills[s.id] || 0}`).join(",");
+  if (key !== skillBarKey) {
+    skillBarKey = key;
+    skillBarRefs = [];
+    container.innerHTML = "";
+    for (const skill of skills) {
+      const level = player.skills[skill.id];
+      if (!level) {
+        const div = document.createElement("div");
+        div.className = "skillEntry locked";
+        div.textContent = `[${skill.key}] ${skill.name} — locked (boss ticket)`;
+        container.appendChild(div);
+        continue;
+      }
+      // evolved/awakened skills carry a tier marker (abyss/trans/awaken tickets)
+      const star = skill.tier ? "★ " : "";
+      const lvLabel = (slb > 0 ? `Lv${level}+${slb}` : `Lv${level}`) + (skill.tier ? ` [${skill.tier}]` : "");
+      if (skill.kind === "stat") {
+        const div = document.createElement("div");
+        div.className = "skillEntry";
+        div.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel} (passive) — ${skill.desc}`;
+        container.appendChild(div);
+        continue;
+      }
+      const el = document.createElement(skill.kind === "cast" ? "button" : "div");
+      el.className = "skillEntry" + (skill.kind === "cast" ? " skillCast" : "");
+      const head = document.createElement("strong");
+      head.textContent = `${star}[${skill.key}] ${skill.name}`;
+      const dyn = document.createElement("span");
+      el.append(head, ` ${lvLabel} — `, dyn);
+      if (skill.kind === "cast" && onCast) el.onclick = () => onCast(skill);
+      container.appendChild(el);
+      skillBarRefs.push({ skill, level, el, dyn });
     }
+  }
 
-    // evolved/awakened skills carry a tier marker (abyss/trans/awaken tickets)
-    const star = skill.tier ? "★ " : "";
-    const lvLabel = (slb > 0 ? `Lv${level}+${slb}` : `Lv${level}`) + (skill.tier ? ` [${skill.tier}]` : "");
-    if (skill.kind === "stat") {
-      const div = document.createElement("div");
-      div.className = "skillEntry";
-      div.innerHTML = `<strong>[${skill.key}] ${skill.name}</strong> ${lvLabel} (passive) — ${skill.desc}`;
-      container.appendChild(div);
-      return;
-    }
-
-    const dmg = fmt(skillDamage(skill, level + slb, eff.totalInt, eff.skillDmgMult, eff.intRatioMult ?? 1));
-    if (skill.kind === "cast") {
-      const readyAt = state.cooldowns[skill.id] || 0;
-      const remaining = Math.max(0, readyAt - state.total_time);
+  // per-frame: countdowns, proc counts, damage (INT keeps growing)
+  for (const r of skillBarRefs) {
+    const dmg = fmt(skillDamage(r.skill, r.level + slb, eff.totalInt, eff.skillDmgMult, eff.intRatioMult ?? 1));
+    if (r.skill.kind === "cast") {
+      const remaining = Math.max(0, (state.cooldowns[r.skill.id] || 0) - state.total_time);
       const ready = remaining <= 0;
-      const buffLeft = Math.max(0, (state.buffs[skill.id]?.until ?? 0) - state.total_time);
+      const buffLeft = Math.max(0, (state.buffs[r.skill.id]?.until ?? 0) - state.total_time);
       const status = buffLeft > 0 ? `ACTIVE ${(buffLeft / 1000).toFixed(1)}s`
         : ready ? "READY" : `${(remaining / 1000).toFixed(1)}s`;
-      const btn = document.createElement("button");
-      btn.className = "skillEntry skillCast" + (ready ? "" : " onCooldown");
-      btn.innerHTML = `<strong>${star}[${skill.key}] ${skill.name}</strong> ${lvLabel}` +
-        (skill.buff && !skill.mult ? "" : ` — ${dmg} dmg`) + ` — ${status}`;
-      btn.disabled = !ready;
-      if (onCast) btn.onclick = () => onCast(skill);
-      container.appendChild(btn);
-    } else { // proc
-      const div = document.createElement("div");
-      div.className = "skillEntry";
-      const procs = state.procCounts[skill.id] || 0;
-      div.innerHTML = `<strong>${star}[${skill.key}] ${skill.name}</strong> ${lvLabel} — ${(skill.procChance * 100).toFixed(1)}% per attack — ${dmg} dmg — procs: ${fmt(procs)}`;
-      container.appendChild(div);
+      r.dyn.textContent = (r.skill.buff && !r.skill.mult ? "" : `${dmg} dmg — `) + status;
+      r.el.disabled = !ready;
+      r.el.classList.toggle("onCooldown", !ready);
+    } else {
+      const rate = r.skill.every ? `every ${r.skill.every} attacks` : `${(r.skill.procChance * 100).toFixed(1)}% per attack`;
+      r.dyn.textContent = `${rate} — ${dmg} dmg — procs: ${fmt(state.procCounts[r.skill.id] || 0)}`;
     }
-  });
+  }
 }
 
 // handlers: { onUnlock, onToggle, onUpgradeInterval, onBuySlot, onSetSlot(i, skillId) }
@@ -684,7 +696,12 @@ export function renderGathering(state, player, handlers) {
   container.appendChild(crafts);
 }
 
+let lastBestiaryKey = "";
 export function renderBestiary(state) {
+  // called every frame; rebuild only when kill counts actually change
+  const key = Object.values(state.kills).join(",") + "|" + Object.values(state.fieldKills).join(",");
+  if (key === lastBestiaryKey) return;
+  lastBestiaryKey = key;
   const container = document.querySelector(".bestiaryList");
   const bonus = bestiaryBonus(state);
   let html = `<div>Collection bonus: <strong>+${(bonus * 100).toFixed(1)}% damage</strong></div>`;
@@ -762,7 +779,7 @@ export function initTabs() {
 // Force cached renderers (chips/bosses/legion) to rebuild — e.g. after the
 // number-format toggle changes how every number prints.
 export function bustRenderCaches() {
-  lastChipKey = lastBossKey = lastLegionKey = "";
+  lastChipKey = lastBossKey = lastLegionKey = lastBestiaryKey = skillBarKey = "";
 }
 
 // Feed filter chips: the buttons just swap a class on #feed; CSS hides the rest.

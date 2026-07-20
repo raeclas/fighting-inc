@@ -7,8 +7,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <button id="resetGame">Reset Game</button>
-
   <div class="game">
     <!-- WC3-style top chips: timers, milestones, hints -->
     <div class="chipBar" id="chipBar"></div>
@@ -102,6 +100,12 @@
       <div class="tabPanel" data-panel="legion">
         <div class="panel"><h3>Legion</h3><div class="legionPanel"></div></div>
       </div>
+    </div>
+
+    <!-- destructive actions live down here, far from the buttons you spam -->
+    <div class="dangerZone">
+      <em>Danger zone — this wipes your save.</em>
+      <button id="resetGame">Reset Game</button>
     </div>
   </div>
 

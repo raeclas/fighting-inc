@@ -4,14 +4,29 @@
     --bg: #101613;            /* dark field green-black */
     --panel: #0c0f1a;         /* WC3 navy panel */
     --panel-2: #131a2b;       /* raised panel */
+    --panel-3: #1a2338;       /* button/gradient highlight navy */
+    --panel-deep: #0a0d16;    /* recessed cells (portrait, inventory) */
     --gold: #c8a84b;          /* bright gold accents */
     --gold-dim: #8a7440;      /* border gold */
+    --gold-bright: #fff2cc;   /* hover/active text gold */
     --text: #e8dcc0;          /* parchment */
     --text-dim: #a49878;
     --hp-green: #2fd42f;
+    --hp-hi: #5fe75f;
+    --hp-lo: #1d8f1d;
+    --cur-gold: #ffd700;
+    --cur-silver: #c8cdd8;
+    --cur-copper: #d98c4a;
     --purple-plate: linear-gradient(90deg, #4a1a6e, #7a2fa8, #4a1a6e);
     --success: #7fe07f;
     --fail: #ff8080;
+    /* WC3 raised gold bevel (shared by tab + skill buttons) */
+    --bevel: inset 0 0 0 1px var(--gold-dim),
+             inset 0 2px 0 rgba(255, 255, 255, 0.12),
+             inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+    --bevel-hover: inset 0 0 0 1px var(--gold),
+             inset 0 2px 0 rgba(255, 255, 255, 0.12),
+             inset 0 -2px 4px rgba(0, 0, 0, 0.5);
 }
 
 body {
@@ -39,19 +54,19 @@ body {
     padding: 8px 14px;
     border: 1px solid #000;
     border-radius: 3px;
-    background: linear-gradient(180deg, #1a2338, var(--panel));
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
     color: var(--gold);
     font-weight: bold;
     letter-spacing: 0.03em;
     cursor: pointer;
-    box-shadow: inset 0 0 0 1px var(--gold-dim),
-                inset 0 2px 0 rgba(255, 255, 255, 0.12),
-                inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--bevel);
 }
-.tabBar button:hover { box-shadow: inset 0 0 0 1px var(--gold), inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 4px rgba(0, 0, 0, 0.5); }
+.tabBar button:hover { box-shadow: var(--bevel-hover); color: var(--gold-bright); }
 .tabBar button.active {
     background: linear-gradient(180deg, #101625, #1f2a44);
-    color: #fff2cc;
+    color: var(--gold-bright);
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 6px;
     box-shadow: inset 0 0 0 1px var(--gold),
                 inset 0 2px 6px rgba(0, 0, 0, 0.7),
                 inset 0 0 8px rgba(200, 168, 75, 0.3);
@@ -78,7 +93,7 @@ body {
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-.panel h3 {
+.panel h3, .tabPanel h3 {
     margin: 0 0 6px 0;
     color: var(--gold);
     font-variant: small-caps;
@@ -102,28 +117,36 @@ body {
 
 #mobInfoHeader, #playerInfoHeader {
     font-weight: bold;
-    font-size: larger;
+    font-size: 1.1rem;
     color: var(--gold);
     font-variant: small-caps;
     letter-spacing: 0.06em;
 }
 
 button {
-    background: linear-gradient(180deg, #1a2338, var(--panel));
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
     color: var(--text);
     border: 1px solid var(--gold-dim);
     border-radius: 3px;
     padding: 4px 10px;
     cursor: pointer;
 }
-button:hover:not(:disabled) { border-color: var(--gold); color: #fff2cc; }
+button:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-bright); }
 button:disabled { opacity: 0.45; cursor: default; }
 
-#resetGame {
-    position: absolute;
-    top: 10px;
-    right: 10px;
+/* danger zone: destructive actions live at the very bottom, away from play */
+.dangerZone {
+    margin-top: 48px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(255, 128, 128, 0.3);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    opacity: 0.75;
 }
+.dangerZone em { color: var(--text-dim); font-size: 0.8rem; }
+#resetGame { border-color: rgba(255, 128, 128, 0.5); color: var(--fail); font-size: 0.85rem; }
+#resetGame:hover { border-color: var(--fail); color: var(--fail); }
 
 .zoneEntry, .shopEntry, .equipSlot, .bossEntry {
     margin-bottom: 8px;
@@ -140,16 +163,17 @@ button:disabled { opacity: 0.45; cursor: default; }
 #feed {
     max-height: 300px;
     overflow-y: auto;
-    font-size: 0.85em;
+    font-size: 0.85rem;
 }
 
-#feed .success { color: var(--success); }
-#feed .fail    { color: var(--fail); }
+#feed div { padding: 1px 6px; border-left: 2px solid transparent; }
+#feed .success { color: var(--success); border-left-color: var(--success); }
+#feed .fail    { color: var(--fail); border-left-color: var(--fail); }
 
 /* feed filter chips — CSS does the filtering via a class on #feed */
 .feedFilter { display: flex; gap: 4px; margin-bottom: 6px; }
 .feedFilter button { font-size: 0.78em; padding: 2px 8px; }
-.feedFilter button.active { border-color: var(--gold); color: #fff2cc; }
+.feedFilter button.active { border-color: var(--gold); color: var(--gold-bright); }
 #feed.winsOnly div:not(.success) { display: none; }
 #feed.failsOnly div:not(.fail) { display: none; }
 
@@ -188,18 +212,13 @@ button:disabled { opacity: 0.45; cursor: default; }
 .skillEntry.locked { opacity: 0.5; }
 .skillEntry.onCooldown { opacity: 0.7; }
 
-/* tap-to-cast skill buttons (active class) */
+/* tap-to-cast skill buttons (active class) — inherits the shared button chrome */
 button.skillCast {
     display: block;
     width: 100%;
     text-align: left;
     padding: 8px;
     margin-bottom: 4px;
-    border: 1px solid var(--gold-dim);
-    border-radius: 3px;
-    background: linear-gradient(180deg, #1a2338, var(--panel));
-    color: var(--text);
-    cursor: pointer;
 }
 button.skillCast:disabled { cursor: default; }
 
@@ -268,7 +287,7 @@ button.skillCast:disabled { cursor: default; }
     display: flex;
     gap: 10px;
     align-items: stretch;
-    background: linear-gradient(180deg, #10162a, var(--panel));
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
 }
 .hudPortrait {
     width: 64px;
@@ -276,7 +295,7 @@ button.skillCast:disabled { cursor: default; }
     flex: none;
     border: 2px solid var(--gold-dim);
     border-radius: 3px;
-    background-color: #0a0d16;
+    background-color: var(--panel-deep);
     font-size: 40px;
     line-height: 62px;
     text-align: center;
@@ -319,7 +338,7 @@ button.skillCast:disabled { cursor: default; }
 }
 .hpBarInner {
     height: 100%;
-    background: linear-gradient(180deg, #5fe75f, var(--hp-green) 60%, #1d8f1d);
+    background: linear-gradient(180deg, var(--hp-hi), var(--hp-green) 60%, var(--hp-lo));
 }
 .hpText {
     position: absolute;
@@ -334,14 +353,16 @@ button.skillCast:disabled { cursor: default; }
     display: flex;
     flex-wrap: wrap;
     gap: 2px 12px;
-    font-size: 0.85em;
+    font-size: 0.85rem;
     color: var(--text-dim);
 }
 .hudStats b { color: var(--text); }
-.hudCurrency { display: flex; gap: 12px; font-size: 0.85em; }
-.curGold { color: #ffd700; }
-.curSilver { color: #c8cdd8; }
-.curCopper { color: #d98c4a; }
+/* damage + INT are the numbers that matter — let them lead the row */
+#playerDamage, #playerInt { color: var(--gold-bright); font-size: 1.05em; }
+.hudCurrency { display: flex; gap: 12px; font-size: 0.85rem; }
+.curGold { color: var(--cur-gold); }
+.curSilver { color: var(--cur-silver); }
+.curCopper { color: var(--cur-copper); }
 .hudInv {
     display: grid;
     grid-template-columns: repeat(3, 32px);
@@ -353,7 +374,7 @@ button.skillCast:disabled { cursor: default; }
 .invCell {
     position: relative;
     border: 1px solid var(--gold-dim);
-    background: #0a0d16;
+    background: var(--panel-deep);
     border-radius: 2px;
     text-align: center;
     line-height: 30px;
